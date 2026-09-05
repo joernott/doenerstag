@@ -72,7 +72,7 @@ Sprint 3 needs configuration and logging to already work.
 | ✅ 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields             | M | [08](08_technologies.md) |
 | ✅ 1.9 | Redaction deny-list for the DEBUG parameter logging                                          | S | [08](08_technologies.md) |
 | ✅ 1.10 | Unit tests: precedence, secret rule, permission check, redaction, level mapping             | M | [12](12_testing.md) |
-| 1.11| CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                                | M | [12](12_testing.md) |
+| ✅ 1.11 | CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                           | M | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag --version` prints the version. Every verb runs and
 exits with a clear "not implemented". Passing a password on the command line is
