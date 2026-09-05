@@ -1,0 +1,67 @@
+# golangci-lint configuration (schema version 2).
+# Run with: make lint
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose      # HTTP response bodies must be closed
+    - copyloopvar
+    - errorlint      # correct use of errors.Is / errors.As and %w
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr         # returning nil after checking a non-nil error
+    - noctx          # HTTP requests without a context
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - wastedassign
+
+  settings:
+    errorlint:
+      asserts: true
+      comparison: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+    misspell:
+      locale: UK
+    revive:
+      rules:
+        - name: exported
+        - name: error-strings
+        - name: error-return
+        - name: context-as-argument
+        - name: indent-error-flow
+
+  exclusions:
+    generated: lax
+    rules:
+      # Test files may use weak randomness, hardcoded credentials and
+      # unparameterised helpers without that being a finding.
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+          - noctx
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/joernott/doenerstag

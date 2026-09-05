@@ -1,0 +1,27 @@
+# Normalise line endings to LF in the repository regardless of the platform a
+# contributor works on. Development happens on Windows, where a checkout would
+# otherwise reintroduce CRLF and make `gofmt -l` fail in CI.
+* text=auto eol=lf
+
+# Files that must keep LF even in a working copy.
+*.go      text eol=lf
+*.sql     text eol=lf
+*.sh      text eol=lf
+Makefile  text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.ts      text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+
+# Binary assets: never touch these.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.pdf     binary
