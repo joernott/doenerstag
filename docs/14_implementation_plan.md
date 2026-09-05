@@ -61,7 +61,7 @@ Sprint 3 needs configuration and logging to already work.
 | --- | --------------------------------------------------------------------------------------------- | :--: | ---- |
 | ✅ 1.1 | `go mod init`, repository layout, `.gitignore`, `.editorconfig`, `golangci-lint` config     | S | [08](08_technologies.md) |
 | ✅ 1.1.1 | `.gitattributes` normalising line endings to LF. Added because development happens on Windows, where a checkout would otherwise reintroduce CRLF and break `gofmt -l` in CI. | S | — |
-| 1.2 | `Makefile` with `deps`, `build`, `test`, `lint`; frontend targets stubbed                       | S | [08](08_technologies.md) |
+| ✅ 1.2 | `Makefile` with `deps`, `build`, `test`, `lint`; frontend targets stubbed                    | S | [08](08_technologies.md) |
 | 1.3 | cobra command tree: root plus `server`, `install`, `update`, `cleanup`, `version` as stubs      | S | [09](09_configuration.md) |
 | 1.4 | viper wiring: defaults → config file → `DOENER_*` → flags, with the nested-key mapping           | M | [09](09_configuration.md) |
 | 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                   | S | [09](09_configuration.md) |
