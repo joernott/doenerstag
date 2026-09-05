@@ -1,119 +1,163 @@
-# Features
+# 02 Features
 
-The doenerstag app has the following features:
+This document describes *what* the application does. The data behind it is
+specified in [03_data_model.md](03_data_model.md), the screens in
+[06_ui_ux.md](06_ui_ux.md), and who may do what in
+[05_auth_and_permissions.md](05_auth_and_permissions.md).
 
-## Data structures
+## F1 — Browsing without an account
 
-All data structures use UUIDv7 as primary keys in the database and for referencing Items.
+- **F1.1** Any visitor, logged in or not, can see the list of orders.
+- **F1.2** Any visitor can open an order and see its items, who ordered them,
+  their modifications and the running total.
+- **F1.3** Any visitor can see the summary page of an order.
+- **F1.4** Any visitor can see the restaurant list, restaurant details, opening
+  hours and menus.
+- **F1.5** Any visitor can see the version, imprint and legal notes pages.
+- **F1.6** A visitor who is not logged in cannot change anything. Every control
+  that would change data is hidden or disabled, and the API rejects the request.
 
-### Order
+## F2 — Accounts
 
-The order is the primary element that is managed by the doenerstag application. An order contains the following elements:
+- **F2.1** Anyone can register an account by choosing a user name and a
+  password. An e-mail address and a display name are optional.
+- **F2.2** User names are unique and case-insensitive for the uniqueness check.
+- **F2.3** A user may change their user name, display name, password and e-mail
+  address.
+- **F2.4** A user may delete their own account. See F2.6.
+- **F2.5** A user can be logged in from one browser at a time. Logging in
+  elsewhere invalidates the previous session.
+- **F2.6** Deleting an account happens immediately and irreversibly:
+  - Order items belonging to the user in **expired** orders are reassigned to
+    the deleted-user placeholder and shown as *"deleted user"*.
+  - Order items belonging to the user in **active** orders are deleted.
+  - Orders **created** by the user are reassigned to the deleted-user
+    placeholder; the administrator remains able to delete them.
+  - Before deleting, the user is shown how many active orders they still
+    participate in and is given the chance to cancel.
+- **F2.7** A user may create, list and revoke API tokens for third-party access.
+- **F2.8** There is exactly one administrator account, `root`, created during
+  installation. It cannot be deleted or renamed.
 
-- Masndatory: ID of the creator of the food order
-- Mandatory: A restaurant
-- Mandatory: Choice between delivery and pickup
-- Mandatory: A pickup/delivery time
-- Mandatory: A time until when items can be added to the list
-- A list of food order items with at least one element. Each entry consists of order items
+## F3 — Restaurants
 
-#### Order items
+- **F3.1** Any logged-in user can create a restaurant with at least a name, a
+  currency and one contact entry.
+- **F3.2** Any logged-in user can edit restaurant data, including adding and
+  removing contact entries and opening hours.
+- **F3.3** Restaurants may have a logo image.
+- **F3.4** Restaurants may carry an optional minimum order value and an optional
+  delivery fee. Both are copied into an order when the restaurant is chosen.
+- **F3.5** Only the administrator can delete a restaurant, and only if no order
+  references it.
+- **F3.6** Opening hours are a list of weekday/start/end entries. Multiple
+  entries per weekday are allowed (e.g. a lunch break). An entry whose end time
+  is earlier than its start time is understood to cross midnight.
 
-- Mandatory: ID of the user for the person ordering the item
-- Mandatory: A menu item from the restaurant specidfied in the order
-- Mandatory: A quantitiy for that item
-- Optional: A freetext field for modifications
-- Optional: A list of standard modifications specified for the selected menu item
+## F4 — Menus
 
-### Restaurants
+- **F4.1** A menu belongs to exactly one restaurant.
+- **F4.2** Any logged-in user can add menu categories and menu items, including
+  from inside the order page while ordering.
+- **F4.3** Menu items carry a name, price, optional restaurant-specific item ID,
+  description, image, tags, allergens, additives and predefined modifications.
+- **F4.4** Menu items can be marked temporarily unavailable ("sold out") by any
+  logged-in user. Unavailable items are shown but cannot be ordered.
+- **F4.5** Only the administrator can delete a menu item or category. Deletion is
+  a soft delete; the row survives until no order item references it and the
+  retention window has passed.
+- **F4.6** If a restaurant has no categories, menu items are ordered by their
+  restaurant-specific item ID and then by name.
+- **F4.7** Menu items can be filtered in the UI by free tags and, independently,
+  by allergens and additives.
 
-Restaurants are the starting point for creating an order. Every order can only have one restaurant to order from.
+## F5 — Orders
 
-- Mandatory: Name of the restaurant
-- Optional: Logo of the restaurant
-- Optional: Location/Address for picking up orders
-- Mandatory: At least one way of contacting the restaurant, e.g. phone, fax or email
+- **F5.1** Any logged-in user can create an order by choosing a restaurant, a
+  fulfilment type (pickup or delivery), a fulfilment date/time and a deadline.
+- **F5.2** An order can be created with no items and stays valid while empty.
+- **F5.3** The deadline must lie strictly before the fulfilment time. The
+  frontend validates this before submitting; the backend enforces it as well,
+  because the API is also used by third parties.
+- **F5.4** The frontend warns when the fulfilment time falls outside the
+  restaurant's opening hours. This is a warning, not a hard error — restaurants
+  do accept pre-orders.
+- **F5.5** An order is **active** while `now < deadline` and **expired**
+  afterwards. There is no manual state transition.
+- **F5.6** An order has no stored title. Its display title is computed as
+  *"&lt;restaurant name&gt; — &lt;fulfilment date&gt; &lt;fulfilment time&gt;"*.
+- **F5.7** The order creator can edit the order's fields while it is active.
+- **F5.8** Once the order has at least one item, the restaurant can no longer be
+  changed.
+- **F5.9** The order creator and the administrator can delete an order. For an
+  active order this requires confirmation and warns how many participants will
+  lose their items.
+- **F5.10** An order carries two optional free-text fields: who collects the
+  money and who does the pickup.
+- **F5.11** An order stores a copy of the restaurant's currency, minimum order
+  value and delivery fee as they were when the restaurant was selected.
 
-### Opening hours
+## F6 — Order items
 
-Opening hours are linked to a restaurant. Every entry in that table contains a time period, during which the restaurant accepts orders. Apart from it's ID and a link to the restaurant. it has the following mandatory fields
+- **F6.1** Any logged-in user can add items to an **active** order.
+- **F6.2** An order item references one menu item of the order's restaurant, a
+  quantity of at least 1, an optional free-text modification and any number of
+  the menu item's predefined modifications.
+- **F6.3** A user may add several separate items for the same menu item, for
+  example one with and one without onions.
+- **F6.4** An order item stores a snapshot of the menu item's name and unit
+  price, and of the name and price delta of each selected modification. Later
+  price corrections never change a historical order.
+- **F6.5** A user may edit and delete only their own order items, and only while
+  the order is active.
+- **F6.6** After the deadline, all order items become read-only for everyone,
+  including the administrator.
 
-- Day of Week
-- Start time
-- End time
+## F7 — Live updates
 
-### Menu
+- **F7.1** While an order page is open, changes made by other participants
+  appear without a manual reload.
+- **F7.2** This uses one Server-Sent Events stream per order. See
+  [adr/0003-sse-for-order-updates.md](adr/0003-sse-for-order-updates.md).
+- **F7.3** When the deadline passes while the page is open, the page switches
+  itself into the read-only state.
 
-Menus are tied to a restaurant. A menu can have categories by which the menu items are ordered.
+## F8 — Summary
 
-#### Categories
+- **F8.1** Every order has a summary page, reachable from a button on the order
+  page and from a button on the order's tile in the overview.
+- **F8.2** The summary aggregates identical items — same menu item, same set of
+  predefined modifications, same free text — into one line with a count.
+- **F8.3** The summary shows a per-person breakdown with per-person totals.
+- **F8.4** The summary shows the grand total, the delivery fee, and a warning if
+  the order value is below the restaurant's minimum order value.
+- **F8.5** The summary offers a plain-text rendering that can be copied to the
+  clipboard, suitable for reading out on the phone.
+- **F8.6** The summary is printable through the browser's own print function
+  using a dedicated print stylesheet.
 
-A Category has the following data fields
+## F9 — Content pages
 
-- Mandatory: Name
-- Optional: Order, a numerical field determining the order of categories
+- **F9.1** The application serves an imprint page and a legal notes page. Both
+  are HTML snippets stored in the database.
+- **F9.2** Their initial content is loaded from files whose paths the operator
+  is asked for during installation.
+- **F9.3** The administrator can replace either page's content from the UI by
+  uploading a new HTML snippet.
+- **F9.4** Uploaded HTML is sanitized before it is stored. See
+  [11_nonfunctional.md](11_nonfunctional.md).
 
-#### Menu item
+## F10 — Operations
 
-A menu item has the following elements:
-
-- Mandatory: Name
-- Optional: A restaurant specific alphanumeric item id
-- Optional: Image
-- Optional: Description
-- Mandatory: Price
-- Mandatory: Currency
-- Optional: Tags like "vegan", "vegetarian", "spicy"
-- Optional: Tags for allergens and food additives
-
-### Other
-
-#### Version
-
-A table is used to track the application version with the following mandatory fields
-
-- Major
-- Minor
-- Patch
-
-These are referencing the application version following the concept of semantic versioning.
-
-#### User
-
-A user object has the following fields
-
-- Mandatory: Name
-- Mandatory: Password hash
-- Optional: EMail address
-
-## User interface
-
-The user interface has a fixed title bar containing the application logo and name as well as a field for the user name/handle, a switch between dark and bright mode and a language selection. A dropdown menu at the right allows for some more menu entries to manage orders, restaurants and their menus as well showing a version page, the imprint and, if not disabled a link to the swagger UI.
-
-By default, the main page shows an overview of existing orders.
-
-## Overview of orders
-
-This page has tiles for orders. Past orders that are expired but not yet removed are faded out but can still be clicked. The first tile shows a plus sign that allows adding new orders. Clicking on the logo in the title will always return to this page.
-
-When clicking on an order, a page is shown for that order.
-
-## Order page
-
-The page is split in two, on the left side, the order data is shown and the list of order items. The user who created ihe order can edit the data fields or delete the whole order. After the first order items have been selected, the restaurant can't be changed any more.
-
-The right side of the page shows the restaurants menu ordered by categories. It can be filtered by tags and allergens or food additives and categories can be hidden or shown. Everybody can add  food order items by choosing menu iterms from the restaurants menu and then change the quantity or add modifications to their order. They can also remove their entries.
-
-If the database for the restaurant is incomplete and a user wants to add a menu item to the restaurants menu, he can do this with a button on the menu.
-
-## Restaurant overview page
-
-This page shows tiles for every restaurant known to the application. Similar to the orders page, restaurants are shown as tiles and the first tile, containing a plus sign can be used to add a restaurant.
-
-## Restaurant page
-
-Every restaurant page shows a form for the restaurant data, it's opwening hours and its menu. Users can add and remove categories to a menu and menu items. If no categories are defined, the items are ordered by restaurant specific ID and name.
-
-## User page
-
-This page is used to register new users and existing logged in users can use it to change their name, password and email address.
+- **F10.1** A `version` page in the UI and a `version` CLI verb report the
+  application version and the applied schema version.
+- **F10.2** A health endpoint reports whether the database connection is up.
+- **F10.3** A metrics endpoint reports object counts and database connection
+  usage.
+- **F10.4** The administrator can shut the application down through an API
+  endpoint.
+- **F10.5** A `cleanup` CLI verb removes orders whose deadline is older than the
+  configured retention period, together with menu data that was soft-deleted and
+  is no longer referenced.
+- **F10.6** All data-changing operations are logged at INFO level with the acting
+  user and a correlation ID. This is the audit trail.
