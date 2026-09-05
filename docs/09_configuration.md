@@ -68,9 +68,9 @@ Runs the web server. HTTPS by default.
 | `--tls-key`                 | `-T`  | `server.key`   | PEM private key, relative to the working directory.            |
 | `--no-swagger`              |       | `false`        | Do not serve `/tools/swagger` and do not link it in the menu.  |
 | `--static-dir`              | `-s`  | `static`       | Directory to serve assets from. Ignored in embedded builds.    |
-| `--http-read-timeout`       |       | `300s`         | `http.Server.ReadTimeout`.                                     |
-| `--http-write-timeout`      |       | `300s`         | `http.Server.WriteTimeout`. See the SSE note below.            |
-| `--http-idle-timeout`       |       | `300s`         | `http.Server.IdleTimeout` for keep-alive connections.          |
+| `--http-read-timeout`       |       | `30s`          | `http.Server.ReadTimeout`. Covers reading the request body, so it bounds an image upload. |
+| `--http-write-timeout`      |       | `60s`          | `http.Server.WriteTimeout`. The SSE route is exempt — see below. |
+| `--http-idle-timeout`       |       | `120s`         | `http.Server.IdleTimeout` for keep-alive connections.          |
 | `--idle-timeout`            |       | `6h`           | Session idle timeout. A session unused for longer is dropped.  |
 | `--absolute-timeout`        |       | `7d`           | Session lifetime regardless of activity.                       |
 | `--jwt-secret`              |       | *(generated)*  | **Never on the command line.** Written by `install`.           |
@@ -81,19 +81,36 @@ Runs the web server. HTTPS by default.
 | `--login-rate-limit-window` |       | `15m`          | Rate limit window.                                             |
 | `--shutdown-grace`          |       | `30s`          | How long to wait for in-flight requests during shutdown.       |
 
-### The SSE exemption
+### Timeouts and the SSE exemption
 
-`--http-write-timeout` would kill the long-lived Server-Sent Events streams from
-`GET /api/v1/orders/{id}/events`. The order event handler therefore clears its
-own write deadline with `http.ResponseController.SetWriteDeadline(time.Time{})`
-after the response headers are sent. The 30-second `ping` event keeps
-intermediate proxies from closing the connection. All other routes observe the
-configured timeout.
+The defaults are 30 s read, 60 s write and 120 s idle. The previous 300 s values
+were far longer than anything this application legitimately does — the slowest
+real request is a 5 MiB image upload with a downscale, budgeted at 2 seconds in
+[11_nonfunctional.md](11_nonfunctional.md) — and a long write timeout mostly
+just holds resources open for a stalled client.
+
+Shortening the write timeout does **not** on its own make the Server-Sent Events
+streams safe; it makes them fail sooner. No finite `WriteTimeout` can
+accommodate a stream that is meant to stay open for hours, because
+`http.Server.WriteTimeout` bounds the whole response, not the gap between
+writes.
+
+What protects the stream is the exemption: the handler for
+`GET /api/v1/orders/{id}/events` clears its own write deadline with
+`http.ResponseController.SetWriteDeadline(time.Time{})` once the response
+headers are sent, so the configured value never applies to it. The 30-second
+`ping` event keeps intermediate proxies from closing an idle connection. Every
+other route observes the configured timeout.
+
+The exemption is therefore load-bearing, and it is covered by a test: a stream
+held open past `--http-write-timeout` must still be delivering events.
 
 ### Startup checks
 
 Before it begins listening, the server:
 
+0. Checks the configuration file's permissions and fails FATAL if they are
+   neither `0600` nor `0400`. See the section at the end of this document.
 1. Connects to the database and fails FATAL if it cannot.
 2. Compares the schema version in `app_version` against what the binary expects
    and refuses to start on a mismatch, pointing at `doenerstag update`.
@@ -242,9 +259,9 @@ server:
   tls_key: /etc/doenerstag/server.key
   no_swagger: false
   static_dir: static
-  http_read_timeout: 300s
-  http_write_timeout: 300s
-  http_idle_timeout: 300s
+  http_read_timeout: 30s
+  http_write_timeout: 60s
+  http_idle_timeout: 120s
   shutdown_grace: 30s
   max_image_size: 5MiB
   cors_allowed_origins: ""
@@ -273,6 +290,25 @@ is `--database-server`, `session.idle_timeout` is `--idle-timeout`. The
 — `server.port` is `--port`, `log.level` is `--log-level`. The generated file is
 the authoritative example of the mapping.
 
-The configuration file must not be world-readable; it holds the database
-password and the JWT secret. `install` creates it with mode `0600` and warns if
-an existing file is more permissive.
+## Configuration file permissions
+
+The configuration file holds the database password and the JWT secret. Its
+permissions are checked on **every** run of **every** verb, before anything else
+happens.
+
+`install` creates the file with mode `0600`. If an existing file has any mode
+other than `0600` or `0400`, the application logs a **FATAL** error naming the
+file and its actual mode, and exits without reading it.
+
+This is a fatal error rather than a warning on purpose. A warning about a
+world-readable file containing a database password is a warning that scrolls
+past in a log nobody reads, and the file stays world-readable for years. A
+startup failure gets fixed in the thirty seconds it takes to type `chmod 0600`.
+
+`0400` is accepted alongside `0600` because a read-only configuration file is
+strictly safer, and failing on it would push operators toward loosening
+permissions to satisfy a permissions check.
+
+The check applies to the POSIX permission bits and is therefore skipped on
+Windows, where they do not carry the same meaning. A DEBUG line records that it
+was skipped.

@@ -11,7 +11,7 @@ asset service is used, and no asset is fetched from a CDN at runtime.
 | -------------------- | ------------------------------------------------- |
 | Language             | Go, minimum 1.24                                   |
 | Module path          | `github.com/joernott/doenerstag`                   |
-| HTTP routing         | `net/http` with the standard library's method-and-pattern routing (Go 1.22+). No third-party router. |
+| HTTP routing         | `julienschmidt/httprouter` — for the API, the static assets and the SPA fallback alike |
 | CLI and config       | `spf13/cobra` and `spf13/viper`                    |
 | Database driver      | `jackc/pgx/v5` with its native pool                |
 | Migrations           | `golang-migrate/migrate/v4`, file source, pgx driver |
@@ -25,6 +25,64 @@ asset service is used, and no asset is fetched from a CDN at runtime.
 
 The backend serves the frontend, a versioned REST API and, unless disabled,
 Swagger UI. It uses no ORM; SQL is written by hand.
+
+### Routing
+
+One `httprouter.Router` handles everything the server serves: the API, the
+static assets and the single-page-application fallback. There is no second mux
+and no per-subtree router.
+
+Routes are registered through `router.Handler` and `router.HandlerFunc`, not
+through `router.GET`/`router.POST`. Those methods take an ordinary
+`http.Handler` and place the path parameters in the request context, where a
+handler reads them with `httprouter.ParamsFromContext(r.Context())`. This keeps
+every handler and every piece of middleware a plain `http.Handler`, so the
+middleware chain — request ID, logging, authentication, CSRF, security headers —
+is written once against the standard interface and does not need adapting to
+httprouter's three-argument signature.
+
+Path parameters use httprouter's `:name` syntax. The `{id}` notation in
+[04_api.md](04_api.md) is documentation convention; the registered path is
+`/api/v1/orders/:id`.
+
+Router configuration:
+
+| Setting                   | Value | Effect                                                              |
+| ------------------------- | ----- | ------------------------------------------------------------------- |
+| `HandleMethodNotAllowed`  | true  | Returns 405 with an `Allow` header instead of falling through to 404.|
+| `HandleOPTIONS`           | true  | Answers `OPTIONS` automatically. `GlobalOPTIONS` adds the CORS headers when `--cors-allowed-origins` is set. |
+| `RedirectTrailingSlash`   | true  | `/api/v1/orders/` redirects to `/api/v1/orders`.                     |
+| `RedirectFixedPath`       | false | Off deliberately — a case-insensitive redirect would make paths ambiguous and is not wanted for an API. |
+| `NotFound`                | set   | The SPA fallback, see below.                                         |
+| `PanicHandler`            | set   | Logs at ERROR with the request ID and returns 500 error 9000.        |
+
+Static assets are served by registering `/static/*filepath` against the
+`fs.FS` chosen by `internal/static`. Swagger UI is registered at
+`/tools/swagger/*filepath` and simply not registered at all when
+`--no-swagger` is set.
+
+The SPA fallback is the router's `NotFound` handler: any unmatched path that
+does not begin with `/api/` serves `index.html` so that a reload on a deep link
+works, and any unmatched path that does begin with `/api/` returns a JSON 404
+with error 4000. Using `NotFound` rather than a catch-all route avoids the
+wildcard conflicts described below.
+
+**httprouter rejects conflicting routes by panicking at registration time.** It
+does not allow a static segment and a wildcard at the same position — `/users/me`
+alongside `/users/:id` panics, and a `*filepath` catch-all cannot share a prefix
+with any other route. The API in [04_api.md](04_api.md) is designed to be free of
+such conflicts, and it must stay that way:
+
+- No `/users/me`-style aliases. The client uses the id from
+  `GET /api/v1/auth/session`.
+- No catch-all route at the root. The SPA fallback is the `NotFound` handler.
+- The catch-alls that do exist, `/static/*filepath` and
+  `/tools/swagger/*filepath`, sit under prefixes nothing else uses.
+
+Because the panic happens at registration, a conflict is caught the moment the
+server starts rather than at request time. A test that constructs the full
+router asserts this, so a conflicting route fails CI instead of production
+startup.
 
 ## Frontend
 
@@ -136,10 +194,90 @@ The `Makefile` is the entry point. All of it runs locally.
 | `make test`      | `go test ./...` and the frontend type check.                             |
 | `make lint`      | `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.                     |
 | `make migrate`   | Applies migrations against the configured database, for development.     |
+| `make packages`  | `make release`, then `nfpm` builds the `.deb` and the `.rpm` from one shared configuration. |
+| `make image`     | Builds the container image for `linux/amd64` and `linux/arm64`.          |
+| `make licenses`  | Regenerates `THIRD_PARTY_LICENSES` from `go.mod` and `package.json`.     |
+
+`make packages` uses `nfpm` so that both package formats come from a single
+declarative description; keeping a `debian/` tree and a `.spec` file in step by
+hand is exactly the sort of duplication that drifts. The packaged files are
+listed in [10_operations.md](10_operations.md).
+
+The container image is a two-stage build ending in `scratch`, which only works
+because the release binary is static and self-contained.
 
 The application version is compiled in with `-ldflags -X` and must match the row
 that `install`/`update` writes to `app_version`. A mismatch between the binary's
 version and the newest `app_version` row is logged as a WARN at startup.
+
+## Licensing
+
+doenerstag is licensed under the **BSD 3-Clause License**. See
+[LICENSE](../LICENSE) at the repository root.
+
+That is compatible with every dependency listed above. Nothing in the set that
+is compiled into the binary or shipped in `static/` is copyleft; all of it is
+permissive.
+
+### Dependencies distributed with the application
+
+| Dependency                     | Licence      | Compatible with BSD-3-Clause |
+| ------------------------------ | ------------ | ---------------------------- |
+| Go standard library            | BSD-3-Clause | yes                          |
+| `julienschmidt/httprouter`     | BSD-3-Clause | yes                          |
+| `spf13/cobra`                  | Apache-2.0   | yes — see the note below     |
+| `spf13/pflag`                  | BSD-3-Clause | yes                          |
+| `spf13/viper`                  | MIT          | yes                          |
+| `jackc/pgx/v5`                 | MIT          | yes                          |
+| `golang-migrate/migrate/v4`    | MIT          | yes                          |
+| `rs/zerolog`                   | MIT          | yes                          |
+| `golang.org/x/crypto`          | BSD-3-Clause | yes                          |
+| `golang-jwt/jwt/v5`            | MIT          | yes                          |
+| `microcosm-cc/bluemonday`      | BSD-3-Clause | yes                          |
+| `golang.org/x/image`           | BSD-3-Clause | yes                          |
+| `google/uuid`                  | BSD-3-Clause | yes                          |
+| `golang.org/x/net`, `x/text`   | BSD-3-Clause | yes                          |
+| Tailwind CSS (generated CSS)   | MIT          | yes                          |
+
+### Build and test tools, not distributed
+
+These never enter the binary or the shipped assets, so their licences place no
+obligation on what is distributed. Two of them look alarming and are not:
+
+| Tool                    | Licence      | Note                                                        |
+| ----------------------- | ------------ | ----------------------------------------------------------- |
+| `golangci-lint`         | GPL-3.0      | A linter that is executed, never linked. No effect on the distributed work. |
+| `axe-core`              | MPL-2.0      | Loaded only inside the Playwright test run. Never shipped.   |
+| esbuild, eslint, Vitest | MIT          |                                                              |
+| TypeScript, Playwright  | Apache-2.0   |                                                              |
+| `testify`, `testcontainers-go`, `nfpm` | MIT |                                                    |
+| `govulncheck`           | BSD-3-Clause |                                                              |
+
+### Obligations that follow
+
+1. **Apache-2.0 attribution.** `spf13/cobra` is Apache-2.0, which is one-way
+   compatible with BSD-3-Clause: it may be combined and redistributed, but its
+   licence text and any `NOTICE` file must travel with the distribution. This is
+   the only non-trivial obligation in the set.
+2. **`THIRD_PARTY_LICENSES`.** A generated file at the repository root
+   reproducing the licence text of every distributed dependency. Produced by
+   `make licenses` from `go-licenses` and the frontend lockfile, checked in, and
+   verified in CI so that adding a dependency without its licence fails the
+   build. Shipped in the packages under `/usr/share/doc/doenerstag/` and linked
+   from the legal notes page.
+3. **Fonts.** The vendored WOFF2 files under `static/fonts` are distributed
+   assets and carry their own licence — commonly SIL OFL 1.1, which requires the
+   licence to ship alongside and restricts renaming. The chosen font's licence
+   must be added to `THIRD_PARTY_LICENSES` when the font is chosen. This is the
+   easiest obligation in the list to overlook, because fonts do not appear in
+   any dependency manifest.
+4. **A licence audit in CI.** `go-licenses check` with an allow-list of
+   BSD-2-Clause, BSD-3-Clause, MIT, ISC and Apache-2.0. A new dependency under
+   any other licence fails the build rather than being noticed at release time.
+
+The licences above reflect the state of these projects at the time of writing
+and should be confirmed by the first `make licenses` run once the dependencies
+are actually pinned in `go.mod`.
 
 ## Database
 

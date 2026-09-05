@@ -48,11 +48,31 @@ countermeasure is not technical: it is that participation is voluntary and that
 the group already sees what everyone eats at lunch. The operator should be aware
 of the inference and should not, for example, feed the data into anything else.
 
-**Order data is readable without logging in.** Anyone who can reach the server
-sees who ordered what. That is intentional and is the application's purpose, but
-it means the access control on the network is the access control on the data.
-The operator must confirm the deployment really is confined to the intended
+**Who can see what someone ordered.** Three tiers, deliberately:
+
+| Viewer                        | Sees                                                       |
+| ----------------------------- | ---------------------------------------------------------- |
+| Anyone reaching the server    | That an order exists, for which restaurant and when, and how many items are in it. Nothing about who ordered what. |
+| Any logged-in user            | The full item list of any order, including who ordered what. |
+| Participants of an order      | Additionally, that order's summary page with per-person totals. |
+
+The first tier is the one that matters for the inference described above. An
+unauthenticated passer-by on the network cannot see any individual's food
+choices at all, so the Art. 9-adjacent inference is only available to people who
+have an account — which is to say, to colleagues who are themselves visible on
+the same terms.
+
+That is a meaningful reduction, but not a strong access control: registration is
+open, so anyone who can reach the server can become a logged-in user in a
+minute. The network remains the real boundary, and the operator must confirm the
+deployment really is confined to the intended network. What the tiering buys is
+that food choices are not published to anything that merely happens to reach the
+port — a scanner, a badly-scoped proxy, an indexing bot on a misconfigured
 network.
+
+The summary restriction is narrower still: per-person totals, which come closest
+to being a record of what an individual spends and eats, are visible only to the
+people taking part in that same order.
 
 ## Legal basis
 
@@ -172,8 +192,9 @@ This is where the privacy notice goes. To satisfy Art. 13 GDPR it needs:
 Other things that plausibly belong on this page:
 
 - A note that participation is voluntary.
-- A note that food choices are visible to everyone who can reach the server, and
-  that this may allow inferences about diet, religion or health.
+- A note that food choices are visible to every logged-in user, that registration
+  is open to anyone on the network, and that this may allow inferences about
+  diet, religion or health.
 - The two erasure residues named above: log retention and free-text mentions.
 - Any acceptable-use rules the organization wants to impose.
 - The software's own licence and the third-party licences it ships.
@@ -221,11 +242,19 @@ copied verbatim from a restaurant's own menu may be. A note in the "add menu
 item" form asking users to write their own descriptions is cheap and worth
 having.
 
-**The application's own licence** should be chosen before the first release and
-recorded in a `LICENSE` file at the repository root. The licences of the
-dependencies listed in [08_technologies.md](08_technologies.md) must be
-compatible with it and should be shipped — a generated `THIRD_PARTY_LICENSES`
-file, reachable from the legal notes page.
+**The application's own licence** is the **BSD 3-Clause License**, recorded in
+[LICENSE](../LICENSE) at the repository root. Every dependency that is compiled
+into the binary or shipped in `static/` is permissively licensed — BSD, MIT or
+Apache-2.0 — so nothing in the set constrains that choice. The analysis, the
+per-dependency licences and the resulting obligations are in
+[08_technologies.md](08_technologies.md#licensing).
+
+Two obligations affect the operator rather than the developer:
+
+- The generated `THIRD_PARTY_LICENSES` file ships in the packages under
+  `/usr/share/doc/doenerstag/` and should be linked from the legal notes page.
+- The vendored webfonts carry their own licence, commonly SIL OFL 1.1, which
+  requires that licence to be distributed alongside them.
 
 **No payment data** is ever processed. The application records who owes what;
 money changes hands outside it. This keeps it clear of PSD2 and PCI DSS

@@ -20,3 +20,5 @@ Format: Status, Context, Decision, Consequences. Keep them to a page.
 | [0007](0007-flat-modification-list.md) | Flat modification list instead of option groups | Accepted |
 | [0008](0008-images-in-the-database.md) | Store images in the database | Accepted |
 | [0009](0009-snapshot-prices-on-order-items.md) | Snapshot names and prices onto order items | Accepted |
+| [0010](0010-httprouter-for-routing.md) | httprouter for all routing | Accepted |
+| [0011](0011-tiered-order-visibility.md) | Tiered order visibility | Accepted |

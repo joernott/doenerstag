@@ -40,4 +40,11 @@ The specification lives in [docs/](docs/). Start with
 ## Stack
 
 Go backend, TypeScript and Tailwind frontend, PostgreSQL 18. A release is a
-single binary with the frontend embedded.
+single binary with the frontend embedded, published as a `.deb`, an `.rpm`, a
+bare binary and a container image.
+
+## Licence
+
+BSD 3-Clause. See [LICENSE](LICENSE). The licences of the dependencies and the
+obligations that follow from them are in
+[docs/08_technologies.md](docs/08_technologies.md#licensing).

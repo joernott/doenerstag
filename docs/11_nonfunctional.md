@@ -126,7 +126,7 @@ Recorded so they are decisions rather than oversights:
 
 | Risk                                                                 | Why it is accepted                                            |
 | -------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Anyone on the network can read every order and every participant name | The application exists to make orders visible to the group.    |
+| Any logged-in user can read every order and every participant name | The application exists to make orders visible to the group. Anonymous visitors see only item counts (F1.2), and summaries are limited to participants (F1.3). |
 | Anyone can register                                                   | Access to the network is the access control.                    |
 | Any logged-in user can edit any restaurant or menu                    | Crowdsourcing the data is the point; deletion is restricted.    |
 | No e-mail verification                                                | Nothing is ever sent by e-mail.                                 |

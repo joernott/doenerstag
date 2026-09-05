@@ -232,13 +232,26 @@ separate address column on `restaurant`.
 | `image_id`      | `uuid`        | yes  | FK `image`, `ON DELETE SET NULL`.                            |
 | `price_cents`   | `bigint`      | no   | `CHECK (price_cents >= 0)`. Currency from the restaurant.    |
 | `available`     | `boolean`     | no   | Default `true`. `false` = temporarily sold out.              |
-| `sort_order`    | `integer`     | no   | Default 0.                                                   |
 | `deleted_at`    | `timestamptz` | yes  | Soft delete.                                                 |
 
 - `UNIQUE (restaurant_id, lower(name)) WHERE deleted_at IS NULL`.
-- Display order within a category: `sort_order`, then `external_id`, then `name`.
-  When a restaurant has no categories at all, items are ordered by `external_id`
-  then `name` (F4.6).
+- Display order is always `external_id`, then `name` (F4.6) — within a category
+  and in the flat list alike. A purely numeric `external_id` sorts numerically so
+  that 2 precedes 10; a mixed ID sorts as text. `NULLS LAST`, so items without a
+  restaurant ID come after the numbered ones.
+
+  ```sql
+  ORDER BY external_id IS NULL,
+           (CASE WHEN external_id ~ '^[0-9]+$'
+                 THEN external_id::bigint END) NULLS LAST,
+           external_id,
+           name
+  ```
+
+- There is deliberately **no** `sort_order` on `menu_item`. Ordering follows the
+  restaurant's own item numbering, which is what the printed menu does, so a
+  separate manual ordering column would have nothing to do. Categories keep
+  their `sort_order`, because category order is a genuine editorial choice.
 - There is no per-item currency. Currency lives on the restaurant.
 
 ### `menu_item_modification`
@@ -275,8 +288,8 @@ Free descriptive labels. Any logged-in user may create one.
 | Column       | Type      | Null | Notes                                                      |
 | ------------ | --------- | ---- | ---------------------------------------------------------- |
 | `id`         | `uuid`    | no   | PK, UUIDv7.                                                 |
-| `code`       | `text`    | no   | Unique, lowercase, `[a-z0-9_-]+`. i18n key for seeded tags. |
-| `name`       | `text`    | no   | Fallback label for user-created tags with no translation.   |
+| `code`       | `text`    | no   | Unique, lowercase, `[a-z0-9_-]+`. i18n key for seeded tags — `tag.vegan`. |
+| `name`       | `text`    | no   | The label for user-created tags, which have no catalog entry. Ignored by the frontend for seeded tags. |
 | `sort_order` | `integer` | no   | Default 0.                                                  |
 
 Seeded tags: `vegan`, `vegetarian`, `spicy`, `very_spicy`, `halal`, `kosher`,
@@ -290,15 +303,18 @@ must be declared in the EU. The list is legally fixed; users cannot add rows.
 | Column       | Type      | Null | Notes                                                   |
 | ------------ | --------- | ---- | ------------------------------------------------------- |
 | `id`         | `uuid`    | no   | PK, UUIDv7. Fixed values in the seed migration.           |
-| `code`       | `text`    | no   | Unique, e.g. `gluten`. i18n key.                          |
+| `code`       | `text`    | no   | Unique, e.g. `gluten`. i18n key — `allergen.gluten`.      |
 | `reference`  | `text`    | no   | Annex II item number, `1`–`14`.                           |
-| `name_en`    | `text`    | no   | Fallback label.                                           |
-| `name_de`    | `text`    | no   | Fallback label.                                           |
 | `sort_order` | `integer` | no   | Equals the Annex II number.                               |
 
-Seed data:
+No name columns. The display text for each row lives in the frontend catalogs
+under `allergen.<code>` — see [07_i18n.md](07_i18n.md#reference-data-names).
 
-| # | `code`        | English                          | German                          |
+Seed data. The English and German columns below are **documentation of what each
+code means**, and the content of the `en` and `de` catalog entries. They are not
+database columns:
+
+| # | `code`        | `allergen.<code>` in `en`        | in `de`                         |
 | - | ------------- | -------------------------------- | ------------------------------- |
 | 1 | `gluten`      | Cereals containing gluten        | Glutenhaltiges Getreide         |
 | 2 | `crustaceans` | Crustaceans                      | Krebstiere                      |
@@ -315,8 +331,12 @@ Seed data:
 |13 | `lupin`       | Lupin                            | Lupinen                         |
 |14 | `molluscs`    | Molluscs                         | Weichtiere                      |
 
-Source, to be recorded in the seed migration:
-`https://eur-lex.europa.eu/eli/reg/2011/1169/oj` (Annex II).
+Source, to be recorded in the seed migration and in a comment above the catalog
+block: `https://eur-lex.europa.eu/eli/reg/2011/1169/oj` (Annex II).
+
+Because the wording is regulatory, the catalog entries for allergens are not
+ordinary UI strings and must not be reworded for tone or brevity. A change to
+one is a change to a legal declaration.
 
 ### `additive`
 
@@ -327,18 +347,20 @@ Zusatzstoff-Zulassungsverordnung (ZZulV) and Regulation (EC) No 1333/2008.
 The `reference` column therefore holds the conventional number and should be
 treated as a display hint, not as an identifier.
 
-| Column       | Type      | Null | Notes                                    |
-| ------------ | --------- | ---- | ---------------------------------------- |
-| `id`         | `uuid`    | no   | PK, UUIDv7. Fixed values in the seed.     |
-| `code`       | `text`    | no   | Unique, e.g. `colouring`. i18n key.       |
-| `reference`  | `text`    | yes  | Conventional German menu number.          |
-| `name_en`    | `text`    | no   | Fallback label.                           |
-| `name_de`    | `text`    | no   | Fallback label.                           |
-| `sort_order` | `integer` | no   |                                           |
+| Column       | Type      | Null | Notes                                       |
+| ------------ | --------- | ---- | ------------------------------------------- |
+| `id`         | `uuid`    | no   | PK, UUIDv7. Fixed values in the seed.        |
+| `code`       | `text`    | no   | Unique, e.g. `colouring`. i18n key — `additive.colouring`. |
+| `reference`  | `text`    | yes  | Conventional German menu number.             |
+| `sort_order` | `integer` | no   |                                              |
 
-Seed data:
+No name columns, for the same reason as `allergen`. Display text lives under
+`additive.<code>` in the catalogs.
 
-| #  | `code`          | English                          | German                            |
+Seed data. As above, the English and German columns are documentation and
+catalog content, not database columns:
+
+| #  | `code`          | `additive.<code>` in `en`        | in `de`                           |
 | -- | --------------- | -------------------------------- | --------------------------------- |
 | 1  | `colouring`     | With colouring                   | Mit Farbstoff                     |
 | 2  | `preservative`  | With preservative                | Mit Konservierungsstoff           |
@@ -362,6 +384,25 @@ Sources, to be recorded in the seed migration:
 Because the application must run without internet access, all seed data ships as
 literal `INSERT` statements inside the migration files. Nothing is downloaded at
 install time.
+
+### Where seeded names live
+
+None of the seeded reference tables — `currency`, `allergen`, `additive`,
+`contact_type` — stores a display name. Each stores a stable `code`, and the
+frontend translates it through its i18n catalog. Adding a language is a catalog
+file, never a migration.
+
+The dividing line is who created the row:
+
+| Row origin                          | Name comes from                                   |
+| ----------------------------------- | ------------------------------------------------- |
+| Seeded by a migration               | The i18n catalog, keyed on `code`.                 |
+| Created by a user at runtime        | A `name` column in the database.                   |
+
+That is why `tag` keeps its `name` column: seeded tags like `vegan` are
+translated from `tag.vegan`, but a tag a user invents at runtime has no catalog
+entry and can only carry the text they typed. Restaurant, menu item and category
+names are user content and are likewise never translated.
 
 ### Link tables
 
@@ -492,15 +533,22 @@ Seeded lookup table so the UI can render a symbol next to every price.
 
 | Column       | Type       | Null | Notes                                            |
 | ------------ | ---------- | ---- | ------------------------------------------------ |
-| `code`       | `char(3)`  | no   | PK. ISO 4217 alphabetic code.                     |
+| `code`       | `char(3)`  | no   | PK. ISO 4217 alphabetic code. i18n key.           |
 | `symbol`     | `text`     | no   | E.g. `€`, `$`, `CHF`.                             |
 | `minor_unit` | `smallint` | no   | Decimal digits. 2 for EUR, 0 for JPY.             |
-| `name_en`    | `text`     | no   |                                                   |
-| `name_de`    | `text`     | no   |                                                   |
 | `sort_order` | `integer`  | no   | Puts the likely candidates at the top of the list.|
 
 Seeded with `EUR`, `CHF`, `GBP`, `USD`, `PLN`, `CZK`, `DKK`, `SEK`, `NOK`,
 `HUF`. `EUR` is the default offered when creating a restaurant.
+
+Currency **names** are not stored — the frontend translates the ISO code through
+`currency.EUR`, as described under
+[Where seeded names live](#where-seeded-names-live). A currency the catalog does
+not know falls back to displaying its code, which is universally understood.
+
+The `symbol` and `minor_unit` columns stay in the database: they are properties
+of the currency itself, identical in every language, and the backend needs
+`minor_unit` to validate and format amounts.
 
 `currency` is the only table exempt from the UUID primary key rule — the ISO
 code is a better natural key and appears in every price payload.

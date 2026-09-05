@@ -20,7 +20,10 @@ designed to be exposed to the public internet.
 
 Consequences of that assumption run through the whole specification:
 
-- Orders, restaurants and menus are readable without logging in.
+- Restaurants and menus are readable without logging in, as are the list of
+  orders and each order's header and item count. The order items themselves —
+  who ordered what — need a login, and an order's summary page is limited to
+  the people taking part in it.
 - Registration is open — anyone on the network can create an account.
 - Any logged-in user may add restaurants, menu categories and menu items
   ("crowdsourcing" the data instead of requiring an administrator to enter it).
@@ -67,6 +70,7 @@ The following are explicitly *not* part of the application:
 | **Tag**           | A free descriptive label on a menu item, e.g. `vegan`, `spicy`.                                   |
 | **Allergen**      | An entry from the seeded, regulation-derived allergen list (EU 1169/2011 Annex II).               |
 | **Additive**      | An entry from the seeded, regulation-derived food additive list (German ZZulV / EU 1333/2008).    |
+| **Participant**   | Of an order: its creator, anyone holding at least one item in it, or the administrator.            |
 | **Administrator** | The built-in `root` user. May delete restaurants, menu data and any order.                        |
 | **Deleted user**  | Placeholder user `00000000-0000-7000-8000-000000000000`, owner of orphaned historical order items.|
 

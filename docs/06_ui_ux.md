@@ -31,7 +31,7 @@ Fixed to the top of the viewport on every page. Left to right:
 | Application logo        | Always links back to the order overview.                                     |
 | Application name        | "doenerstag". Hidden below the small breakpoint.                             |
 | *(spacer)*              |                                                                              |
-| Language selector       | Dropdown, English and German. Writes the `doener_lang` cookie.               |
+| Language selector       | Dropdown listing every translation shipped with the application, each in its own language ("English", "Deutsch"). Not a hardcoded pair — the list is derived from the catalogs present in the build, so adding a translation adds an entry with no change to this component. Hidden entirely when only one translation exists. Writes the `doener_lang` cookie. |
 | Dark/light toggle       | Icon button. Writes the `doener_theme` cookie.                               |
 | Account control         | **Logged out:** a "Login / Register" button. **Logged in:** the display name, which links to the user page, followed by a logout icon button. |
 | Menu button             | Opens the main dropdown menu.                                                |
@@ -80,9 +80,9 @@ Each tile shows:
 | Computed title         | `<restaurant name> — <fulfilment date> <fulfilment time>`, local time. |
 | Fulfilment type        | Icon plus label: pickup or delivery.                                   |
 | Deadline               | Local date and time, with a relative hint ("in 2 h") for active orders.|
-| Participant count      | "5 people, 9 items".                                                   |
-| Order total            | Formatted with the order's currency.                                   |
-| Summary button         | Opens the summary page directly, skipping the order page.              |
+| Item count             | "9 items". Shown to everyone. The participant count and the order total are shown only to logged-in visitors, since both are item data. |
+| Order total            | Formatted with the order's currency. Logged-in visitors only.          |
+| Summary button         | Opens the summary page directly, skipping the order page. Shown only to participants of that order (F1.3). |
 
 ## Order page
 
@@ -100,7 +100,7 @@ administrator.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
-- A **Summary** button.
+- A **Summary** button, shown only to participants (F1.3).
 - A **Delete order** button for the creator and the administrator.
 - The list of order items, grouped by person, each showing quantity, item name,
   the selected modifications, the free-text note and the line total. A visitor's
@@ -110,10 +110,34 @@ administrator.
 - When the deadline has passed, a prominent banner states the order is closed
   and all editing controls disappear.
 
+#### The anonymous view of an order
+
+A visitor who is not logged in sees the same left column with the item list, the
+totals and the summary button **removed** — not blurred, not greyed out, not
+present in the page at all (F1.2). In their place:
+
+- The item count, as plain text: "9 items so far".
+- A short line explaining that item details are visible to logged-in users, with
+  a link to the login page.
+
+The right-hand menu column is unchanged; menus are public. An anonymous visitor
+can therefore browse what the restaurant offers and see how busy the order is,
+which is enough to decide whether to log in and join it.
+
+The API never sends the item data to an anonymous caller
+([04_api.md](04_api.md)), so this is not a matter of the frontend hiding fields
+it received. Live updates follow the same split: an anonymous page subscribes to
+the same stream but receives only `order.item_count` and the header events, so
+the count stays current without item detail ever reaching the browser.
+
 ### Right column — the menu
 
 - Menu items grouped by category, categories in `sort_order`. When the
-  restaurant has no categories, one flat list ordered by item ID then name.
+  restaurant has no categories, one flat list.
+- Within a category, and in the flat list, items are ordered by their
+  restaurant-specific item ID and then by name (F4.6) — the order a printed menu
+  uses. Numeric IDs sort numerically, so 2 comes before 10. Items without an ID
+  come last.
 - Each category header can be collapsed. The collapsed state is per-session and
   not persisted.
 - A filter bar above the menu with three independent controls:
@@ -145,8 +169,17 @@ arrives, the visitor is shown a message and returned to the overview.
 ## Summary page
 
 Reached from the Summary button on the order page and from the summary button on
-the order tile. Readable by anyone, including anonymous visitors, for active and
-expired orders alike.
+the order tile, both of which appear only for participants.
+
+Readable by **participants only** (F1.3): the order's creator, anyone with at
+least one item in the order, and the administrator. For active and expired
+orders alike.
+
+A non-participant who reaches the URL directly — a bookmark, a pasted link, an
+order they have since been removed from — gets an explanatory page, not a raw
+403: "This summary is visible to the people taking part in the order." A visitor
+who is not logged in gets the same page with a login link, since logging in may
+well make them a participant.
 
 Four sections:
 

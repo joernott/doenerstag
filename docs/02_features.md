@@ -8,9 +8,16 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 ## F1 — Browsing without an account
 
 - **F1.1** Any visitor, logged in or not, can see the list of orders.
-- **F1.2** Any visitor can open an order and see its items, who ordered them,
-  their modifications and the running total.
-- **F1.3** Any visitor can see the summary page of an order.
+- **F1.2** A visitor who is **not logged in** can open an order and see its
+  header — restaurant, fulfilment type, fulfilment time, deadline and status —
+  and the **number of order items**. They cannot see the items themselves, who
+  ordered them, their modifications or any total. A logged-in user sees the
+  full item list.
+- **F1.3** The summary page of an order is visible only to **participants**: the
+  order's creator, any logged-in user who has at least one item in that order,
+  and the administrator. The creator is included even when they have ordered
+  nothing themselves, because the creator is normally the person who calls the
+  restaurant.
 - **F1.4** Any visitor can see the restaurant list, restaurant details, opening
   hours and menus.
 - **F1.5** Any visitor can see the version, imprint and legal notes pages.
@@ -66,8 +73,11 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 - **F4.5** Only the administrator can delete a menu item or category. Deletion is
   a soft delete; the row survives until no order item references it and the
   retention window has passed.
-- **F4.6** If a restaurant has no categories, menu items are ordered by their
-  restaurant-specific item ID and then by name.
+- **F4.6** Menu items are always ordered by their restaurant-specific item ID and
+  then by name — within a category, and in the flat list when a restaurant has no
+  categories at all. This is how printed menus are laid out, so it is the order
+  people expect. A purely numeric item ID sorts numerically, so 2 comes before
+  10; items without an ID sort last.
 - **F4.7** Menu items can be filtered in the UI by free tags and, independently,
   by allergens and additives.
 
@@ -121,11 +131,15 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   [adr/0003-sse-for-order-updates.md](adr/0003-sse-for-order-updates.md).
 - **F7.3** When the deadline passes while the page is open, the page switches
   itself into the read-only state.
+- **F7.4** The stream respects F1.2. A logged-in subscriber receives the item
+  events. An anonymous subscriber receives only the order header events and a
+  running item count, never any item detail.
 
 ## F8 — Summary
 
 - **F8.1** Every order has a summary page, reachable from a button on the order
-  page and from a button on the order's tile in the overview.
+  page and from a button on the order's tile in the overview. Both buttons are
+  shown only to participants as defined in F1.3.
 - **F8.2** The summary aggregates identical items — same menu item, same set of
   predefined modifications, same free text — into one line with a count.
 - **F8.3** The summary shows a per-person breakdown with per-person totals.

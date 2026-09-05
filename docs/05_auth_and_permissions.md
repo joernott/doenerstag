@@ -14,13 +14,50 @@ consequences outside the application: **passwords** (people reuse them) and
 
 ## Anonymous access
 
-Reading is open. An unauthenticated visitor can see every order, every order
-item including the names of the people who ordered them, every restaurant and
-every menu. No login wall, no invite link.
+Reading is mostly open, but not entirely. An unauthenticated visitor can see:
+
+- Every restaurant, its contacts, opening hours and full menu.
+- The list of orders, and each order's header: restaurant, fulfilment type and
+  time, deadline, status and creator.
+- **How many** items an order has — but not the items themselves.
+- The version, imprint and legal notes pages.
+
+An unauthenticated visitor **cannot** see:
+
+- The order items: what was ordered, by whom, with which modifications, or any
+  total (F1.2).
+- Any order's summary page. That is restricted further still, to participants
+  (F1.3).
+
+The line is drawn so that the application is useful before you log in — you can
+see that a Döner Palast order closes at 11:30 and that nine items are already in
+it — without publishing to every passer-by on the network what each named
+colleague eats. That data is where the privacy sensitivity actually sits; see
+[13_legal_and_privacy.md](13_legal_and_privacy.md).
+
+This is enforced server-side. The anonymous response shape simply does not
+contain the item data; the frontend is not trusted to hide it.
 
 An unauthenticated visitor can change nothing. The frontend hides or disables
 every control that would write, and the API rejects every non-`GET` request from
 an anonymous caller with error 2000.
+
+## Participants
+
+Several rules turn on whether a user is a **participant** of an order. A
+participant is:
+
+- the order's creator, **or**
+- any user holding at least one `order_item` in that order, **or**
+- the administrator.
+
+The creator counts even with no items of their own, because the creator is
+normally the person who phones the restaurant and reads from the summary.
+
+Participation is derived, never stored: it is a query against `food_order.creator_id`
+and `order_item.user_id`. Adding an item makes you a participant immediately;
+removing your last item stops you being one. A user who is removed from an
+order therefore loses access to its summary, which is intended.
 
 ## Registration
 
@@ -33,11 +70,55 @@ account.
 | Display name        | Optional, 1–64 characters. Falls back to the user name.             |
 | E-mail              | Optional. Format-checked, never verified, never used to send mail.  |
 | Password length     | Minimum 10, maximum 256 characters.                                 |
-| Password complexity | No composition rules. Length is the only requirement.               |
+| Password complexity | At least three of the five character classes below.                 |
 
-Following NIST SP 800-63B, there are no forced character-class rules and no
-password expiry. The registration form shows a strength meter but does not block
-on it.
+There is no password expiry — passwords are changed when there is a reason to
+change them, not on a calendar.
+
+### Password complexity rules
+
+A password must satisfy **at least three** of these five rules:
+
+| # | Rule                             | Character set                                              |
+| - | -------------------------------- | ---------------------------------------------------------- |
+| 1 | At least one upper case letter   | `A`–`Z`                                                     |
+| 2 | At least one lower case letter   | `a`–`z`                                                     |
+| 3 | At least one digit               | `0`–`9`                                                     |
+| 4 | At least one special character   | ``<>|-_.:,;#'!"§$%&/()[]{}?@``                              |
+| 5 | At least one language-specific character, currency symbol or other non-ASCII printable character | e.g. `äöüÄÖÜß`, `áàâéèêíìîóòôúùû`, `ñçøåæ`, `€`, `£`, `¥` |
+
+Implementation notes:
+
+- Rule 5 is defined by exclusion, not by a fixed list: any printable character
+  that is not covered by rules 1–4 and is not a plain ASCII space satisfies it.
+  Enumerating accented characters would leave out somebody's alphabet, and the
+  examples above are examples, not the specification.
+- Classification runs over Unicode code points after NFC normalization, so a
+  precomposed `ä` and a decomposed `a` + combining diaeresis count the same.
+- The password is normalized to NFC before hashing as well, so a password typed
+  on a Mac verifies on Windows.
+- Space is permitted anywhere and satisfies no rule on its own; passphrases pass
+  easily on rules 1, 2 and 5 or 4.
+- The maximum of 256 characters is applied to the code point count, not the byte
+  count.
+
+The frontend shows which rules are currently satisfied as the password is typed,
+and the backend enforces the same check independently — a password set through
+the API is subject to identical rules. Failing the check returns error 1010,
+naming how many rules were met but never echoing the password.
+
+### A note on this choice
+
+Composition rules of this kind are no longer what NIST SP 800-63B recommends;
+length and a check against known-breached passwords are the current guidance,
+because forced classes push people toward `Password1!` and its relatives.
+
+The three-of-five form used here is a reasonable compromise: it is permissive
+enough that a long passphrase passes without contortion, and it is what most
+organizations' password policies expect to see. Combined with the 10-character
+minimum it is comfortably strong enough for an intranet tool. Keeping it means
+the application does not need to ship and maintain an offline breached-password
+list, which the no-internet requirement would otherwise force.
 
 ## Password storage
 
@@ -183,7 +264,9 @@ deliberate non-feature; if the password is lost, the operator resets it with
 
 | Action                                        | Anonymous | User | Owner / creator | Admin |
 | --------------------------------------------- | :-------: | :--: | :-------------: | :---: |
-| View orders, items, summaries                 | ✓ | ✓ | ✓ | ✓ |
+| View the order list and each order's item count | ✓ | ✓ | ✓ | ✓ |
+| View an order's items and totals              | – | ✓ | ✓ | ✓ |
+| View an order's summary page                  | – | participants only | ✓ | ✓ |
 | View restaurants, menus, opening hours        | ✓ | ✓ | ✓ | ✓ |
 | View imprint, legal notes, version            | ✓ | ✓ | ✓ | ✓ |
 | Register an account                           | ✓ | – | – | – |

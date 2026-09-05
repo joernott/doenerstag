@@ -261,3 +261,60 @@ the specification.
 > part H:
 >
 > please act on all the typos and the broken sentence.
+
+### Prompt 3
+
+> Please add the requirement of using the
+> https://github.com/julienschmidt/httprouter package for handling the API and
+> stastic endpoints
+>
+> Reduce the http timeout default value to not kill the SSE streams.
+>
+> Modify feature F1.2. Users that are not logged in can't see the ordered items,
+> only the number of order items
+>
+> Modify feature F1.3 that only logged in users who have participated in an order
+> can see the summary page
+>
+> Modify feature F4.6 that items inside categories are also ordered by their
+> restaurant specific ID and then name as this is usually the case on a menu
+> anyway.
+>
+> In 03_data_model.md, the table currency is has name_en and name_de fields. The
+> translation of the currency names should be managed by the i18n functionality
+> of the frontend. I prefer this over adding more columns to the table whenever
+> we add a translation.
+>
+> In 05_auth_and_permissions.md, please add the following password complexity
+> rules:
+> The password must satisfy at least 3 of the below rules:
+> - Must contain at least one upper letter
+> - Must contain at least one lower case letter
+> - Must contain at least one digit
+> - Must contain at least one special character out of
+>   &lt;&gt;|-_.:,;#'!"§$%&/()[]{}?@
+> - Must contain at least one language specific character, currenccy symbol etc.
+>   for example äöüÄÖÜß€áàâéèêíìîóòôúùû and so on
+>
+> In 06_ui_ux.md Don't limit the languages in the language selector to German and
+> English but rather to the list of available translations that are part of the
+> application. The initial version will only provide those two languages but
+> later iterations may add more languages.
+>
+> In 09_configuration.md, change the rule to warn if the configuration has another
+> file mode than 0600 to a fatal error. Warnings can be ignored, fatal errors that
+> prevent the application from starting must be fixed.
+>
+> In 10_operations.md: Add an alternative to step one in the installation routine
+> that installs a .deb package on Debian or Ubuntu and a .rpm on Redhat
+> derivatives. These packages will alo contain the cronjob definitions, a
+> logrotate configuration and a systemd service.
+> Also add a section to run the application with docker/docker compose.
+>
+> Related to 13_legal_and_privacy.md: Check the dependencies listed in
+> 08_technologies.md, whether the doenerstag application can use the BSD 3-clause
+> license and if so, add the license file.
+
+### Prompt 4
+
+> Please move the names for allergen and additive to the catalogs, too.

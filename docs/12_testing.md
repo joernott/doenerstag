@@ -33,7 +33,16 @@ Cover the logic that has no business touching a database:
   path.
 - JWT creation and validation, including tampered signatures and expired tokens.
 - CSRF token comparison.
+- Password complexity: the three-of-five rule, with a table-driven case per
+  class and per combination, including a passphrase that passes on classes 1, 2
+  and 5, a password that meets exactly two classes and is rejected, NFC
+  normalization making a decomposed `ä` count as class 5, and the code-point
+  length limit.
 - Configuration precedence: default, then file, then environment, then flag.
+- The configuration file permission check: `0600` and `0400` pass, `0640`,
+  `0644` and `0666` produce a FATAL, and the check is skipped on Windows.
+- Menu item ordering: numeric IDs sorting numerically (2 before 10), mixed IDs
+  sorting as text, missing IDs last, name as the tie-break.
 - The secret-on-the-command-line rule producing a FATAL for each of the four
   settings.
 - Log redaction: none of the deny-listed field names appear in output.
@@ -58,9 +67,12 @@ Covered:
 
 - Every migration applies up and rolls back down cleanly, from empty and from
   each intermediate version.
-- Seed data is present and correct after migration: 14 allergens, 14 additives,
-  the currency list, the contact types, the default tags, the deleted-user
+- Seed data is present and correct after migration: 14 allergens with their
+  Annex II `reference` numbers 1–14, 14 additives, the currency list with its
+  symbols and minor units, the contact types, the default tags, the deleted-user
   placeholder with exactly the id `00000000-0000-7000-8000-000000000000`.
+  Codes are asserted individually, since they are now the only identifier these
+  rows carry and renaming one silently breaks its translation.
 - Every constraint actually rejects what it should: `deadline_at <
   fulfilment_at`, `quantity >= 1`, non-negative prices, the per-restaurant
   uniqueness of category and menu item names, the day-of-week range.
@@ -90,6 +102,38 @@ For each endpoint:
 - CSRF: a cookie-authenticated write without `X-CSRF-Token` returns 2005; the
   same request with a Bearer token succeeds.
 
+Three rules get their own dedicated tests, because each is a place where a
+refactor could silently leak data:
+
+- **Anonymous order visibility (F1.2).** `GET /orders/{id}` and `GET /orders` as
+  an anonymous caller must return `item_count` and no `items` key at all. The
+  test asserts on the serialized JSON, not on a struct, so a field that reappears
+  through an embedded type is caught. A companion test walks the whole anonymous
+  response body for any user name or menu item name present in the fixture and
+  fails if one appears.
+- **Summary access (F1.3).** The creator with no items of their own succeeds; a
+  user with an item succeeds; the administrator succeeds; a logged-in
+  non-participant gets 403 error 3004; an anonymous caller gets 403. A user whose
+  last item is removed loses access on the next request.
+- **SSE payload split (F7.4).** An anonymous subscriber receives
+  `order.item_count` and header events only, never `item.*`. An authenticated
+  subscriber on the same order receives the item events. Both subscribe to one
+  order simultaneously and the test asserts each got its own event set.
+
+Two further router-level tests follow from using `httprouter`:
+
+- Constructing the full production router must not panic. httprouter rejects
+  conflicting routes at registration time, so this catches a wildcard collision
+  in CI rather than at server startup.
+- The SPA fallback: an unmatched path not starting with `/api/` serves
+  `index.html`; an unmatched path under `/api/` returns JSON 404 error 4000.
+
+And one that guards the timeout configuration:
+
+- An SSE stream held open for longer than `--http-write-timeout` is still
+  delivering events. This proves the write-deadline exemption is in place; without
+  it the stream dies silently at the timeout and live updates simply stop.
+
 Cross-cutting API tests:
 
 - Every response carries the security headers from
@@ -113,8 +157,20 @@ Cross-cutting API tests:
 formatting of dates and money, the client-side validation rules, and the
 API-error-code-to-message mapping.
 
-A catalog test fails the build when the German catalog is missing a key present
-in the English one.
+Three catalog tests, none of which names a language, so all keep working as
+translations are added:
+
+- Any catalog in the registry missing a key present in the English one fails the
+  build.
+- Every catalog declares a well-formed `_meta` block.
+- **Reference data completeness.** Every `code` seeded by a migration has a
+  matching catalog key in every catalog: `allergen.<code>`, `additive.<code>`,
+  `currency.<code>`, `contact_type.<code>` and `tag.<code>` for the seeded tags.
+  The codes are read from the migration files, not from a list maintained
+  alongside the test, so adding a seeded row without its translations fails CI.
+  Since these tables no longer carry name columns, this check is the only thing
+  standing between a new seed row and an allergen rendered to a user as
+  `sulphites`.
 
 **Playwright**, against a real server with a seeded database, in Firefox and
 Chromium:
@@ -168,9 +224,23 @@ Every push and pull request runs, in this order, failing fast:
 
 1. `make lint` — `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.
 2. `govulncheck ./...`.
-3. `make test` — Go unit and integration tests with a PostgreSQL 18 service
+3. `go-licenses check` against the allow-list in
+   [08_technologies.md](08_technologies.md#licensing), plus a check that
+   `THIRD_PARTY_LICENSES` is up to date. A dependency added without its licence
+   fails here rather than at release time.
+4. `make test` — Go unit and integration tests with a PostgreSQL 18 service
    container, plus Vitest.
-4. `make release` — proves the embedded build compiles.
-5. Playwright against the release binary with a seeded database.
+5. `make release` — proves the embedded build compiles.
+6. Playwright against the release binary with a seeded database.
 
-A merge is blocked on all five. Coverage is reported but does not block.
+A merge is blocked on all six. Coverage is reported but does not block.
+
+On a release tag, two further steps run and must also pass:
+
+7. `make packages` — builds the `.deb` and `.rpm`, then installs each in a
+   throwaway container and asserts that the unit file, the `logrotate` rule and
+   the cron entry landed where [10_operations.md](10_operations.md) says they do,
+   that the config file is mode `0600`, and that `doenerstag --version` reports
+   the tag.
+8. `make image` — builds the container image for both architectures and runs
+   `doenerstag --version` inside it.

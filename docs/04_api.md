@@ -21,6 +21,12 @@
 - **Documentation**: the API is described by an OpenAPI 3.1 document at
   `/api/v1/openapi.json`. Swagger UI is served from `/tools/swagger` unless
   disabled with `--no-swagger`.
+- **Routing**: all routes — API, static assets and the SPA fallback — are
+  registered on a single `julienschmidt/httprouter` router. Path parameters use
+  httprouter's `:name` syntax, so `/orders/{id}/items/{iid}` in this document is
+  `/orders/:id/items/:iid` in code. See
+  [08_technologies.md](08_technologies.md) for the routing rules that follow
+  from that choice.
 
 ### HTTP methods
 
@@ -104,6 +110,7 @@ falls back to `message` when no translation exists.
 | 3001 | 403  | Only the order creator may change this order.                   |
 | 3002 | 403  | Only the owner may change this order item.                      |
 | 3003 | 403  | The deleted-user placeholder cannot be modified.                |
+| 3004 | 403  | Only participants of this order may see its summary.            |
 | 4000 | 404  | Resource not found.                                             |
 | 4001 | 409  | Order deadline has passed; the order is read-only.              |
 | 4002 | 409  | The restaurant cannot be changed once the order has items.      |
@@ -137,7 +144,8 @@ Legend for the *Access* column:
 
 | Value       | Meaning                                                  |
 | ----------- | -------------------------------------------------------- |
-| public      | No authentication required.                               |
+| public      | No authentication required. May still return less to an anonymous caller — see `GET /orders/{id}`. |
+| participant | The order's creator, any user with at least one item in the order, or the administrator. |
 | user        | Any authenticated user.                                   |
 | owner       | The user who owns the resource, or the administrator.     |
 | creator     | The user who created the order, or the administrator.     |
@@ -209,16 +217,45 @@ parameter names, OR within one parameter name:
 
 | Method   | Path                             | Access  | Description                                           |
 | -------- | -------------------------------- | ------- | ----------------------------------------------------- |
-| `GET`    | `/orders`                        | public  | All orders, active first, each with derived title, status, deadline and item count. |
+| `GET`    | `/orders`                        | public  | All orders, active first, each with derived title, status, deadline and item count. Never any item detail. |
 | `POST`   | `/orders`                        | user    | Create an order. Copies currency, minimum value and delivery fee from the restaurant. |
-| `GET`    | `/orders/{id}`                   | public  | Order with all items and modifications.               |
+| `GET`    | `/orders/{id}`                   | public  | Order header. Items included only for authenticated callers — see below. |
 | `PATCH`  | `/orders/{id}`                   | creator | Update order fields. 409 after the deadline.          |
 | `DELETE` | `/orders/{id}`                   | creator | Delete the order and everything below it.             |
-| `GET`    | `/orders/{id}/summary`           | public  | Aggregated summary, see below.                        |
-| `GET`    | `/orders/{id}/events`            | public  | SSE stream of changes to this order.                  |
+| `GET`    | `/orders/{id}/summary`           | participant | Aggregated summary, see below. 403 error 3004 for everyone else. |
+| `GET`    | `/orders/{id}/events`            | public  | SSE stream of changes to this order. Payloads depend on authentication. |
 | `POST`   | `/orders/{id}/items`             | user    | Add an order item. Snapshots name and price.          |
 | `PATCH`  | `/orders/{id}/items/{iid}`       | owner   | Change quantity, note or modifications.               |
 | `DELETE` | `/orders/{id}/items/{iid}`       | owner   | Remove the item.                                      |
+
+### Order visibility
+
+`GET /orders/{id}` returns a different shape depending on who is asking (F1.2):
+
+- **Anonymous caller** — the order header only: id, derived title, restaurant,
+  fulfilment type and time, deadline, status, creator display name, currency,
+  minimum order value, delivery fee, and `item_count`. The `items` field is
+  **absent**, and no total of any kind is returned.
+- **Authenticated caller** — the same header plus `items`, each with its owner,
+  quantity, snapshots, modifications and line total, plus the order totals.
+
+`item_count` is present in both shapes so the frontend does not branch on it.
+`GET /orders` behaves the same way for every caller: header and `item_count`
+only, never item detail.
+
+The distinction is enforced in the handler, not by the frontend hiding fields.
+An anonymous caller must never receive item data in any response.
+
+### Summary access
+
+`GET /orders/{id}/summary` is restricted to participants (F1.3). A participant
+is the order's creator, any user holding at least one `order_item` in the order,
+or the administrator. Anonymous callers and logged-in non-participants get 403
+with error 3004.
+
+The creator counts as a participant even with no items of their own, because the
+creator is usually the person who phones the restaurant and the summary is what
+they read from.
 
 The summary response contains:
 
@@ -262,17 +299,29 @@ any of these are separate lines.
 ### Order event stream
 
 `GET /orders/{id}/events` returns `text/event-stream`. One stream per order,
-open to anonymous readers. Event types:
+open to anonymous readers — but what a subscriber receives depends on whether
+they are authenticated, mirroring the split in `GET /orders/{id}` (F7.4).
 
-| Event            | Payload                                       |
-| ---------------- | --------------------------------------------- |
-| `item.created`   | The new order item.                            |
-| `item.updated`   | The changed order item.                        |
-| `item.deleted`   | `{"id": "…"}`.                                 |
-| `order.updated`  | The changed order header.                      |
-| `order.deleted`  | `{"id": "…"}`. The client navigates away.      |
-| `order.expired`  | `{"id": "…"}`. The client switches to read-only.|
-| `ping`           | Empty. Sent every 30 s to keep proxies honest. |
+| Event             | Sent to        | Payload                                          |
+| ----------------- | -------------- | ------------------------------------------------ |
+| `item.created`    | authenticated  | The new order item.                               |
+| `item.updated`    | authenticated  | The changed order item.                           |
+| `item.deleted`    | authenticated  | `{"id": "…"}`.                                    |
+| `order.item_count`| anonymous      | `{"item_count": 9}`. Replaces the three item events for anonymous subscribers. |
+| `order.updated`   | everyone       | The changed order header.                         |
+| `order.deleted`   | everyone       | `{"id": "…"}`. The client navigates away.         |
+| `order.expired`   | everyone       | `{"id": "…"}`. The client switches to read-only.  |
+| `ping`            | everyone       | Empty. Sent every 30 s to keep proxies honest.    |
+
+The authentication state is captured when the stream is opened. A subscriber who
+logs in afterwards reconnects and gets the authenticated event set; the frontend
+does this automatically on login.
+
+The order's hub publishes one logical change, and the handler decides per
+subscriber which event that becomes. An anonymous subscriber must never receive
+an item payload, so the count is computed and sent instead — a change that does
+not alter the count still sends `order.item_count` with the unchanged value, so
+that no inference can be drawn from the absence of an event.
 
 The client reconnects automatically using the browser's built-in `EventSource`
 retry and re-fetches the full order on reconnect rather than replaying missed
@@ -282,12 +331,22 @@ events. There is no `Last-Event-Id` support.
 
 | Method | Path             | Access | Description                                  |
 | ------ | ---------------- | ------ | -------------------------------------------- |
-| `GET`  | `/tags`          | public | All free tags.                                |
+| `GET`  | `/tags`          | public | All free tags: id, code, and `name` for user-created ones. |
 | `POST` | `/tags`          | user   | Create a free tag.                            |
-| `GET`  | `/allergens`     | public | Seeded allergen list. Read-only.              |
-| `GET`  | `/additives`     | public | Seeded additive list. Read-only.              |
-| `GET`  | `/currencies`    | public | Seeded currency list with symbols.            |
-| `GET`  | `/contact-types` | public | Seeded contact type list.                     |
+| `GET`  | `/allergens`     | public | Seeded allergen list: id, code, `reference`, sort order. Read-only. |
+| `GET`  | `/additives`     | public | Seeded additive list: id, code, `reference`, sort order. Read-only. |
+| `GET`  | `/currencies`    | public | Seeded currency list: code, symbol, minor unit. |
+| `GET`  | `/contact-types` | public | Seeded contact type list: id, code, `render_as`, sort order. |
+
+**None of these endpoints returns a display name.** Seeded reference data is
+identified by a stable `code` and named by the frontend's i18n catalog — see
+[07_i18n.md](07_i18n.md#reference-data-names). A consumer without that catalog
+gets the code, which is a deliberately self-describing English word, plus the
+`reference` number where one exists.
+
+The exception is `/tags`: a tag a user invented at runtime has no catalog entry,
+so it carries the `name` they typed. Seeded tags have a catalog entry and their
+`name` is ignored by the frontend.
 
 ### Images
 
