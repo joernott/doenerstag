@@ -67,8 +67,8 @@ Sprint 3 needs configuration and logging to already work.
 | 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                   | S | [09](09_configuration.md) |
 | 1.6 | Secret-on-the-command-line rule: FATAL for each of the four settings                            | S | [09](09_configuration.md) |
 | 1.7 | Config file permission check: `0600`/`0400` pass, anything else FATAL, skipped on Windows        | S | [09](09_configuration.md) |
-| 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields                | M | [08](08_technologies.md) |
-| 1.9 | Redaction deny-list for the DEBUG parameter logging                                             | S | [08](08_technologies.md) |
+| ✅ 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields             | M | [08](08_technologies.md) |
+| ✅ 1.9 | Redaction deny-list for the DEBUG parameter logging                                          | S | [08](08_technologies.md) |
 | 1.10| Unit tests: precedence, secret rule, permission check, redaction, level mapping                  | M | [12](12_testing.md) |
 | 1.11| CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                                | M | [12](12_testing.md) |
 
