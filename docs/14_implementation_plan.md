@@ -66,7 +66,7 @@ Sprint 3 needs configuration and logging to already work.
 | 1.4 | viper wiring: defaults → config file → `DOENER_*` → flags, with the nested-key mapping           | M | [09](09_configuration.md) |
 | ✅ 1.4.1 | Duration parser extending `time.ParseDuration` with day and week units. Added because the documented defaults `7d` and `14d` are rejected outright by the standard library, which stops at hours. | S | [09](09_configuration.md) |
 | ✅ 1.4.2 | Byte-size parser for `--max-image-size`. Added because `5MiB` has no parser in the standard library. | S | [09](09_configuration.md) |
-| 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                   | S | [09](09_configuration.md) |
+| ✅ 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                | S | [09](09_configuration.md) |
 | ✅ 1.6 | Secret-on-the-command-line rule: FATAL for each of the four settings                         | S | [09](09_configuration.md) |
 | ✅ 1.7 | Config file permission check: `0600`/`0400` pass, anything else FATAL, skipped on Windows     | S | [09](09_configuration.md) |
 | ✅ 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields             | M | [08](08_technologies.md) |

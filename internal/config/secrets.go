@@ -38,12 +38,23 @@ func (e *SecretOnCommandLineError) Error() string {
 		"and is recorded in shell history")
 
 	// Say where the value does belong, so the message is actionable.
-	b.WriteString(".\nSupply it")
-	alternatives := alternativeSources(e.Flags)
-	b.WriteString(" " + strings.Join(alternatives, ", "))
-	b.WriteString(" instead")
+	b.WriteString(".\nSupply it ")
+	b.WriteString(joinWithOr(alternativeSources(e.Flags)))
+	b.WriteString(" instead.")
 
 	return b.String()
+}
+
+// joinWithOr renders a list as prose: "a", "a or b", "a, b or c".
+func joinWithOr(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	default:
+		return strings.Join(items[:len(items)-1], ", ") + " or " + items[len(items)-1]
+	}
 }
 
 // alternativeSources describes where each offending secret may legitimately
@@ -63,7 +74,7 @@ func alternativeSources(flags []string) []string {
 	}
 	sources = append(sources, "in the matching "+EnvPrefix+"_* environment variable")
 	if !viaFile {
-		sources = append(sources, "or at the interactive prompt")
+		sources = append(sources, "at the interactive prompt")
 	}
 	return sources
 }

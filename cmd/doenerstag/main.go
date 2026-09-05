@@ -34,13 +34,14 @@ func run(args []string, stdout, stderr *os.File) int {
 	root.SetErr(stderr)
 
 	if err := root.Execute(); err != nil {
-		var notImplemented *notImplementedError
-		if errors.As(err, &notImplemented) {
-			// Not a usage problem, so report it plainly without the usage dump.
-			fmt.Fprintln(stderr, "Error:", err)
+		if errors.Is(err, errAlreadyReported) {
+			// A FATAL line has already been written; saying it twice in two
+			// different formats would only be confusing.
 			return exitFailure
 		}
-		// cobra has already reported usage errors on stderr.
+		// Errors are silenced on the commands so that cobra does not print
+		// them alongside the usage text, which means reporting them here.
+		fmt.Fprintln(stderr, "Error:", err)
 		return exitFailure
 	}
 	return exitOK

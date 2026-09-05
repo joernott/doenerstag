@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/joernott/doenerstag/internal/config"
+	"github.com/joernott/doenerstag/internal/version"
 )
 
 // notImplementedError marks a verb whose behaviour a later sprint delivers. It
@@ -28,6 +31,8 @@ func notImplemented(verb, task string) func(*cobra.Command, []string) error {
 
 // newRootCommand builds the whole command tree.
 func newRootCommand() *cobra.Command {
+	app := &appContext{}
+
 	root := &cobra.Command{
 		Use:   "doenerstag",
 		Short: "Coordinate food orders for a group",
@@ -42,10 +47,20 @@ It does not take payments and does not place orders with restaurants.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+
+		Version: version.String(),
+
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
+
+	// --version reports what the binary is, without touching the database.
+	// The `version` verb reports what the database says is installed. The two
+	// can disagree, and noticing that is the point of having both.
+	root.SetVersionTemplate("{{.Version}}\n")
+
+	config.RegisterGlobalFlags(root.PersistentFlags())
 
 	root.AddCommand(
 		newServerCommand(),
@@ -55,11 +70,24 @@ It does not take payments and does not place orders with restaurants.`,
 		newVersionCommand(),
 	)
 
+	// Resolve configuration and start logging before any verb runs. The root
+	// command itself is skipped: it only prints help, and failing that on a
+	// malformed configuration file would be unhelpful.
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if cmd == root {
+			return nil
+		}
+		return app.setup(cmd, verbScopes[cmd.Name()])
+	}
+	root.PersistentPostRun = func(*cobra.Command, []string) {
+		app.Close()
+	}
+
 	return root
 }
 
 func newServerCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Run the web server",
 		Long: `Run the HTTPS web server, serving the frontend and the REST API.
@@ -71,10 +99,12 @@ deployments behind a TLS-terminating reverse proxy.`,
 		SilenceErrors: true,
 		RunE:          notImplemented("server", "4.8"),
 	}
+	config.RegisterScopeFlags(cmd.Flags(), config.ScopeServer)
+	return cmd
 }
 
 func newInstallCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Set up the database and write a configuration file",
 		Long: `Provision the database and write a configuration file, interactively.
@@ -90,10 +120,12 @@ stored.`,
 		SilenceErrors: true,
 		RunE:          notImplemented("install", "3.1"),
 	}
+	config.RegisterScopeFlags(cmd.Flags(), config.ScopeInstall)
+	return cmd
 }
 
 func newUpdateCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an existing installation",
 		Long: `Apply outstanding database migrations and bring the configuration file
@@ -106,10 +138,13 @@ Updating is not possible before the first release has shipped.`,
 		SilenceErrors: true,
 		RunE:          notImplemented("update", "14.4"),
 	}
+	// update takes the same flags as install.
+	config.RegisterScopeFlags(cmd.Flags(), config.ScopeInstall)
+	return cmd
 }
 
 func newCleanupCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "cleanup",
 		Short: "Remove expired orders and unreferenced data",
 		Long: `Delete orders whose deadline is older than the retention period, together
@@ -122,6 +157,8 @@ to run twice. Use --dry-run to see what a run would remove.`,
 		SilenceErrors: true,
 		RunE:          notImplemented("cleanup", "9.7"),
 	}
+	config.RegisterScopeFlags(cmd.Flags(), config.ScopeCleanup)
+	return cmd
 }
 
 func newVersionCommand() *cobra.Command {
