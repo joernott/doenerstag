@@ -11,6 +11,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -27,7 +28,7 @@ func main() {
 // run executes the command tree and returns the process exit code. Keeping it
 // separate from main, with explicit arguments and streams, is what makes the
 // command tree testable.
-func run(args []string, stdout, stderr *os.File) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	root := newRootCommand()
 	root.SetArgs(args)
 	root.SetOut(stdout)

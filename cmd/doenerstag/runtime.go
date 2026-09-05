@@ -62,10 +62,18 @@ func (a *appContext) setup(cmd *cobra.Command, scope config.Scope) error {
 		return errAlreadyReported
 	}
 
-	logger, err := logging.New(logging.Options{
+	logOptions := logging.Options{
 		Level: cfg.Log.Level,
 		File:  cfg.Log.File,
-	})
+	}
+	if cfg.Log.File == "" {
+		// Write to the command's own output stream rather than reaching for
+		// os.Stdout directly. In production cobra hands back os.Stdout, so the
+		// behaviour is identical, and it lets a test capture the log.
+		logOptions.Output = cmd.OutOrStdout()
+	}
+
+	logger, err := logging.New(logOptions)
 	if err != nil {
 		reportFatal(cmd, err)
 		return errAlreadyReported
