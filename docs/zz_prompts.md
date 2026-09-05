@@ -318,3 +318,9 @@ the specification.
 ### Prompt 4
 
 > Please move the names for allergen and additive to the catalogs, too.
+
+### Prompt 5
+
+> Please create a list of implementation tasks that are grouped by sprints. Order
+> these sprints and tasks so that we don't need to run multiple sprints in
+> parallel. Focus on setting up the database and running the installer first

@@ -13,7 +13,8 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-Specification only. No code yet.
+Specification only. No code yet. The build order is planned in
+[docs/14_implementation_plan.md](docs/14_implementation_plan.md).
 
 ## Documentation
 
@@ -35,6 +36,7 @@ The specification lives in [docs/](docs/). Start with
 | [11_nonfunctional.md](docs/11_nonfunctional.md) | Security, performance, browsers |
 | [12_testing.md](docs/12_testing.md) | Test strategy |
 | [13_legal_and_privacy.md](docs/13_legal_and_privacy.md) | GDPR and legal obligations |
+| [14_implementation_plan.md](docs/14_implementation_plan.md) | Sprint plan and task list |
 | [adr/](docs/adr/) | Architecture decision records |
 
 ## Stack

@@ -91,5 +91,6 @@ The following are explicitly *not* part of the application:
 | [11_nonfunctional.md](11_nonfunctional.md)                       | Security, performance, browser support, accessibility targets.  |
 | [12_testing.md](12_testing.md)                                   | Test strategy and coverage expectations.                        |
 | [13_legal_and_privacy.md](13_legal_and_privacy.md)               | GDPR obligations, imprint and legal notes pages.                |
+| [14_implementation_plan.md](14_implementation_plan.md)           | Sprint-by-sprint build order and task list.                     |
 | [adr/](adr/)                                                     | Architecture decision records.                                  |
 | [zz_prompts.md](zz_prompts.md)                                   | Development prompt log. Not part of the specification.          |
