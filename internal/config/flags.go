@@ -33,6 +33,13 @@ func registerScope(flags *pflag.FlagSet, scope Scope) {
 // first with an unhelpful "unknown flag" and the operator would never learn why
 // it is refused.
 func registerSetting(flags *pflag.FlagSet, s Setting) {
+	// Registering the same flag twice makes pflag panic. That can happen when a
+	// caller asks for a scope whose settings are already present, so it is
+	// tolerated rather than fatal: the first registration is authoritative.
+	if flags.Lookup(s.Flag) != nil {
+		return
+	}
+
 	usage := s.Usage
 	if s.Secret {
 		usage += " (must not be passed on the command line)"
