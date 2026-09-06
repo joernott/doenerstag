@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -125,4 +126,52 @@ func hasJSONContentType(r *http.Request) bool {
 		declared = declared[:i]
 	}
 	return strings.EqualFold(strings.TrimSpace(declared), "application/json")
+}
+
+// decodeJSONWithRaw decodes a body into target and also records which top-level
+// keys were present.
+//
+// encoding/json collapses "absent" and "null" to the same nil pointer, and for
+// a nullable column the difference is "leave it alone" versus "clear it". A
+// second pass over the same bytes into a map is the cheapest way to tell them
+// apart; the alternative is a custom type per nullable field, which is a lot of
+// machinery for three columns.
+func decodeJSONWithRaw(w http.ResponseWriter, r *http.Request, target any, keys *rawPatch) bool {
+	if !hasJSONContentType(r) {
+		WriteError(w, r, &Error{
+			Code:   CodeInvalidField,
+			Detail: "the request body must be application/json",
+		})
+		return false
+	}
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxJSONBodyBytes))
+	if err != nil {
+		WriteError(w, r, jsonError(err))
+		return false
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		WriteError(w, r, jsonError(err))
+		return false
+	}
+	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
+		WriteError(w, r, &Error{
+			Code:   CodeMalformedJSON,
+			Detail: "the request body must contain exactly one JSON object",
+		})
+		return false
+	}
+
+	// The strict pass above has already accepted the body, so this one cannot
+	// fail on anything the caller can influence.
+	present := make(rawPatch)
+	if err := json.Unmarshal(body, &present); err != nil {
+		WriteError(w, r, &Error{Code: CodeMalformedJSON, Cause: err})
+		return false
+	}
+	*keys = present
+	return true
 }

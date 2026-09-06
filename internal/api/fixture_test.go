@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
@@ -43,6 +44,7 @@ type apiFixture struct {
 	authenticator *api.Authenticator
 	limiter       *api.LoginLimiter
 	users         *api.UserHandlers
+	restaurants   *api.RestaurantHandlers
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -117,6 +119,8 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	// The system endpoints are here so the permission matrix can assert the
 	// public-read rows against a real route rather than a stand-in.
 	(&api.SystemHandlers{Pool: pool}).Register(f.router)
+	f.restaurants = &api.RestaurantHandlers{Pool: pool}
+	f.restaurants.Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()
@@ -418,4 +422,27 @@ func (f *apiFixture) countSessions(name string) int {
 		f.t.Fatalf("counting sessions for %q: %v", name, err)
 	}
 	return count
+}
+
+// hour is a shorthand for the seed helpers' deadlines.
+const hour = time.Hour
+
+// seedOrderAt puts an order against a given restaurant, for the tests that need
+// one to exist without going through sprint 8's API.
+func (f *apiFixture) seedOrderAt(restaurantID, creator string, deadline time.Time) uuid.UUID {
+	f.t.Helper()
+
+	creatorID := uuid.MustParse(f.userID(creator))
+	orderID := uuid.Must(uuid.NewV7())
+
+	if _, err := f.pool.Exec(context.Background(), `
+		INSERT INTO food_order (id, creator_id, restaurant_id, fulfilment,
+		                        fulfilment_at, deadline_at, currency_code,
+		                        created_by, updated_by)
+		VALUES ($1, $2, $3, 'pickup', $4::timestamptz + interval '1 hour',
+		        $4::timestamptz, 'EUR', $2, $2)`,
+		orderID, creatorID, uuid.MustParse(restaurantID), deadline); err != nil {
+		f.t.Fatalf("seeding an order: %v", err)
+	}
+	return orderID
 }
