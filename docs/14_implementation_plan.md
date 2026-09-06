@@ -17,6 +17,29 @@ that follows dependency order.
 - A task is done when it is implemented, tested to the standard in
   [12_testing.md](12_testing.md), and CI is green.
 
+## Branching
+
+**Every sprint gets its own branch, named `sprint-<number>`.** A sprint's branch
+starts from the tip of the previous sprint's branch and ends at that sprint's
+last commit, so each branch is exactly the work of one sprint and the whole
+history reads as a sequence of them.
+
+| Branch     | Contains                                              |
+| ---------- | ----------------------------------------------------- |
+| `sprint-0` | The specification and this plan. No code.              |
+| `sprint-1` | Tasks 1.1 – 1.15.                                      |
+| `sprint-2` | Tasks 2.1 – 2.14.                                      |
+| `sprint-n` | The tasks of sprint n, branched from `sprint-(n-1)`.   |
+
+Commit messages carry the task number they implement, in the form
+`Task <n.m>: <description>`, so a commit can be traced to the plan entry it
+satisfies. A commit that closes several tasks names all of them.
+
+Work that belongs to no task — a defect found while running a later sprint's
+code, for instance — is committed on the branch of the sprint that found it,
+not retrofitted into the earlier one, and says in its message which sprint's
+artefacts it corrects.
+
 ## Milestones
 
 | After     | You can                                                                     |
