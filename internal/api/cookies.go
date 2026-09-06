@@ -67,3 +67,23 @@ func cookieValue(r *http.Request, name string) string {
 	}
 	return c.Value
 }
+
+// clearSessionCookies expires both cookies.
+//
+// The attributes must match the ones they were set with. A browser keys a
+// cookie on name, domain and path, so a deletion that differs in Path or Secure
+// creates a second, already-expired cookie and leaves the original in place --
+// which would look exactly like a logout that did nothing.
+func clearSessionCookies(w http.ResponseWriter, secure bool) {
+	for _, name := range []string{SessionCookieName, CSRFCookieName} {
+		http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is conditional on --no-https, as above
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: name == SessionCookieName,
+			Secure:   secure,
+			SameSite: http.SameSiteStrictMode,
+		})
+	}
+}

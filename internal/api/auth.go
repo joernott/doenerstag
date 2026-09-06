@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
@@ -81,6 +82,8 @@ func (h *AuthHandlers) log(r *http.Request) *zerolog.Logger {
 func (h *AuthHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPost, "/auth/register", h.register)
 	r.HandleFunc(http.MethodPost, "/auth/login", h.login)
+	r.HandleFunc(http.MethodPost, "/auth/logout", h.logout)
+	r.HandleFunc(http.MethodGet, "/auth/session", h.session)
 }
 
 // registerRequest is the body of POST /auth/register.
@@ -345,4 +348,51 @@ func clientAddress(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// logout ends the current session.
+//
+// Answering 200 for a caller who was not logged in is deliberate. Logout is a
+// request for a state -- "I am not logged in" -- and that state holds either
+// way. An error would only give the frontend something to handle that it can do
+// nothing about, on the one screen where the user is already trying to leave.
+func (h *AuthHandlers) logout(w http.ResponseWriter, r *http.Request) {
+	if principal := PrincipalFrom(r.Context()); principal != nil && principal.SessionID != uuid.Nil {
+		if err := db.DeleteSession(r.Context(), h.Pool, principal.SessionID); err != nil {
+			WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+			return
+		}
+	}
+
+	// Always clear the cookies, even when there was no session: a cookie
+	// pointing at a row that no longer exists is exactly the state that makes a
+	// browser collect a 2003 on every request until somebody clears it by hand.
+	clearSessionCookies(w, h.Secure)
+	_ = WriteJSON(w, http.StatusOK, sessionBody{User: nil})
+}
+
+// session reports who the caller is.
+//
+// Public, and answers {"user": null} for an anonymous caller rather than 401.
+// It is the endpoint the frontend calls on load to find out which of the two
+// interfaces to draw, and a 401 there would make "not logged in" an error
+// condition on every first page view.
+func (h *AuthHandlers) session(w http.ResponseWriter, r *http.Request) {
+	principal := PrincipalFrom(r.Context())
+	if principal == nil {
+		_ = WriteJSON(w, http.StatusOK, sessionBody{User: nil})
+		return
+	}
+
+	body := sessionBody{}
+	public := publicUser(principal.User)
+	body.User = &public
+
+	// A token-authenticated caller has no session and therefore no expiry.
+	if principal.SessionID != uuid.Nil {
+		if session, err := db.SessionByID(r.Context(), h.Pool, principal.SessionID); err == nil {
+			body.ExpiresAt = session.AbsoluteExpires.UTC().Format(time.RFC3339)
+		}
+	}
+	_ = WriteJSON(w, http.StatusOK, body)
 }

@@ -93,6 +93,7 @@ func newAPIFixture(t *testing.T) *apiFixture {
 		api.LogRequests(&logger),
 		api.Recover(&logger),
 		f.authenticator.Middleware(),
+		api.RequireCSRF(),
 	)
 	return f
 }
@@ -107,6 +108,12 @@ type request struct {
 	body    any
 	cookies []*http.Cookie
 	headers map[string]string
+
+	// omitCSRF suppresses the X-CSRF-Token header that a well-behaved client
+	// sends with every state-changing request. Only the CSRF tests set it: for
+	// every other test the header is noise, and forgetting it would turn a
+	// meaningful assertion into "2005 again".
+	omitCSRF bool
 }
 
 // do sends a request and returns the recorder.
@@ -133,6 +140,12 @@ func (f *apiFixture) do(req request) *httptest.ResponseRecorder {
 	}
 	for _, c := range req.cookies {
 		r.AddCookie(c)
+		// Behave like the frontend: read the CSRF cookie and echo it. Doing it
+		// here rather than in each test means a test that forgets it is not
+		// silently testing the CSRF guard instead of what it meant to.
+		if c.Name == api.CSRFCookieName && !req.omitCSRF && r.Header.Get(api.CSRFHeaderName) == "" {
+			r.Header.Set(api.CSRFHeaderName, c.Value)
+		}
 	}
 	// A plausible peer address: the session row records it, and httptest's
 	// default already includes a port, but being explicit documents that the

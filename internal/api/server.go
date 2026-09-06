@@ -121,6 +121,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Recover(opts.Logger),
 		SecurityHeaders(secure),
 		authenticator.Middleware(),
+		RequireCSRF(),
 	)
 
 	s.http = &http.Server{
