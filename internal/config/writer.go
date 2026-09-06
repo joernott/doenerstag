@@ -344,7 +344,11 @@ func CheckWritable(path string) error {
 		if existing.IsDir() {
 			return fmt.Errorf("cannot write %s: it is a directory", path)
 		}
-		file, err := os.OpenFile(path, os.O_WRONLY, 0) // no O_TRUNC, no O_CREATE
+		// The path is the operator's own --config or --output value: opening it
+		// is the entire purpose of this function, and there is nothing to
+		// sanitise it against. Deliberately no O_TRUNC and no O_CREATE, so the
+		// probe cannot damage the file it is asking about.
+		file, err := os.OpenFile(path, os.O_WRONLY, 0) //nolint:gosec // operator-supplied path, opened read-write-none
 		if err != nil {
 			return fmt.Errorf("cannot write %s: %w", path, err)
 		}

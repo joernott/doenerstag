@@ -168,7 +168,10 @@ func Normalise(password string) string {
 	return norm.NFC.String(password)
 }
 
-func parsePHC(encoded string) (Params, []byte, []byte, error) {
+// parsePHC splits a PHC string into the parameters it was made with, its salt
+// and the derived key. Two byte slices in a row is exactly the kind of return
+// signature worth naming.
+func parsePHC(encoded string) (params Params, salt, key []byte, err error) {
 	parts := strings.Split(encoded, "$")
 	// "", "argon2id", "v=19", "m=..,t=..,p=..", salt, key
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" {
@@ -185,24 +188,23 @@ func parsePHC(encoded string) (Params, []byte, []byte, error) {
 	}
 
 	var p Params
-	_, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d",
-		&p.Memory, &p.Iterations, &p.Parallelism)
-	if err != nil {
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d",
+		&p.Memory, &p.Iterations, &p.Parallelism); err != nil {
 		return Params{}, nil, nil, ErrMalformedHash
 	}
 
-	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	decodedSalt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return Params{}, nil, nil, ErrMalformedHash
 	}
-	key, err := base64.RawStdEncoding.DecodeString(parts[5])
+	decodedKey, err := base64.RawStdEncoding.DecodeString(parts[5])
 	if err != nil {
 		return Params{}, nil, nil, ErrMalformedHash
 	}
-	if len(salt) == 0 || len(key) == 0 {
+	if len(decodedSalt) == 0 || len(decodedKey) == 0 {
 		return Params{}, nil, nil, ErrMalformedHash
 	}
 
-	p.KeyLength = uint32(len(key)) //nolint:gosec // a hash length cannot overflow
-	return p, salt, key, nil
+	p.KeyLength = uint32(len(decodedKey)) //nolint:gosec // a hash length cannot overflow
+	return p, decodedSalt, decodedKey, nil
 }

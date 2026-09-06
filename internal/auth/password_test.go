@@ -144,11 +144,11 @@ func TestUnusableHashNeverVerifies(t *testing.T) {
 		}
 	}
 
-	real, err := Hash(goodPassword)
+	usable, err := Hash(goodPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if IsUnusable(real) {
+	if IsUnusable(usable) {
 		t.Error("a real hash was reported as unusable")
 	}
 }
