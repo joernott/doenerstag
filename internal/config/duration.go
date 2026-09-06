@@ -108,8 +108,14 @@ func expandDayAndWeekUnits(s string) (string, error) {
 
 func isASCIIDigit(b byte) bool { return b >= '0' && b <= '9' }
 
-// FormatDuration renders a duration the way the generated configuration file
-// writes it, preferring the largest whole unit so that 168h reads back as "7d".
+// FormatDuration renders a duration the way a person would write it, which is
+// what the generated configuration file needs: 168h reads back as "7d" and six
+// hours as "6h", not as "1w" and "6h0m0s".
+//
+// Weeks are parsed but never produced. A retention period or a session lifetime
+// is thought about in days, so "14d" is the useful rendering and "2w" is a
+// riddle. Anything that is not a whole number of days, hours, minutes or
+// seconds falls back to the standard library's form.
 func FormatDuration(d time.Duration) string {
 	if d == 0 {
 		return "0s"
@@ -120,14 +126,22 @@ func FormatDuration(d time.Duration) string {
 		d = -d
 	}
 
-	var s string
-	switch {
-	case d%(hoursPerWeek*time.Hour) == 0:
-		s = strconv.FormatInt(int64(d/(hoursPerWeek*time.Hour)), 10) + "w"
-	case d%(hoursPerDay*time.Hour) == 0:
-		s = strconv.FormatInt(int64(d/(hoursPerDay*time.Hour)), 10) + "d"
-	default:
-		s = d.String()
+	units := []struct {
+		size   time.Duration
+		suffix string
+	}{
+		{hoursPerDay * time.Hour, "d"},
+		{time.Hour, "h"},
+		{time.Minute, "m"},
+		{time.Second, "s"},
+	}
+
+	s := d.String()
+	for _, unit := range units {
+		if d%unit.size == 0 {
+			s = strconv.FormatInt(int64(d/unit.size), 10) + unit.suffix
+			break
+		}
 	}
 
 	if negative {
