@@ -9,6 +9,7 @@ import (
 
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/model"
+	"github.com/joernott/doenerstag/internal/sse"
 )
 
 type addItemRequest struct {
@@ -74,6 +75,8 @@ func (h *OrderHandlers) addItem(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, err)
 		return
 	}
+
+	h.publishItemChange(order.ID, sse.EventItemCreated, publicOrderItem(created))
 
 	_ = WriteJSON(w, http.StatusCreated, publicOrderItem(created))
 }
@@ -150,6 +153,8 @@ func (h *OrderHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.publishItemChange(order.ID, sse.EventItemUpdated, publicOrderItem(updated))
+
 	_ = WriteJSON(w, http.StatusOK, publicOrderItem(updated))
 }
 
@@ -182,6 +187,10 @@ func (h *OrderHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
 		return
 	}
+
+	h.publishItemChange(order.ID, sse.EventItemDeleted,
+		map[string]string{"id": item.ID.String()})
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

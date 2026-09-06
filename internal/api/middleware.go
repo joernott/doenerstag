@@ -164,8 +164,25 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return s.ResponseWriter.Write(b)
 }
 
-// Unwrap lets http.ResponseController reach the underlying writer, which is
-// what the event stream in sprint 9 needs to clear its write deadline.
+// Flush passes the flush through to the real writer.
+//
+// Embedding an http.ResponseWriter promotes only that interface's three
+// methods, so a wrapper silently hides everything else the real writer can do
+// -- Flush among them. A handler that type-asserts for http.Flusher gets a
+// failed assertion, and the SSE endpoint is the first thing in this
+// application that needs one. Nothing else noticed, because nothing else
+// streams.
+func (s *statusRecorder) Flush() {
+	if flusher, ok := s.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+//
+// That is how SetWriteDeadline gets through this wrapper, which the event
+// stream needs to clear the deadline --http-write-timeout would otherwise
+// impose on a connection meant to stay open for hours.
 func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 // LogRequests emits one INFO line per request.

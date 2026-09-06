@@ -66,7 +66,7 @@ It does not take payments and does not place orders with restaurants.`,
 		newServerCommand(app),
 		newInstallCommand(app),
 		newUpdateCommand(),
-		newCleanupCommand(),
+		newCleanupCommand(app),
 		newVersionCommand(app),
 	)
 
@@ -147,7 +147,7 @@ Updating is not possible before the first release has shipped.`,
 	return cmd
 }
 
-func newCleanupCommand() *cobra.Command {
+func newCleanupCommand(app *appContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cleanup",
 		Short: "Remove expired orders and unreferenced data",
@@ -159,7 +159,7 @@ to run twice. Use --dry-run to see what a run would remove.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE:          notImplemented("cleanup", "9.7"),
+		RunE:          func(cmd *cobra.Command, _ []string) error { return runCleanup(app, cmd) },
 	}
 	config.RegisterScopeFlags(cmd.Flags(), config.ScopeCleanup)
 	return cmd

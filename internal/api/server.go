@@ -16,6 +16,7 @@ import (
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/config"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/sse"
 	"github.com/joernott/doenerstag/internal/static"
 )
 
@@ -41,6 +42,9 @@ type Server struct {
 	// shutdown receives when the shutdown endpoint is called. Buffered, so the
 	// handler never blocks on whoever is running the server.
 	shutdown chan struct{}
+
+	// events is the SSE registry, kept so shutdown can close every stream.
+	events *sse.Registry
 }
 
 // NewServer builds the server and its routes.
@@ -114,7 +118,12 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	menuHandlers := &MenuHandlers{Pool: opts.Pool}
 	menuHandlers.Register(router)
 
-	orderHandlers := &OrderHandlers{Pool: opts.Pool}
+	s.events = sse.NewRegistry()
+	orderHandlers := &OrderHandlers{
+		Pool:   opts.Pool,
+		Events: s.events,
+		Logger: opts.Logger,
+	}
 	orderHandlers.Register(router)
 
 	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
@@ -334,6 +343,13 @@ func (s *Server) Shutdown() error {
 	}
 
 	s.logger.Info().Dur("grace", grace).Msg("shutting down")
+
+	// Close the event streams first. They are designed never to end, so leaving
+	// them open would make every shutdown wait out the whole grace period --
+	// http.Shutdown waits for active requests, and an SSE stream is one.
+	if s.events != nil {
+		s.events.CloseAll()
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), grace)
 	defer cancel()

@@ -150,7 +150,10 @@ func TestConfigurationIsWiredBeforeAVerbRuns(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	run([]string{"cleanup", "--config", path}, stdout, stderr)
+	// update is used because it is still a stub: the verb has to fail without
+	// touching the database, so that what this test observes is the startup
+	// sequence rather than a connection attempt.
+	run([]string{"update", "--config", path}, stdout, stderr)
 
 	// At DEBUG the startup line is emitted, on stdout, before the stub fails.
 	if !strings.Contains(stdout.String(), "configuration resolved") {

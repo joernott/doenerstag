@@ -337,14 +337,15 @@ name anywhere in the response body.
 
 | ID  | Task                                                                                          | Size | Spec |
 | --- | ----------------------------------------------------------------------------------------------- | :--: | ---- |
-| 9.1 | Summary aggregation, per-person breakdown, totals, below-minimum flag, plain-text rendering        | L | [04](04_api.md) |
-| 9.2 | Participant authorization with error 3004, creator included without items                         | M | [adr/0011](adr/0011-tiered-order-visibility.md) |
-| 9.3 | Per-order SSE hub with subscriber management                                                       | L | [adr/0003](adr/0003-sse-for-order-updates.md) |
-| 9.4 | Event publication after commit, including `order.expired`                                          | M | [04](04_api.md) |
-| 9.5 | Per-subscriber filtering: anonymous receives `order.item_count`, always republished                 | M | [02](02_features.md) |
-| 9.6 | Write-deadline exemption, 30-second `ping`, stream closure on shutdown                              | M | [09](09_configuration.md) |
-| 9.7 | `cleanup` verb: the six ordered steps plus `--dry-run`                                              | L | [09](09_configuration.md) |
-| 9.8 | Tests: aggregation, the SSE split, and a stream surviving past `--http-write-timeout`               | L | [12](12_testing.md) |
+| ✅ 9.1 | Summary aggregation, per-person breakdown, totals, below-minimum flag, plain-text rendering        | L | [04](04_api.md) |
+| ✅ 9.2 | Participant authorization with error 3004, creator included without items                         | M | [adr/0011](adr/0011-tiered-order-visibility.md) |
+| ✅ 9.3 | Per-order SSE hub with subscriber management                                                       | L | [adr/0003](adr/0003-sse-for-order-updates.md) |
+| ✅ 9.4 | Event publication after commit, including `order.expired`                                          | M | [04](04_api.md) |
+| ✅ 9.5 | Per-subscriber filtering: anonymous receives `order.item_count`, always republished                 | M | [02](02_features.md) |
+| ✅ 9.6 | Write-deadline exemption, 30-second `ping`, stream closure on shutdown                              | M | [09](09_configuration.md) |
+| ✅ 9.7 | `cleanup` verb: the six ordered steps plus `--dry-run`                                              | L | [09](09_configuration.md) |
+| ✅ 9.8 | Tests: aggregation, the SSE split, and a stream surviving past `--http-write-timeout`               | L | [12](12_testing.md) |
+| ✅ 9.8.1 | Restore `Flush` on the request-logging wrapper. Embedding an `http.ResponseWriter` hid it, so no handler beneath the middleware could stream | S | [adr/0003](adr/0003-sse-for-order-updates.md) |
 
 **Exit criteria:** a complete food order can be run end to end through the API.
 Two subscribers on one order, one anonymous and one authenticated, each receive
