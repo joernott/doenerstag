@@ -114,6 +114,7 @@ doenerstag/
 │   ├── config/              cobra + viper wiring, config file handling
 │   ├── db/                  connection pool, queries, migration runner
 │   ├── image/               decode, downscale, thumbnail
+│   ├── install/             the install and update verbs: prompts, provisioning, config writing
 │   ├── logging/             zerolog setup, correlation IDs
 │   ├── model/               domain types shared across packages
 │   ├── sse/                 per-order event hubs

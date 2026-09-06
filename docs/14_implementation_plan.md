@@ -171,7 +171,7 @@ administrator and a valid configuration file.
 
 | ID   | Task                                                                                        | Size | Spec |
 | ---- | -------------------------------------------------------------------------------------------- | :--: | ---- |
-| 3.1  | Interactive prompt framework, offering values from an existing config file as defaults         | M | [09](09_configuration.md) |
+| ✅ 3.1 | Interactive prompt framework, offering values from an existing config file as defaults       | M | [09](09_configuration.md) |
 | ✅ 3.2 | Safe output handling: writability probe that cannot truncate the input file, temp file + rename | M | [09](09_configuration.md) |
 | 3.3  | Root and admin identities: create database, create runtime role, grant DML only                 | L | [09](09_configuration.md) |
 | 3.4  | Apply migrations using the admin identity                                                       | S | [10](10_operations.md) |
@@ -181,7 +181,7 @@ administrator and a valid configuration file.
 | 3.8  | Load imprint and legal notes snippets from files, sanitize with bluemonday, insert                | M | [02](02_features.md) |
 | ✅ 3.9 | Config file writer: every setting with its explanatory comment, mode `0600`                     | M | [09](09_configuration.md) |
 | 3.10 | Append the `app_version` row                                                                     | S | [03](03_data_model.md) |
-| 3.11 | `--non-interactive` mode                                                                         | S | [09](09_configuration.md) |
+| ✅ 3.11 | `--non-interactive` mode                                                                      | S | [09](09_configuration.md) |
 | 3.12 | `version` verb reading the newest `app_version` row                                               | S | [09](09_configuration.md) |
 | 3.13 | Installer integration tests against a throwaway database                                          | L | [12](12_testing.md) |
 
