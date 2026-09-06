@@ -76,6 +76,7 @@ Sprint 3 needs configuration and logging to already work.
 | ✅ 1.12 | Extend `contrib/setup_dev_pipeline.sh` with everything the build and test pipeline needs at this stage | M | [08](08_technologies.md) |
 | ✅ 1.13 | Add the tools later sprints are already known to need to the same script                    | S | [08](08_technologies.md) |
 | ✅ 1.14 | Run the build and test pipeline on the Linux VM                                             | M | [12](12_testing.md) |
+| ✅ 1.15 | Keep the Windows and Linux coverage results side by side as `<os>-coverage.out`, and render each to `<os>-coverage.html` | S | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag --version` prints the version. Every verb runs and
 exits with a clear "not implemented". Passing a password on the command line is
@@ -92,6 +93,18 @@ It is deliberately close to what CI installs. The Windows workstation cannot run
 `go test -race`, which needs cgo, so the Linux VM is where the race detector and
 the Docker-dependent database tests from sprint 2 onwards actually run before
 they reach CI.
+
+### Coverage is per platform
+
+The two platforms do not execute the same code. The configuration file
+permission check is skipped on Windows and the `SIGHUP` log reopen does not
+exist there, so a single coverage number is an average of two different runs and
+hides which lines are actually unexercised on each.
+
+Coverage is therefore kept separately as `linux-coverage.out` and
+`windows-coverage.out`, each rendered to a matching `.html`, and both uploaded
+by CI. When a line looks uncovered, the question worth asking is *on which
+platform* — and that is only answerable if the two are never merged.
 
 ---
 

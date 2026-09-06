@@ -8,6 +8,8 @@
 # Test and coverage artefacts
 coverage.out
 coverage.html
+*-coverage.out
+*-coverage.html
 *.prof
 
 # Frontend toolchain

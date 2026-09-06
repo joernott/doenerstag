@@ -24,6 +24,14 @@ LDFLAGS     := -X $(VERSION_PKG).version=$(VERSION) \
 GO          ?= go
 GOFLAGS     ?=
 
+# Coverage is kept per platform. Windows skips the configuration file
+# permission check and has no SIGHUP log reopen, so a single merged number
+# would average two different runs and hide which lines are unexercised on
+# which platform.
+GOOS_NAME     := $(shell $(GO) env GOOS)
+COVERAGE_OUT  := $(GOOS_NAME)-coverage.out
+COVERAGE_HTML := $(GOOS_NAME)-coverage.html
+
 .DEFAULT_GOAL := build
 
 .PHONY: help
@@ -71,9 +79,11 @@ test-race: ## Run the Go tests with the race detector
 	$(GO) test $(GOFLAGS) -race ./...
 
 .PHONY: cover
-cover: ## Run the tests and write coverage.out
-	$(GO) test $(GOFLAGS) -coverprofile=coverage.out ./...
-	$(GO) tool cover -func=coverage.out | tail -1
+cover: ## Run the tests and write <os>-coverage.out and <os>-coverage.html
+	$(GO) test $(GOFLAGS) -coverprofile=$(COVERAGE_OUT) ./...
+	$(GO) tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
+	@$(GO) tool cover -func=$(COVERAGE_OUT) | tail -1
+	@echo "wrote $(COVERAGE_OUT) and $(COVERAGE_HTML)"
 
 .PHONY: lint
 lint: fmt-check vet ## Run every linter
@@ -110,7 +120,8 @@ tidy: ## Tidy go.mod and go.sum
 
 .PHONY: clean
 clean: ## Remove build and test artefacts
-	rm -f $(BINARY) $(BINARY).exe coverage.out coverage.html
+	rm -f $(BINARY) $(BINARY).exe
+	rm -f coverage.out coverage.html *-coverage.out *-coverage.html
 	rm -rf $(DIST)
 
 .PHONY: version

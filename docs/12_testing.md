@@ -207,6 +207,30 @@ Coverage is a signal, not a target to game.
 The last two matter more than the percentages. A permission bug is the most
 likely serious defect in an application whose access rules are this asymmetric.
 
+### Coverage is measured per platform
+
+The two supported development platforms do not execute the same code. The
+configuration file permission check is skipped on Windows, and the `SIGHUP` log
+reopen does not exist there at all. A single merged coverage number would
+average two different runs and hide which lines are unexercised on which
+platform.
+
+Coverage is therefore kept separately:
+
+| File                     | From                                    |
+| ------------------------ | --------------------------------------- |
+| `linux-coverage.out`     | The Linux job, run with `-race`.         |
+| `linux-coverage.html`    | Rendered from it.                        |
+| `windows-coverage.out`   | The Windows job.                         |
+| `windows-coverage.html`  | Rendered from it.                        |
+
+`make cover` writes the pair for whichever platform it runs on, naming them
+from `go env GOOS`. CI runs it on both and uploads each pair as its own
+artifact, `coverage-linux` and `coverage-windows`.
+
+The profiles are never merged. When a line looks uncovered the useful question
+is *on which platform*, and merging is exactly what makes that unanswerable.
+
 ## Test data
 
 A fixture package builds a realistic seed: three restaurants with full menus in
