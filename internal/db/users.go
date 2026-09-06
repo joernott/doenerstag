@@ -264,3 +264,9 @@ func isForeignKeyViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
+
+// IsForeignKeyViolation reports whether err is PostgreSQL's 23503.
+//
+// Exported for the api package, which turns a reference to a row that does not
+// exist into a 1002 naming the field rather than a server error.
+func IsForeignKeyViolation(err error) bool { return isForeignKeyViolation(err) }

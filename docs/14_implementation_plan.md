@@ -289,15 +289,15 @@ non-image with a `.jpg` name is rejected.
 
 | ID  | Task                                                                                     | Size | Spec |
 | --- | ------------------------------------------------------------------------------------------ | :--: | ---- |
-| 7.1 | Category create, update, reorder, soft delete                                               | M | [04](04_api.md) |
-| 7.2 | Menu item create, read, update, soft delete, `available` flag                                | M | [04](04_api.md) |
-| 7.3 | Ordering rule: numeric-aware `external_id`, `NULLS LAST`, then `name`                        | M | [03](03_data_model.md) |
-| 7.4 | Modifications: create, update, soft delete                                                   | M | [adr/0007](adr/0007-flat-modification-list.md) |
-| 7.5 | `/tags` list and create; `/allergens` and `/additives` read-only lists                        | S | [04](04_api.md) |
-| 7.6 | Tag, allergen and additive assignment to menu items                                           | M | [03](03_data_model.md) |
-| 7.7 | Menu item filtering: `category`, `tag`, `exclude_allergen`, `exclude_additive`, `available`    | M | [04](04_api.md) |
-| 7.8 | Soft delete semantics: hidden from every normal query                                          | S | [03](03_data_model.md) |
-| 7.9 | Tests, including the ordering rule and the filter combinations                                 | M | [12](12_testing.md) |
+| ✅ 7.1 | Category create, update, reorder, soft delete                                               | M | [04](04_api.md) |
+| ✅ 7.2 | Menu item create, read, update, soft delete, `available` flag                                | M | [04](04_api.md) |
+| ✅ 7.3 | Ordering rule: numeric-aware `external_id`, `NULLS LAST`, then `name`                        | M | [03](03_data_model.md) |
+| ✅ 7.4 | Modifications: create, update, soft delete                                                   | M | [adr/0007](adr/0007-flat-modification-list.md) |
+| ✅ 7.5 | `/tags` list and create; `/allergens` and `/additives` read-only lists                        | S | [04](04_api.md) |
+| ✅ 7.6 | Tag, allergen and additive assignment to menu items                                           | M | [03](03_data_model.md) |
+| ✅ 7.7 | Menu item filtering: `category`, `tag`, `exclude_allergen`, `exclude_additive`, `available`    | M | [04](04_api.md) |
+| ✅ 7.8 | Soft delete semantics: hidden from every normal query                                          | S | [03](03_data_model.md) |
+| ✅ 7.9 | Tests, including the ordering rule and the filter combinations                                 | M | [12](12_testing.md) |
 
 **Exit criteria:** a full menu can be built through the API, ordered as a printed
 menu would be, and filtered by tag and by allergen exclusion.

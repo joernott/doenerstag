@@ -480,3 +480,11 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 23
 
 > Please start with implementing sprint 6
+
+---
+
+## Sprint 7
+
+### Prompt 24
+
+> Please continue with sprint 7
