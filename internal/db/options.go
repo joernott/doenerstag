@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // ApplicationName identifies the application in pg_stat_activity, so that a
@@ -108,4 +109,56 @@ func (o Options) dsn(password string) string {
 	u.RawQuery = query.Encode()
 
 	return u.String()
+}
+
+// OptionsFromDSN parses a PostgreSQL connection URL back into Options.
+//
+// The installer needs to reach the same server as several different users and
+// databases in turn — root to create things, admin to migrate them, runtime to
+// verify the result — and this is what lets one connection string be varied
+// rather than six settings being threaded around.
+func OptionsFromDSN(dsn string) (Options, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return Options{}, fmt.Errorf("parsing the connection string: %w", err)
+	}
+
+	port := 5432
+	if raw := u.Port(); raw != "" {
+		port, err = strconv.Atoi(raw)
+		if err != nil {
+			return Options{}, fmt.Errorf("connection string has a non-numeric port %q", raw)
+		}
+	}
+
+	password, _ := u.User.Password()
+
+	sslMode := u.Query().Get("sslmode")
+	if sslMode == "" {
+		sslMode = "prefer"
+	}
+
+	return Options{
+		Host:           u.Hostname(),
+		Port:           port,
+		Database:       strings.TrimPrefix(u.Path, "/"),
+		User:           u.User.Username(),
+		Password:       password,
+		SSLMode:        sslMode,
+		MaxConnections: 4,
+	}, nil
+}
+
+// WithDatabase returns a copy pointing at a different database on the same
+// server, keeping the credentials.
+func (o Options) WithDatabase(name string) Options {
+	o.Database = name
+	return o
+}
+
+// WithUser returns a copy authenticating as a different user.
+func (o Options) WithUser(user, password string) Options {
+	o.User = user
+	o.Password = password
+	return o
 }
