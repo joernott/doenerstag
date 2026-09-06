@@ -324,3 +324,52 @@ the specification.
 > Please create a list of implementation tasks that are grouped by sprints. Order
 > these sprints and tasks so that we don't need to run multiple sprints in
 > parallel. Focus on setting up the database and running the installer first
+
+## Sprint 1
+
+Prompts 1 to 5 above shaped the specification and the plan, and are the work on
+`sprint-0`. From here on the prompts drive implementation, and each group is
+recorded on the branch of the sprint it belongs to.
+
+### Prompt 6
+
+> Please implement the tasks from the first sprint in the sprint plan. Ideally
+> tackle one task after another an finish every task by committing the changes.
+> Use Task <task number>: <Task description> for the commit message. If some
+> tasks must be executed in parallel or out of order, that is not a problem, as
+> long as the tasks are referenced in the message. If it turns out, that
+> additional tasks are required to complete the task description, add them to the
+> list of tasks, using a 3rd level in the task id, e.g. 1.1.1 as an additional
+> task required to reach the goal initially defined in 1.1. Mark completed tasks
+> in the implementation plan.
+
+## 2026-09-06
+
+### Prompt 7
+
+> I have created a file contrib/setup_dev_pipeline.sh that already installs
+> postgresql-18 and docker.
+> I have also set up a VM with the IP 192.168.178.183 andf the user doener on
+> that machine. You can connect to that VM by ssh, relying on pageant and the
+> already loaded keys or by explicitly using the passwordless SSH key
+> /c/Users/white/.ssh/id_ed25519_claude. The user doener can run sudo without
+> providing a password. All programs from the putty software stack are installed
+> on this computer, you can either rely on the tools provided by VSCode or these
+> programs to access the VM.
+>
+> Please add these additional tasks to Sprint 1:
+> - Modify the contrib/setup_dev_pipeline.sh script to install all software
+>   necessary to run the build and test pipeline at this stage.
+> - Also add the installation of tools that we already know we need to the script.
+> - Run the build and test pipeline on the Linux VM
+
+### Prompt 8
+
+> I have created the github repository and pushed both, the main and sprint-1
+> branch. The CI pipeline ran green:
+> https://github.com/joernott/doenerstag/actions/runs/34012252189.
+>
+> Please add another task to sprint 1:
+> - When running the coverage tests,, preserve both results from Windows and
+>   Linux as <OS>-coverage.out and run  go tool cover -html=<OS>coverage.out -o
+>   <OS>coverage.html
