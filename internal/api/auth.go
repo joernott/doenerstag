@@ -11,9 +11,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/model"
 )
 
@@ -45,6 +47,11 @@ type AuthHandlers struct {
 	// --no-https only.
 	Secure bool
 
+	// Logger records the things that are worth knowing but must not fail a
+	// request: a login that worked but whose bookkeeping did not. Nil is
+	// allowed and discards, so a test does not have to supply one.
+	Logger *zerolog.Logger
+
 	// Now is the clock, injectable so a test can age a session without
 	// sleeping through an idle timeout.
 	Now func() time.Time
@@ -57,9 +64,23 @@ func (h *AuthHandlers) now() time.Time {
 	return time.Now()
 }
 
+// log returns a logger already carrying the request's correlation ID, so that a
+// line written here can be joined to the request line the middleware writes.
+func (h *AuthHandlers) log(r *http.Request) *zerolog.Logger {
+	if h.Logger == nil {
+		discard := zerolog.Nop()
+		return &discard
+	}
+	logger := h.Logger.With().
+		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
+		Logger()
+	return &logger
+}
+
 // Register adds the authentication routes.
 func (h *AuthHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPost, "/auth/register", h.register)
+	r.HandleFunc(http.MethodPost, "/auth/login", h.login)
 }
 
 // registerRequest is the body of POST /auth/register.
