@@ -14,7 +14,7 @@ case with dashes replaced by underscores: `--database-server` becomes
 
 ## Secrets on the command line
 
-Four settings hold secrets. Passing any of them as a command line flag makes the
+Five settings hold secrets. Passing any of them as a command line flag makes the
 application log a **FATAL** security error and exit immediately, because command
 lines are visible to every user on the machine through the process list and end
 up in shell history.
@@ -24,10 +24,17 @@ up in shell history.
 | `database-password`         | Config file, environment, interactive prompt            |
 | `database-root-password`    | Environment, interactive prompt                         |
 | `database-admin-password`   | Environment, interactive prompt                         |
+| `root-password`             | Environment, interactive prompt                         |
 | `jwt-secret`                | Config file, environment                                |
 
-The two privileged database passwords are never written to a generated
-configuration file. Neither are the privileged user names.
+`root-password` is the doenerstag `root` administrator's password, not a
+database one. Every database identity carries a `database-` prefix; this is the
+application's own account, and it is the one setting here whose absence of that
+prefix is load-bearing.
+
+The two privileged database passwords and the administrator password are never
+written to a generated configuration file. Neither are the privileged user
+names.
 
 ---
 
@@ -136,8 +143,12 @@ Behaviour:
   renames only at the very end.
 - Creates the database, the runtime database user and the schema, applies all
   migrations and the seed data.
-- Creates the `root` administrator with a password chosen interactively, and the
-  deleted-user placeholder row.
+- Creates the `root` administrator with a password chosen interactively, or
+  supplied unattended through `DOENER_ROOT_PASSWORD`, and the deleted-user
+  placeholder row. Re-running `install` resets a forgotten `root` password. The
+  password must satisfy the rules in
+  [05_auth_and_permissions.md](05_auth_and_permissions.md), which are applied
+  here rather than only to accounts created later.
 - Generates a 32-byte `jwt-secret` and writes it to the configuration file.
 - Loads the imprint and legal notes snippets from the files whose paths the
   operator supplies, or inserts a placeholder if a path is left empty.
@@ -152,6 +163,7 @@ Behaviour:
 | `--database-root-password`  |       | *(prompted)*        | **Never on the command line.** Never stored.                   |
 | `--database-admin-user`     | `-A`  | *(prompted)*        | Owner of the database and its objects. Never stored.           |
 | `--database-admin-password` |       | *(prompted)*        | **Never on the command line.** Never stored.                   |
+| `--root-password`           |       | *(prompted)*        | Password for the doenerstag `root` administrator, not a database one. **Never on the command line.** Never stored. |
 | `--imprint-file`            |       | *(prompted)*        | HTML snippet loaded into the imprint page.                     |
 | `--legal-notes-file`        |       | *(prompted)*        | HTML snippet loaded into the legal notes page.                 |
 | `--non-interactive`         |       | `false`             | Ask nothing. Fails if a required value is missing.             |
