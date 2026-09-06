@@ -12,6 +12,14 @@
 - **Identifiers**: UUIDv7 in canonical hyphenated lowercase form.
 - **Money**: integers in the minor unit, always accompanied by the applicable
   `currency_code` in the enclosing object. Field names end in `_cents`.
+- **Collections are wrapped.** A collection endpoint answers with an object
+  carrying one plural key, never with a bare array: `GET /restaurants` returns
+  `{"restaurants": [...]}`, `GET /restaurants/{id}/menu-items` returns
+  `{"menu_items": [...]}`, and so on for `categories`, `contacts`,
+  `opening_hours`, `modifications`, `currencies`, `contact_types`, `tags`,
+  `allergens`, `additives`, `orders`, `users` and `tokens`. A top-level JSON
+  array is a known hazard, and the envelope leaves room to add a field beside
+  the list without changing the type of the response.
 - **No pagination.** Collection endpoints return the complete collection. This
   is a deliberate decision given the expected scale (see
   [01_overview.md](01_overview.md) and
@@ -386,7 +394,8 @@ the `cleanup` verb.
   "version": "1.0.0",
   "commit": "7c81636",
   "build_date": "2026-09-06T09:12:44Z",
-  "swagger": true
+  "swagger": true,
+  "max_image_size": 5242880
 }
 ```
 
@@ -396,6 +405,11 @@ whose main menu hides the API documentation entry when it is not
 the route rather than answering 404, and an omitted non-`/api` path falls
 through to the SPA fallback, which serves the application shell. A probe would
 therefore report a Swagger UI that is not there.
+
+`max_image_size` is `--max-image-size` in bytes. The upload control uses it to
+refuse an oversized photograph before spending a minute sending it, and the
+limit is the operator's to choose, so it cannot be a constant in the frontend.
+The server enforces it regardless, with error 1011.
 
 `/metrics` returns:
 

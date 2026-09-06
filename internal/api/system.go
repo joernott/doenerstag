@@ -32,6 +32,11 @@ type SystemHandlers struct {
 	// So the server has to say so, and this is the endpoint that already
 	// answers "what is this server".
 	Swagger bool
+
+	// MaxImageSize is --max-image-size in bytes, reported for the same reason:
+	// the upload control tells a person their photograph is too large before
+	// it is sent, and the limit is an operator's decision.
+	MaxImageSize int64
 }
 
 // Register adds the system routes to a router.
@@ -118,10 +123,11 @@ func (h *SystemHandlers) collectMetrics(ctx context.Context) (metricsBody, error
 }
 
 type versionBody struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	BuildDate string `json:"build_date"`
-	Swagger   bool   `json:"swagger"`
+	Version      string `json:"version"`
+	Commit       string `json:"commit"`
+	BuildDate    string `json:"build_date"`
+	Swagger      bool   `json:"swagger"`
+	MaxImageSize int64  `json:"max_image_size"`
 }
 
 // version reports what the binary is.
@@ -131,10 +137,11 @@ type versionBody struct {
 // what makes it useful during an incident.
 func (h *SystemHandlers) version(w http.ResponseWriter, _ *http.Request) {
 	_ = WriteJSON(w, http.StatusOK, versionBody{
-		Version:   version.Version(),
-		Commit:    version.Commit(),
-		BuildDate: version.BuildDate(),
-		Swagger:   h.Swagger,
+		Version:      version.Version(),
+		Commit:       version.Commit(),
+		BuildDate:    version.BuildDate(),
+		Swagger:      h.Swagger,
+		MaxImageSize: h.MaxImageSize,
 	})
 }
 

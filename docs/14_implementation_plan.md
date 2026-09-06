@@ -385,15 +385,19 @@ German.
 
 | ID   | Task                                                                                | Size | Spec |
 | ---- | ------------------------------------------------------------------------------------- | :--: | ---- |
-| 11.1 | Login and register page with the live complexity indicator                             | M | [06](06_ui_ux.md) |
-| 11.2 | User page: profile, password change, API token management                              | M | [06](06_ui_ux.md) |
-| 11.3 | Account deletion with the impact modal and the type-your-name confirmation              | M | [06](06_ui_ux.md) |
-| 11.4 | Restaurant overview tiles and the plus-tile empty state                                 | S | [06](06_ui_ux.md) |
-| 11.5 | Restaurant page: data, currency, minimum order value, delivery fee, logo upload          | M | [06](06_ui_ux.md) |
-| 11.6 | Contacts editor and opening hours editor with the crosses-midnight hint                  | M | [06](06_ui_ux.md) |
-| 11.7 | Menu editing: categories with keyboard-accessible reordering, items, modifications        | L | [06](06_ui_ux.md) |
-| 11.8 | Tag, allergen and additive assignment UI                                                  | M | [06](06_ui_ux.md) |
-| 11.9 | Image upload component with client-side size feedback                                     | M | [06](06_ui_ux.md) |
+| ✅ 11.1 | Login and register page with the live complexity indicator                             | M | [06](06_ui_ux.md) |
+| ✅ 11.2 | User page: profile, password change, API token management                              | M | [06](06_ui_ux.md) |
+| ✅ 11.3 | Account deletion with the impact modal and the type-your-name confirmation              | M | [06](06_ui_ux.md) |
+| ✅ 11.4 | Restaurant overview tiles and the plus-tile empty state                                 | S | [06](06_ui_ux.md) |
+| ✅ 11.5 | Restaurant page: data, currency, minimum order value, delivery fee, logo upload          | M | [06](06_ui_ux.md) |
+| ✅ 11.6 | Contacts editor and opening hours editor with the crosses-midnight hint                  | M | [06](06_ui_ux.md) |
+| ✅ 11.7 | Menu editing: categories with keyboard-accessible reordering, items, modifications        | L | [06](06_ui_ux.md) |
+| ✅ 11.8 | Tag, allergen and additive assignment UI                                                  | M | [06](06_ui_ux.md) |
+| ✅ 11.9 | Image upload component with client-side size feedback                                     | M | [06](06_ui_ux.md) |
+| ✅ 11.9.1 | `/version` reports `--max-image-size`. The upload control refuses an oversized file before spending a minute sending it, and the limit is an operator's setting rather than a constant the frontend can hold | S | [04](04_api.md) |
+| ✅ 11.10 | Frontend unit tests for the sprint: the password rules mirrored from the Go implementation, money parsing, and the account and restaurant pages rendered against a stubbed server | M | [12](12_testing.md) |
+| ✅ 11.10.1 | Read the collection envelope. Every collection endpoint answers `{"<plural>": [...]}` rather than a bare array; the frontend assumed arrays, and so did its stubs, so the tests agreed with the mistake. Documented as a convention in [04](04_api.md) and unwrapped in one place | S | [04](04_api.md) |
+| ✅ 11.10.2 | Restaurant tiles carry what [06](06_ui_ux.md) asks of them: the first contact, the menu item count and an "open now" state computed from the opening hours, crossed midnights included | S | [06](06_ui_ux.md) |
 
 **Exit criteria:** a restaurant and its complete menu can be entered in the
 browser, by a user who is not an administrator.

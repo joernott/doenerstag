@@ -28,7 +28,7 @@ func TestTheVersionEndpointReportsWhetherSwaggerIsServed(t *testing.T) {
 			t.Parallel()
 
 			r := NewRouter(Options{})
-			(&SystemHandlers{Swagger: tc.swagger}).Register(r)
+			(&SystemHandlers{Swagger: tc.swagger, MaxImageSize: 5 << 20}).Register(r)
 
 			recorder := httptest.NewRecorder()
 			r.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/version", http.NoBody))
@@ -38,8 +38,9 @@ func TestTheVersionEndpointReportsWhetherSwaggerIsServed(t *testing.T) {
 			}
 
 			var body struct {
-				Version string `json:"version"`
-				Swagger bool   `json:"swagger"`
+				Version      string `json:"version"`
+				Swagger      bool   `json:"swagger"`
+				MaxImageSize int64  `json:"max_image_size"`
 			}
 			if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 				t.Fatalf("decoding the response: %v", err)
@@ -49,6 +50,11 @@ func TestTheVersionEndpointReportsWhetherSwaggerIsServed(t *testing.T) {
 			}
 			if body.Version == "" {
 				t.Error("version is empty")
+			}
+			// The upload control refuses an oversized file before sending it,
+			// and the limit is the operator's to set.
+			if body.MaxImageSize != 5<<20 {
+				t.Errorf("max_image_size = %d, want %d", body.MaxImageSize, 5<<20)
 			}
 		})
 	}

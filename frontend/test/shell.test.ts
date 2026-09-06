@@ -159,7 +159,13 @@ describe("the main menu", () => {
 
   it("hides the API documentation when the server does not serve it", () => {
     const app = build("en");
-    app.version = { version: "1.0.0", commit: "abc", build_date: "", swagger: false };
+    app.version = {
+      version: "1.0.0",
+      commit: "abc",
+      build_date: "",
+      swagger: false,
+      max_image_size: 5242880,
+    };
     app.render();
 
     expect(menuLabels()).not.toContain(app.t.t("nav.api_docs"));

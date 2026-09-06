@@ -132,6 +132,57 @@ export function formatMoney(
 }
 
 /**
+ * Reads an amount typed by a person into the integer minor units the API wants.
+ *
+ * Done on the string rather than through parseFloat, because the obvious
+ * `Math.round(parseFloat(text) * 100)` is wrong: 19.99 is not representable in
+ * binary floating point, and the multiplication lands at 1998.9999999999998.
+ * Rounding hides it for most numbers and not for all of them, and a price that
+ * is one cent out in one restaurant out of fifty is the worst kind of bug.
+ *
+ * Both separators are accepted whatever the interface language, because a
+ * German keyboard's numeric pad produces a comma and a person typing a price
+ * should not have to think about which one this field wants. Returns null for
+ * anything that is not a number.
+ */
+export function parseMoney(text: string, minorUnit = 2): number | null {
+  const trimmed = text.trim().replace(/\s/gu, "");
+  if (trimmed === "") {
+    return null;
+  }
+
+  const match = /^(-?)(\d*)(?:[.,](\d*))?$/u.exec(trimmed.replace(/[^\d.,-]/gu, ""));
+  if (!match) {
+    return null;
+  }
+
+  const [, sign, whole = "", fraction = ""] = match;
+  if (whole === "" && fraction === "") {
+    return null;
+  }
+
+  // Pad a short fraction and cut a long one. Cutting rather than rounding: a
+  // third decimal in a price is a typing slip, and quietly rounding it up would
+  // charge somebody a cent they never agreed to.
+  const scaled = fraction.padEnd(minorUnit, "0").slice(0, minorUnit);
+  const value = Number.parseInt((whole || "0") + scaled, 10);
+  return sign === "-" ? -value : value;
+}
+
+/**
+ * Renders minor units for an input field: a plain number, no currency, no
+ * grouping separators, because the value goes back through parseMoney.
+ */
+export function moneyInputValue(minorUnits: number, minorUnit = 2): string {
+  if (minorUnit === 0) {
+    return String(minorUnits);
+  }
+  const sign = minorUnits < 0 ? "-" : "";
+  const digits = String(Math.abs(minorUnits)).padStart(minorUnit + 1, "0");
+  return `${sign}${digits.slice(0, -minorUnit)}.${digits.slice(-minorUnit)}`;
+}
+
+/**
  * Formats a deadline as a relative hint: "in 2 hours", "in 2 Stunden".
  *
  * The unit is chosen by size rather than always being minutes, because "in 2880
@@ -192,4 +243,24 @@ export function toApiTimestamp(value: Date): string {
 /** Empties the formatter cache. Only a test that switches locales needs this. */
 export function resetFormatterCache(): void {
   cache.clear();
+}
+
+/**
+ * Formats a byte count for a person: "4.2 MiB".
+ *
+ * Binary units, because that is what --max-image-size takes and what the
+ * message compares against. Only the number follows the locale; MiB is a
+ * symbol, not a word, and is not translated.
+ */
+export function formatBytes(locale: string, bytes: number): string {
+  const kib = 1024;
+  const mib = kib * kib;
+
+  if (bytes >= mib) {
+    return `${formatNumber(locale, Math.round((bytes / mib) * 10) / 10)} MiB`;
+  }
+  if (bytes >= kib) {
+    return `${formatNumber(locale, Math.round(bytes / kib))} KiB`;
+  }
+  return `${formatNumber(locale, bytes)} B`;
 }

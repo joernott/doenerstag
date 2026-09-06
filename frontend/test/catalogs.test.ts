@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  categoriesFor,
   checkCatalogs,
   classify,
   loadCatalogs,
@@ -104,11 +105,23 @@ describe("the catalogs", () => {
 
   it("supplies every plural category its own language has", () => {
     const shape = classify(source(), sourceLanguage);
-    expect([...shape.plurals].sort()).toEqual([
-      "confirm.delete_order.participants",
-      "order.items",
-      "order.participants",
-    ]);
+    expect(shape.plurals.size).toBeGreaterThan(0);
+
+    for (const base of shape.plurals) {
+      for (const category of categoriesFor(sourceLanguage)) {
+        expect(Object.keys(source())).toContain(`${base}.${category}`);
+      }
+    }
+  });
+
+  it("does not mistake an ordinary key for a plural", () => {
+    // `contact_type.other` is a contact type, not the plural of anything, and
+    // the only thing that says so is that no `contact_type.one` accompanies
+    // it. Getting this wrong would demand a `contact_type.one` from every
+    // translation and fail the build for a key that should not exist.
+    const shape = classify(source(), sourceLanguage);
+    expect([...shape.plurals]).not.toContain("contact_type");
+    expect([...shape.singles]).toContain("contact_type.other");
   });
 });
 
