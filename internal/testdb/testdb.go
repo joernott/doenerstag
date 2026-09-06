@@ -35,6 +35,16 @@ import (
 // use instead of starting a container.
 const DatabaseURLEnv = "DOENER_TEST_DATABASE_URL"
 
+// SkipDockerEnv names the environment variable that, when set to a non-empty
+// value, stops the harness attempting to start a container at all and sends it
+// straight to DatabaseURLEnv or to skipping.
+//
+// The Windows CI job sets it. That runner has a Docker daemon, but one that
+// serves Windows containers, so a Linux PostgreSQL image can never run there:
+// attempting it is pure cost, and it is the only environment where the harness
+// has behaved differently from a developer's Windows machine.
+const SkipDockerEnv = "DOENER_TEST_SKIP_DOCKER"
+
 // The image the container source starts. Pinned to the only supported major
 // version; see docs/08_technologies.md.
 const postgresImage = "postgres:18-alpine"
@@ -75,14 +85,18 @@ func start() *harness {
 
 	// Docker first, as specified. It gives a disposable server of exactly the
 	// right version, which a developer's local install may not be.
-	container, dsn, dockerErr := startContainer(ctx)
-	if dockerErr == nil {
-		return &harness{
-			adminDSN: dsn,
-			cleanup: func() {
-				_ = testcontainers.TerminateContainer(container)
-			},
+	dockerReason := SkipDockerEnv + " is set"
+	if os.Getenv(SkipDockerEnv) == "" {
+		container, dsn, err := tryStartContainer(ctx)
+		if err == nil {
+			return &harness{
+				adminDSN: dsn,
+				cleanup: func() {
+					_ = testcontainers.TerminateContainer(container)
+				},
+			}
 		}
+		dockerReason = "Docker could not start a container: " + err.Error()
 	}
 
 	if url := os.Getenv(DatabaseURLEnv); url != "" {
@@ -92,11 +106,30 @@ func start() *harness {
 	return &harness{
 		cleanup: func() {},
 		skip: fmt.Sprintf(
-			"no test database available: Docker could not start a container (%v) "+
-				"and %s is not set. Run contrib/setup_dev_pipeline.sh, or set %s to a "+
-				"PostgreSQL 18 connection string.",
-			dockerErr, DatabaseURLEnv, DatabaseURLEnv),
+			"no test database available: %s, and %s is not set. "+
+				"Run contrib/setup_dev_pipeline.sh, or set %s to a PostgreSQL 18 "+
+				"connection string.",
+			dockerReason, DatabaseURLEnv, DatabaseURLEnv),
 	}
+}
+
+// tryStartContainer isolates the third-party container startup.
+//
+// The harness has exactly one contract: hand back a database, or skip with a
+// reason. A library panicking while it probes the environment must not turn
+// into a failing test suite on a machine that simply has no usable Docker, so a
+// panic is converted into the same "unavailable" answer as an error, carrying
+// the panic value into the skip message.
+func tryStartContainer(ctx context.Context) (
+	container *tcpostgres.PostgresContainer, dsn string, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			container, dsn = nil, ""
+			err = fmt.Errorf("container startup panicked: %v", recovered)
+		}
+	}()
+
+	return startContainer(ctx)
 }
 
 func startContainer(ctx context.Context) (*tcpostgres.PostgresContainer, string, error) {
@@ -125,9 +158,13 @@ func startContainer(ctx context.Context) (*tcpostgres.PostgresContainer, string,
 // Shutdown stops the shared container. A package with database tests calls it
 // from TestMain; forgetting to leaves a container running until Ryuk reaps it.
 func Shutdown() {
-	if shared != nil && shared.cleanup != nil {
-		shared.cleanup()
+	if shared == nil || shared.cleanup == nil {
+		return
 	}
+	// Terminating a container is best effort at the end of a run: a failure
+	// here must not turn a passing suite into a failing one.
+	defer func() { _ = recover() }()
+	shared.cleanup()
 }
 
 // Empty returns a pool to a fresh, empty database with no schema at all.

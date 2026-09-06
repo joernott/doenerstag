@@ -155,6 +155,7 @@ anything depends on it is the cheapest ordering there is.
 | ✅ 2.12 | Migration tests: up and down from empty and from each intermediate version                | M | [12](12_testing.md) |
 | ✅ 2.13 | Seed verification tests, asserting each `code` individually                               | M | [12](12_testing.md) |
 | ✅ 2.14 | Constraint tests: `deadline_at < fulfilment_at`, `quantity >= 1`, uniqueness, day-of-week range | M | [12](12_testing.md) |
+| ✅ 2.15 | Fix the CI failures the sprint 2 dependencies introduced: `govulncheck` and the Windows test job | M | [12](12_testing.md) |
 
 **Exit criteria:** migrations apply and roll back cleanly at every version. The
 14 allergens, 14 additives, currencies, contact types and default tags are
