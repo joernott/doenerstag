@@ -463,3 +463,12 @@ recorded on the branch of the sprint it belongs to.
 
 > Please build and run the application on the VM. I want to access is myself
 > using my browser
+
+---
+
+## Sprint 5
+
+### Prompt 22
+
+> I have tested the above endpoints and things work as expected. You can stop
+> the application and start implementing sprint 5

@@ -18,6 +18,10 @@ import (
 type UserHandlers struct {
 	Pool *pgxpool.Pool
 
+	// Secure controls the Secure attribute when clearing cookies after a user
+	// deletes their own account. False under --no-https only.
+	Secure bool
+
 	// Now is the clock, for token expiry.
 	Now func() time.Time
 }
@@ -34,6 +38,8 @@ func (h *UserHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodGet, "/users", h.list)
 	r.HandleFunc(http.MethodGet, "/users/:id", h.get)
 	r.HandleFunc(http.MethodPatch, "/users/:id", h.patch)
+	r.HandleFunc(http.MethodDelete, "/users/:id", h.deleteUser)
+	r.HandleFunc(http.MethodGet, "/users/:id/deletion-impact", h.deletionImpact)
 
 	r.HandleFunc(http.MethodGet, "/users/:id/tokens", h.listTokens)
 	r.HandleFunc(http.MethodPost, "/users/:id/tokens", h.createToken)
@@ -468,6 +474,90 @@ func (h *UserHandlers) revokeToken(w http.ResponseWriter, r *http.Request) {
 	if err := db.DeleteAPIToken(r.Context(), h.Pool, tokenID); err != nil {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
 		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// deletionImpactBody is what the user is shown before they confirm.
+type deletionImpactBody struct {
+	ActiveOrders        int `json:"active_orders"`
+	ActiveItems         int `json:"active_items"`
+	ExpiredItems        int `json:"expired_items"`
+	CreatedActiveOrders int `json:"created_active_orders"`
+}
+
+// deletionImpact reports what deleting the account would do.
+//
+// F2.6 requires the user to be shown how many active orders they still
+// participate in and given the chance to cancel. This is that number, and it is
+// the only warning: the deletion itself is immediate and irreversible.
+func (h *UserHandlers) deletionImpact(w http.ResponseWriter, r *http.Request) {
+	user, lookupErr := LookupUser(r, h.Pool, "id")
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+	if _, err := RequireOwner(r, user.ID); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	impact, dbErr := db.ImpactOfDeleting(r.Context(), h.Pool, user.ID, h.now())
+	if dbErr != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		return
+	}
+
+	_ = WriteJSON(w, http.StatusOK, deletionImpactBody{
+		ActiveOrders:        impact.ActiveOrders,
+		ActiveItems:         impact.ActiveItems,
+		ExpiredItems:        impact.ExpiredItems,
+		CreatedActiveOrders: impact.CreatedActiveOrders,
+	})
+}
+
+// deleteUser removes an account and applies the F2.6 rules.
+func (h *UserHandlers) deleteUser(w http.ResponseWriter, r *http.Request) {
+	user, lookupErr := LookupUser(r, h.Pool, "id")
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
+	principal, authErr := RequireOwner(r, user.ID)
+	if authErr != nil {
+		WriteError(w, r, authErr)
+		return
+	}
+	if err := RequireNotPlaceholder(user.ID); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user.IsAdmin {
+		// The database trigger refuses this too. Answering here means the
+		// caller gets the documented code rather than a constraint violation
+		// surfacing as 9001.
+		WriteError(w, r, &Error{
+			Code:   CodeAdminRequired,
+			Detail: "the administrator account cannot be deleted",
+		})
+		return
+	}
+
+	if err := db.DeleteAccount(r.Context(), h.Pool, user.ID, h.now()); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			WriteError(w, r, &Error{Code: CodeNotFound})
+			return
+		}
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
+
+	// Deleting your own account logs you out: the session row went with it, so
+	// the cookies now point at nothing. Clearing them saves the browser a 2003
+	// on its next request.
+	if principal.Is(user.ID) && !principal.ViaToken {
+		clearSessionCookies(w, h.Secure)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

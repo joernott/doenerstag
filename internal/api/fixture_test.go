@@ -111,8 +111,12 @@ func newAPIFixture(t *testing.T) *apiFixture {
 
 	f.router = api.NewRouter(api.Options{})
 	f.auth.Register(f.router)
-	f.users = &api.UserHandlers{Pool: pool, Now: clock}
+	f.users = &api.UserHandlers{Pool: pool, Secure: true, Now: clock}
 	f.users.Register(f.router)
+
+	// The system endpoints are here so the permission matrix can assert the
+	// public-read rows against a real route rather than a stand-in.
+	(&api.SystemHandlers{Pool: pool}).Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()
