@@ -42,6 +42,11 @@ export function el<K extends keyof HTMLElementTagNameMap>(
       element.addEventListener(name.slice(2).toLowerCase(), value);
       continue;
     }
+    if (typeof value === "function" || typeof value === "object") {
+      // A listener under a name that does not begin with `on`. Stringifying it
+      // would put "[object Object]" in an attribute and look like it worked.
+      continue;
+    }
     if (name === "text") {
       element.textContent = String(value);
       continue;

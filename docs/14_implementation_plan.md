@@ -372,6 +372,7 @@ remove, and a real run removes exactly that.
 | ✅ 10.9 | Base components: tile grid, modal with focus trap, form controls, confirmation dialog         | L | [06](06_ui_ux.md) |
 | ✅ 10.10| Responsive breakpoints and the print stylesheet foundation                                     | M | [06](06_ui_ux.md) |
 | ✅ 10.11| Vitest setup and the first unit tests                                                          | S | [12](12_testing.md) |
+| ✅ 10.11.1 | eslint with typescript-eslint, wired into `make lint` and CI. [08](08_technologies.md) and [11](11_nonfunctional.md) both promise the frontend passes eslint; until this sprint there was no frontend to lint | S | [08](08_technologies.md) |
 
 **Exit criteria:** the shell renders in both themes and both languages, the
 language selector is populated from the catalogs present in the build rather than

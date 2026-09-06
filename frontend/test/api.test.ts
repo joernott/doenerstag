@@ -19,7 +19,7 @@ function response(status: number, body: string, headers: Record<string, string> 
     status,
     statusText: `status ${status}`,
     headers: { get: (name: string) => lookup.get(name.toLowerCase()) ?? null },
-    json: async () => JSON.parse(body) as unknown,
+    json: () => Promise.resolve(JSON.parse(body) as unknown),
   } as unknown as Response;
 }
 

@@ -119,7 +119,7 @@ export function formatMoney(
         maximumFractionDigits: minorUnit,
       });
     }
-  }) as Intl.NumberFormat;
+  });
 
   const amount = minorUnits / 10 ** minorUnit;
   const formatted = formatter.format(amount);

@@ -22,6 +22,13 @@ import { catalogs as registry } from "../src/i18n/registry.generated";
 
 const files = await loadCatalogs();
 
+/** One catalog's self-description. The loader is JavaScript, so this types it. */
+function meta(catalog: { data: unknown }): { code: string; endonym: string; dir: string } {
+  return (catalog.data as Record<string, { code: string; endonym: string; dir: string }>)[
+    metaKey
+  ] as { code: string; endonym: string; dir: string };
+}
+
 function source(): Record<string, string> {
   const found = files.find((catalog) => catalog.code === sourceLanguage);
   if (!found) {
@@ -89,10 +96,9 @@ describe("the catalogs", () => {
 
   it("describes itself in its own language", () => {
     for (const catalog of files) {
-      const meta = catalog.data[metaKey] as { code: string; endonym: string; dir: string };
-      expect(meta.code).toBe(catalog.code);
-      expect(meta.endonym.length).toBeGreaterThan(0);
-      expect(["ltr", "rtl"]).toContain(meta.dir);
+      expect(meta(catalog).code).toBe(catalog.code);
+      expect(meta(catalog).endonym.length).toBeGreaterThan(0);
+      expect(["ltr", "rtl"]).toContain(meta(catalog).dir);
     }
   });
 
@@ -113,7 +119,7 @@ describe("the registry", () => {
 
   it("carries each catalog's own metadata", () => {
     for (const catalog of files) {
-      expect(registry[catalog.code]?.[metaKey]).toEqual(catalog.data[metaKey]);
+      expect(registry[catalog.code]?.[metaKey]).toEqual(meta(catalog));
     }
   });
 });
