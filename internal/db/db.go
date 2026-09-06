@@ -77,8 +77,12 @@ func Connect(ctx context.Context, opts Options, logger *zerolog.Logger) (*pgxpoo
 func VerifyServerVersion(ctx context.Context, pool *pgxpool.Pool) error {
 	const wantMajor = 18
 
+	// current_setting rather than SHOW: SHOW returns text, so the cast has to
+	// happen somewhere and doing it in SQL keeps the scan honest.
 	var version int
-	if err := pool.QueryRow(ctx, "SHOW server_version_num").Scan(&version); err != nil {
+	err := pool.QueryRow(ctx,
+		"SELECT current_setting('server_version_num')::int").Scan(&version)
+	if err != nil {
 		return fmt.Errorf("reading server version: %w", err)
 	}
 
