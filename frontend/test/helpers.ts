@@ -46,11 +46,7 @@ export function stubServer(routes: Record<string, unknown>): {
   const fetchMock = vi.fn((input: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
     const path = input.replace("/api/v1", "");
-    calls.push({
-      method,
-      path,
-      body: typeof init?.body === "string" ? (JSON.parse(init.body) as unknown) : init?.body,
-    });
+    calls.push({ method, path, body: decodeBody(init?.body) });
 
     const entry = routes[`${method} ${path}`];
     if (entry === undefined) {
@@ -66,6 +62,25 @@ export function stubServer(routes: Record<string, unknown>): {
   return { calls };
 }
 
+/**
+ * A recorded request body, decoded when it is JSON and kept as it is otherwise.
+ *
+ * Parsing unconditionally is what the first version did, and it threw on the
+ * content pages, whose bodies are HTML. The throw happened inside the stub, so
+ * the client reported it as an unreachable server and the test failed a long
+ * way from the mistake.
+ */
+function decodeBody(body: BodyInit | null | undefined): unknown {
+  if (typeof body !== "string") {
+    return body;
+  }
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return body;
+  }
+}
+
 function response(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -73,6 +88,9 @@ function response(status: number, body: unknown): Response {
     statusText: `status ${status}`,
     headers: { get: () => null },
     json: () => Promise.resolve(body),
+    // The content pages are HTML rather than JSON, so a stub whose body is
+    // already a string is served as it is.
+    text: () => Promise.resolve(typeof body === "string" ? body : JSON.stringify(body)),
   } as unknown as Response;
 }
 

@@ -141,6 +141,7 @@ func newAPIFixture(t *testing.T) *apiFixture {
 		Pool: pool, Events: f.registry, Now: clock,
 	}
 	f.orders.Register(f.router)
+	(&api.PageHandlers{Pool: pool}).Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()

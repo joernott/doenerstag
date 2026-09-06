@@ -100,6 +100,25 @@ export async function orderPage(
     return own !== null && app.session.user?.id === own.creator_id;
   };
 
+  /**
+   * Whether this visitor may read the summary (F1.3).
+   *
+   * The creator, anybody with an item in the order, and the administrator. The
+   * server decides for real; this decides whether the link is worth offering.
+   */
+  const isParticipant = (): boolean => {
+    const own = detail();
+    if (!own || !app.session.user) {
+      return false;
+    }
+    const me = app.session.user.id;
+    return (
+      app.session.isAdmin ||
+      own.creator_id === me ||
+      own.items.some((item) => item.user_id === me)
+    );
+  };
+
   async function refresh(): Promise<void> {
     try {
       order = await api.get<OrderHeader | OrderDetail>(`/orders/${id}`);
@@ -187,6 +206,21 @@ export async function orderPage(
     }
 
     const controls: Child[] = [];
+
+    // The summary is for participants: the creator, anybody with an item, and
+    // the administrator (F1.3). The page itself refuses anyone else, so this
+    // only decides whether to offer the link -- and offering it to somebody
+    // who would be refused is exactly what docs/06_ui_ux.md says not to do.
+    if (isParticipant()) {
+      controls.push(
+        el("a", {
+          class: "button",
+          href: `/orders/${id}/summary`,
+          text: t.t("order.summary"),
+        }),
+      );
+    }
+
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
     // show then -- and a control that cannot be used is not shown at all.

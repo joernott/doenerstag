@@ -378,6 +378,18 @@ the `cleanup` verb.
 | `GET`  | `/pages/{key}`   | public | HTML snippet. `key` is `imprint` or `legal_notes`.   |
 | `PUT`  | `/pages/{key}`   | admin  | Replace the snippet. The body is sanitized first.    |
 
+Both directions carry `text/html; charset=utf-8` rather than JSON: what is
+stored is a fragment of a document, and wrapping it in a JSON string would only
+mean unwrapping it again. A key that is neither `imprint` nor `legal_notes` is
+404 with error 4000.
+
+`PUT` takes the snippet as the request body, sanitizes it with the allow-list in
+`internal/htmlsafe` — the same policy the installer applies — and answers with
+what was actually stored, so an administrator can see what survived. A body
+larger than 256 KiB is refused with 1002, and one that is empty once sanitized
+with 1001: both would leave a blank page, and the second is worth saying out
+loud rather than storing silently.
+
 ### System
 
 | Method | Path        | Access | Description                                                     |

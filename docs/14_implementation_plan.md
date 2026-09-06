@@ -431,13 +431,17 @@ other's items appear without reloading.
 
 | ID   | Task                                                                            | Size | Spec |
 | ---- | --------------------------------------------------------------------------------- | :--: | ---- |
-| 13.1 | Summary page: the four sections, with the aggregated list visually dominant        | L | [06](06_ui_ux.md) |
-| 13.2 | Copy-as-text, and the print stylesheet                                             | M | [06](06_ui_ux.md) |
-| 13.3 | The non-participant explanatory page, with a login link when anonymous              | S | [06](06_ui_ux.md) |
-| 13.4 | Administration: user list with the impact-confirmed delete                          | M | [06](06_ui_ux.md) |
-| 13.5 | Administration: imprint and legal notes replacement                                 | M | [02](02_features.md) |
-| 13.6 | Version, imprint and legal notes pages                                              | S | [06](06_ui_ux.md) |
-| 13.7 | Playwright coverage for these screens                                               | M | [12](12_testing.md) |
+| ✅ 13.1 | Summary page: the four sections, with the aggregated list visually dominant        | L | [06](06_ui_ux.md) |
+| ✅ 13.2 | Copy-as-text, and the print stylesheet                                             | M | [06](06_ui_ux.md) |
+| ✅ 13.3 | The non-participant explanatory page, with a login link when anonymous              | S | [06](06_ui_ux.md) |
+| ✅ 13.4 | Administration: user list with the impact-confirmed delete                          | M | [06](06_ui_ux.md) |
+| ✅ 13.5 | Administration: imprint and legal notes replacement                                 | M | [02](02_features.md) |
+| ✅ 13.6 | Version, imprint and legal notes pages                                              | S | [06](06_ui_ux.md) |
+| ✅ 13.7 | Playwright coverage for these screens                                               | M | [12](12_testing.md) |
+| ✅ 13.8 | `GET` and `PUT /pages/{key}`. [04](04_api.md) has documented them since sprint 0 and nothing ever built them: the installer filled the table and no endpoint read it, so 13.5 and 13.6 had nothing to call | M | [04](04_api.md) |
+| ✅ 13.9 | Move the HTML sanitiser into `internal/htmlsafe`, so the installer and the API apply one policy rather than two that can drift apart | S | [11](11_nonfunctional.md) |
+| ✅ 13.10 | The summary buttons deferred from sprint 12, on the order page and on the order tile, for participants only | S | [06](06_ui_ux.md) |
+| ✅ 13.11 | Date formatting survives a value that is not a date. A development build reports its build date as `unknown`, `Intl` throws on it, and the version page rendered nothing at all | S | [07](07_i18n.md) |
 
 **Exit criteria:** the whole product works in a browser. A person can create an
 order, others can join it, and the creator can read the summary down the phone.
@@ -457,6 +461,7 @@ order, others can join it, and the creator can read the summary down the phone.
 | 14.5 | Performance check against the targets, and the concurrency headroom check                         | M | [11](11_nonfunctional.md) |
 | 14.6 | Security review: CSP in practice, upload handling, an audit that every query is parameterized      | L | [11](11_nonfunctional.md) |
 | 14.7 | Close the coverage gaps against the targets                                                        | M | [12](12_testing.md) |
+| 14.8 | Finish the OpenAPI document. It describes the four system endpoints and nothing else, while [04](04_api.md) promises it describes the API and [12](12_testing.md) promises a test that fails when a registered route has no operation. That test currently checks a hardcoded list of four paths, so both promises are unkept. Found in sprint 13, which added two more routes it could not honestly document | L | [04](04_api.md) |
 
 **Exit criteria:** no serious or critical axe violations. The application is
 fully operable by keyboard. The coverage targets are met, in particular 90% on

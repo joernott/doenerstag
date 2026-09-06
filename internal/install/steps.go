@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/joernott/doenerstag/internal/auth"
+	"github.com/joernott/doenerstag/internal/htmlsafe"
 )
 
 // AdministratorName is the one account with is_admin set. It cannot be renamed
@@ -132,18 +132,6 @@ func LoadContentPage(ctx context.Context, pool *pgxpool.Pool, key, path string) 
 	return nil
 }
 
-// sanitiser is built once: compiling a policy is not free and it is immutable.
-var sanitiser = func() *bluemonday.Policy {
-	// UGC is the right starting point: headings, lists, links and emphasis, but
-	// no script, no event handlers and no javascript: URLs.
-	p := bluemonday.UGCPolicy()
-	// Operators style their own imprint, and these are inert.
-	p.AllowAttrs("id", "class").Globally()
-	p.AllowElements("section", "article", "header", "footer", "address", "hr")
-	p.AllowTables()
-	return p
-}()
-
 // SanitiseHTML strips anything an administrator-supplied snippet has no
 // business containing.
 //
@@ -151,8 +139,12 @@ var sanitiser = func() *bluemonday.Policy {
 // defence — the CSP in docs/05_auth_and_permissions.md is — but a stored
 // snippet is rendered with innerHTML in the one place the frontend does that,
 // and an allow-list is cheaper than trusting the account.
+//
+// The policy lives in internal/htmlsafe because the API replaces these pages as
+// well, and one policy in two places would eventually be two policies with the
+// weaker one as the way in.
 func SanitiseHTML(html string) string {
-	return sanitiser.Sanitize(html)
+	return htmlsafe.Sanitise(html)
 }
 
 // SemanticVersion is an application version split into its parts.

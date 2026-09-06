@@ -178,9 +178,55 @@ function fallbackCode(status: number): number {
   return 9000;
 }
 
+/**
+ * Reads or writes an endpoint whose body is HTML rather than JSON.
+ *
+ * Only the content pages: what they hold is a fragment of a document, and
+ * wrapping it in a JSON string would only mean unwrapping it again. The
+ * response is still an error envelope when something goes wrong, so failures
+ * are reported the same way as everywhere else.
+ */
+async function requestText(method: string, path: string, html?: string): Promise<string> {
+  const headers: Record<string, string> = { Accept: "text/html" };
+  if (html !== undefined) {
+    headers["Content-Type"] = "text/html; charset=utf-8";
+  }
+  if (!isSafe(method)) {
+    const token = readCookie(CSRF_COOKIE);
+    if (token) {
+      headers["X-CSRF-Token"] = token;
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(BASE_PATH + path, {
+      method,
+      headers,
+      credentials: "same-origin",
+      ...(html === undefined ? {} : { body: html }),
+    });
+  } catch (cause) {
+    throw new ApiError({
+      code: NETWORK_ERROR,
+      status: 0,
+      message: cause instanceof Error ? cause.message : "the request failed",
+    });
+  }
+
+  if (!response.ok) {
+    throw await errorFrom(response);
+  }
+  return response.text();
+}
+
 /** The verbs, so call sites read as HTTP rather than as strings. */
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>("GET", path, options),
+  /** Reads an HTML endpoint: the imprint and the legal notes. */
+  text: (path: string) => requestText("GET", path),
+  /** Replaces an HTML endpoint's content and returns what was stored. */
+  putText: (path: string, html: string) => requestText("PUT", path, html),
   post: <T = void>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("POST", path, { ...options, ...(body === undefined ? {} : { body }) }),
   put: <T = void>(path: string, body?: unknown, options?: RequestOptions) =>
