@@ -123,10 +123,23 @@ jobs:
       # it buys nothing and made this job behave differently from a developer's
       # Windows machine, where the same suite passes. The database tests are
       # covered by the Linux job.
+      # The failure output is echoed as a workflow error annotation as well as
+      # to the log. Job logs need admin rights on the repository; annotations do
+      # not, so this keeps a Windows-only failure diagnosable by whoever is
+      # looking at the run.
       - name: Test
         env:
           DOENER_TEST_SKIP_DOCKER: "1"
-        run: go test -coverprofile=windows-coverage.out ./...
+        run: |
+          $output = go test -coverprofile=windows-coverage.out ./... 2>&1 | Out-String
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0) {
+            $trimmed = $output -replace "`r", ""
+            if ($trimmed.Length -gt 3000) { $trimmed = $trimmed.Substring(0, 3000) }
+            $encoded = $trimmed -replace "`n", "%0A"
+            Write-Host "::error title=go test failed::$encoded"
+            exit 1
+          }
 
       - name: Coverage report
         run: |
