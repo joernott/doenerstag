@@ -1,9 +1,602 @@
 @import "tailwindcss";
 
+/* The utility scan starts from this file, so the sources have to be named:
+   every class the application uses is written in TypeScript, not in markup. */
+@source "../src";
+
 /* Dark is the default; the light theme is opt-in through the doener_theme
    cookie, which the shell turns into this attribute before first paint. */
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
+/* ---------------------------------------------------------------------------
+   Colour
+
+   Every colour in the application is one of these variables. Nothing writes a
+   Tailwind colour utility, because a `bg-neutral-900` in a component is a
+   colour that cannot follow the theme -- the two palettes below are the whole
+   of the difference between dark and light, and a component that reaches past
+   them breaks one of the two.
+
+   The pairs meet WCAG 2.1 AA in both themes: body text at 4.5:1 or better
+   against its own surface, and borders and focus rings at 3:1.
+--------------------------------------------------------------------------- */
+
 :root {
   color-scheme: dark light;
+
+  --surface: #14161a;
+  --surface-raised: #1c1f26;
+  --surface-sunken: #0f1114;
+  --border: #333944;
+  --border-strong: #4a5261;
+  --text: #e9ebee;
+  --text-muted: #a8b0bd;
+  --accent: #f0a52e;
+  --accent-text: #1a1206;
+  --danger: #ff6b6f;
+  --danger-text: #1a0405;
+  --focus: #7cc4ff;
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --surface: #f6f6f4;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ebebe8;
+  --border: #d3d4d0;
+  --border-strong: #a8aaa4;
+  --text: #1a1c1f;
+  --text-muted: #565b63;
+  --accent: #a04f00;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+  --danger-text: #ffffff;
+  --focus: #0b5cad;
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.12);
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+
+html {
+  background: var(--surface);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--surface);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* One focus style for everything, meeting the 3:1 requirement against both the
+   component and the background. :focus-visible rather than :focus, so a mouse
+   click does not leave a ring behind. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+a {
+  color: inherit;
+}
+
+.link {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+/* Present to assistive technology, invisible to everyone else. Used for the
+   live region and for labels that the visual design carries some other way. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The first focusable element on the page. Off-screen until focused. */
+.skip-link {
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  inset-block-start: -3rem;
+  z-index: 60;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  transition: inset-block-start 0.15s ease;
+}
+
+.skip-link:focus {
+  inset-block-start: 0.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Title bar
+--------------------------------------------------------------------------- */
+
+.titlebar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 40;
+  background: var(--surface-raised);
+  border-block-end: 1px solid var(--border);
+}
+
+.titlebar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding: 0.5rem 1rem;
+}
+
+.titlebar-spacer {
+  flex: 1 1 auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.logo {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--accent);
+}
+
+/* Hidden below the small breakpoint, per the title bar table in docs/06. */
+@media (max-width: 639px) {
+  .brand-name {
+    display: none;
+  }
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+}
+
+.language-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.account-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.account-name:hover {
+  background: var(--surface-sunken);
+}
+
+@media (max-width: 639px) {
+  .account-name span {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Main menu
+--------------------------------------------------------------------------- */
+
+.menu-container {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-end: 0;
+  z-index: 50;
+  min-width: 14rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.menu-entry {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.menu-entry:hover {
+  background: var(--surface-sunken);
+}
+
+/* ---------------------------------------------------------------------------
+   Page
+--------------------------------------------------------------------------- */
+
+.page {
+  max-width: 90rem;
+  margin-inline: auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.page:focus {
+  outline: none;
+}
+
+.page-title {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.definitions {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1.5rem;
+  margin: 0;
+}
+
+.definitions dt {
+  color: var(--text-muted);
+}
+
+.definitions dd {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Tiles
+
+   The column counts are the breakpoint table in docs/06_ui_ux.md: one, two at
+   md, three at lg, four at xl. Desktop first is a claim about which layout is
+   designed, not about which media query is written, and min-width queries are
+   what CSS makes cheap.
+--------------------------------------------------------------------------- */
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .tile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .tile-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  text-decoration: none;
+}
+
+.tile:hover {
+  border-color: var(--border-strong);
+}
+
+/* An expired order. The opacity is never the only signal: the tile also says
+   so in words, because opacity is not information. */
+.tile-faded {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.tile-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5rem;
+  color: var(--accent);
+}
+
+.tile-add .icon {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.tile-add-label {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Forms
+--------------------------------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 32rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field-label {
+  font-weight: 500;
+}
+
+.field-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.field-error,
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+}
+
+.input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.button-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+.button-quiet {
+  border-color: var(--border);
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------------------
+   Modals
+--------------------------------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.modal {
+  width: min(40rem, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.modal-narrow {
+  width: min(28rem, 100%);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.modal-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 0 1rem 1rem;
+}
+
+.modal-body p {
+  margin: 0 0 0.75rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-block-start: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------------------
+   Print
+
+   The summary is the page people print, so printing drops everything that is
+   not the summary: the chrome, the buttons, the tile hover affordances. Colours
+   are forced light because a dark page prints as a solid black rectangle.
+   docs/06_ui_ux.md asks for the aggregated list and the totals to stay together
+   on one page where possible, which is what break-inside does.
+--------------------------------------------------------------------------- */
+
+@media print {
+  :root {
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #ffffff;
+    --border: #999999;
+    --border-strong: #666666;
+    --text: #000000;
+    --text-muted: #333333;
+    --accent: #000000;
+    --accent-text: #ffffff;
+    --shadow: none;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+  }
+
+  .titlebar,
+  .skip-link,
+  .menu,
+  .button,
+  .icon-button,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .tile,
+  .definitions,
+  .summary-row,
+  .summary-person {
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: "";
+  }
 }

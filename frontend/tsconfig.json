@@ -12,7 +12,14 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // The catalogs are imported as modules and compiled into the bundle;
+    // nothing is fetched at runtime (docs/07_i18n.md).
+    "resolveJsonModule": true,
+    // The build scripts are JavaScript and the tests import them. They are not
+    // type-checked themselves -- checkJs stays off -- but their exports are
+    // inferred, so a test calling one with the wrong arguments still fails here.
+    "allowJs": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.mjs", "vitest.config.ts"]
 }

@@ -78,8 +78,19 @@ dev: build ## Frontend watch mode plus a development binary
 # --- quality -----------------------------------------------------------------
 
 .PHONY: test
-test: ## Run the Go tests
+test: test-frontend ## Run the Go and frontend tests
 	$(GO) test $(GOFLAGS) ./...
+
+# Skipped rather than failed when the toolchain is absent, the same way lint
+# handles a missing golangci-lint: a machine that can build a development
+# binary is not required to have Node, and CI has both.
+.PHONY: test-frontend
+test-frontend: ## Type-check and unit-test the frontend
+	@if [ -d frontend/node_modules ]; then \
+		cd frontend && npm run typecheck && npm test; \
+	else \
+		echo "test-frontend: frontend/node_modules missing, run make deps-frontend (skipping)"; \
+	fi
 
 .PHONY: test-race
 test-race: ## Run the Go tests with the race detector

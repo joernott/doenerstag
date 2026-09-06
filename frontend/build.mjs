@@ -13,10 +13,13 @@
 // and the CSP forbids a CDN.
 
 import { spawn } from "node:child_process";
+import { watch as watchDirectory } from "node:fs";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+
+import { catalogDir, generateRegistry } from "./scripts/i18n.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = join(here, "..", "static");
@@ -92,9 +95,12 @@ async function buildShell() {
     <link rel="stylesheet" href="/static/css/app.css">
     <script type="module" src="/static/js/theme.js"></script>
   </head>
-  <body class="min-h-screen bg-neutral-900 text-neutral-100 light:bg-white light:text-neutral-900">
+  <body>
     <noscript>doenerstag needs JavaScript.</noscript>
-    <main id="app" class="mx-auto max-w-3xl p-6"></main>
+    <!-- The application renders its whole chrome into this element. The lang
+         attribute above is corrected to the resolved interface language as
+         soon as the bundle runs. -->
+    <div id="app"></div>
     <script type="module" src="/static/js/app.js"></script>
   </body>
 </html>
@@ -170,18 +176,49 @@ window.SwaggerUIBundle({
   await writeFile(join(target, "init.js"), init, "utf8");
 }
 
+/**
+ * Watches the catalog directory for languages being added or removed.
+ *
+ * esbuild already rebuilds when a catalog's *contents* change, because the
+ * registry imports the JSON files. What it cannot notice is a new file
+ * appearing, since nothing imports it yet -- so dropping fr.json into the
+ * directory during a watch session would otherwise do nothing at all.
+ */
+function watchCatalogs() {
+  let pending = null;
+  watchDirectory(catalogDir, (_event, filename) => {
+    if (!filename || !filename.endsWith(".json")) {
+      return;
+    }
+    // Editors write in several steps, so a save can fire three events. One
+    // regeneration a beat later is enough for all of them.
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      generateRegistry({ strict: false }).catch((error) => console.error(error.message));
+    }, 50);
+  });
+}
+
 async function main() {
   await mkdir(join(out, "js"), { recursive: true });
   await mkdir(join(out, "css"), { recursive: true });
+
+  // First, because the bundle imports what it writes. A missing key fails the
+  // build here rather than showing up as a raw message key on a screen.
+  const catalogs = await generateRegistry({ strict: !watch });
 
   await buildShell();
   await buildSwagger();
   await Promise.all([buildScripts(), buildStyles()]);
 
-  if (!watch) {
-    const bundle = await readFile(join(out, "js", "app.js"), "utf8");
-    console.log(`built static/js/app.js (${bundle.length} bytes)`);
+  if (watch) {
+    watchCatalogs();
+    return;
   }
+
+  const bundle = await readFile(join(out, "js", "app.js"), "utf8");
+  const codes = catalogs.map((catalog) => catalog.code).join(", ");
+  console.log(`built static/js/app.js (${bundle.length} bytes, languages: ${codes})`);
 }
 
 main().catch((error) => {

@@ -199,7 +199,7 @@ components:
 
     Version:
       type: object
-      required: [version, commit, build_date]
+      required: [version, commit, build_date, swagger]
       properties:
         version:
           type: string
@@ -208,6 +208,15 @@ components:
           type: string
         build_date:
           type: string
+        swagger:
+          type: boolean
+          description: |
+            Whether /tools/swagger is served. False under --no-swagger.
+
+            It is here for the frontend, which hides its API documentation menu
+            entry accordingly and has no other way to find out: --no-swagger
+            omits the route rather than answering 404, and an omitted path
+            falls through to the SPA fallback.
 
     Error:
       type: object

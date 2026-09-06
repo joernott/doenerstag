@@ -193,7 +193,13 @@ jobs:
         working-directory: frontend
 
       - name: Type-check
-        run: npx tsc --noEmit
+        # Through npm rather than tsc directly: the catalog registry is
+        # generated and not committed, and this script writes it first.
+        run: npm run typecheck
+        working-directory: frontend
+
+      - name: Unit tests
+        run: npm test
         working-directory: frontend
 
       - name: Build

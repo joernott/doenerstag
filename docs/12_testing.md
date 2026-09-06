@@ -167,12 +167,20 @@ Cross-cutting API tests:
 formatting of dates and money, the client-side validation rules, and the
 API-error-code-to-message mapping.
 
-Three catalog tests, none of which names a language, so all keep working as
+Five catalog tests, none of which names a language, so all keep working as
 translations are added:
 
 - Any catalog in the registry missing a key present in the English one fails the
-  build.
+  build. Plural keys count as present when the catalog supplies every category
+  *its own* language has, which `Intl.PluralRules` is asked for rather than
+  assumed.
 - Every catalog declares a well-formed `_meta` block.
+- The generated registry lists exactly the catalogs in the directory, so a
+  language cannot appear in the selector without a catalog behind it, or be
+  shipped without appearing.
+- Every error number documented in [04_api.md](04_api.md) has an `error.<code>`
+  message. The codes are read out of the document's own table, so a new error
+  number fails CI until it can be shown to a user in their language.
 - **Reference data completeness.** Every `code` seeded by a migration has a
   matching catalog key in every catalog: `allergen.<code>`, `additive.<code>`,
   `currency.<code>`, `contact_type.<code>` and `tag.<code>` for the seeded tags.
