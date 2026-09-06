@@ -121,17 +121,17 @@ anything depends on it is the cheapest ordering there is.
 | ✅ 2.1 | pgx pool: connection string assembly, `sslmode`, `--max-connection-pool`, UTC session       | M | [08](08_technologies.md) |
 | ✅ 2.2 | golang-migrate integration with embedded migration files                                    | M | [08](08_technologies.md) |
 | ✅ 2.3 | Audit column convention and the `updated_at` trigger                                        | S | [03](03_data_model.md) |
-| 2.4  | Migration: `app_user`, `session`, `api_token`; deleted-user placeholder with its fixed UUID    | M | [03](03_data_model.md) |
-| 2.5  | Migration: `currency`, `contact_type`, `tag`, `allergen`, `additive` seeds with source comments | M | [03](03_data_model.md) |
-| 2.6  | Migration: `restaurant`, `restaurant_contact`, `opening_hours`                                | M | [03](03_data_model.md) |
-| 2.7  | Migration: `menu_category`, `menu_item`, `menu_item_modification`, the three link tables       | M | [03](03_data_model.md) |
-| 2.8  | Migration: `food_order`, `order_item`, `order_item_modification`                              | M | [03](03_data_model.md) |
-| 2.9  | Migration: `image`, `content_page`, `app_version`                                             | S | [03](03_data_model.md) |
-| 2.10 | Indexes, `CHECK` constraints, partial unique indexes, foreign key actions                     | M | [03](03_data_model.md) |
+| ✅ 2.4 | Migration: `app_user`, `session`, `api_token`; deleted-user placeholder with its fixed UUID | M | [03](03_data_model.md) |
+| ✅ 2.5 | Migration: `currency`, `contact_type`, `tag`, `allergen`, `additive` seeds with source comments | M | [03](03_data_model.md) |
+| ✅ 2.6 | Migration: `restaurant`, `restaurant_contact`, `opening_hours`                              | M | [03](03_data_model.md) |
+| ✅ 2.7 | Migration: `menu_category`, `menu_item`, `menu_item_modification`, the three link tables    | M | [03](03_data_model.md) |
+| ✅ 2.8 | Migration: `food_order`, `order_item`, `order_item_modification`                            | M | [03](03_data_model.md) |
+| ✅ 2.9 | Migration: `image`, `content_page`, `app_version`                                           | S | [03](03_data_model.md) |
+| ✅ 2.10 | Indexes, `CHECK` constraints, partial unique indexes, foreign key actions                  | M | [03](03_data_model.md) |
 | ✅ 2.11 | Test harness: testcontainers-go, `DOENER_TEST_DATABASE_URL` fallback, clean skip when neither | M | [12](12_testing.md) |
-| 2.12 | Migration tests: up and down from empty and from each intermediate version                     | M | [12](12_testing.md) |
-| 2.13 | Seed verification tests, asserting each `code` individually                                    | M | [12](12_testing.md) |
-| 2.14 | Constraint tests: `deadline_at < fulfilment_at`, `quantity >= 1`, uniqueness, day-of-week range | M | [12](12_testing.md) |
+| ✅ 2.12 | Migration tests: up and down from empty and from each intermediate version                | M | [12](12_testing.md) |
+| ✅ 2.13 | Seed verification tests, asserting each `code` individually                               | M | [12](12_testing.md) |
+| ✅ 2.14 | Constraint tests: `deadline_at < fulfilment_at`, `quantity >= 1`, uniqueness, day-of-week range | M | [12](12_testing.md) |
 
 **Exit criteria:** migrations apply and roll back cleanly at every version. The
 14 allergens, 14 additives, currencies, contact types and default tags are
