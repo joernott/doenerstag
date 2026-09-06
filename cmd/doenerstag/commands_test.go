@@ -9,13 +9,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The documented verbs, and the plan task that will implement each.
+// Every documented verb.
 var expectedVerbs = map[string]string{
 	"server":  "4.8",
-	"install": "3.1",
+	"install": "",
 	"update":  "14.4",
 	"cleanup": "9.7",
-	"version": "3.12",
+	"version": "",
+}
+
+// stubTasks names the verbs still waiting on a later sprint, and the task that
+// will deliver each. install and version are implemented, so they are absent.
+var stubTasks = map[string]string{
+	"server":  "4.8",
+	"update":  "14.4",
+	"cleanup": "9.7",
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {
@@ -45,8 +53,8 @@ func isBuiltinCobraCommand(name string) bool {
 	return name == "help" || name == "completion"
 }
 
-func TestEveryVerbFailsCleanlyWithItsTaskNumber(t *testing.T) {
-	for verb, task := range expectedVerbs {
+func TestEveryStubFailsCleanlyWithItsTaskNumber(t *testing.T) {
+	for verb, task := range stubTasks {
 		out := &bytes.Buffer{}
 		root := newRootCommand()
 		root.SetArgs([]string{verb})
@@ -72,6 +80,26 @@ func TestEveryVerbFailsCleanlyWithItsTaskNumber(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "14_implementation_plan.md") {
 			t.Errorf("%s: error %q does not point at the plan", verb, err)
+		}
+	}
+}
+
+// install and version are implemented. Without a database they must still fail
+// cleanly and say something, rather than crashing or claiming to be a stub.
+func TestImplementedVerbsFailCleanlyWithoutADatabase(t *testing.T) {
+	for _, verb := range []string{"install", "version"} {
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+
+		code := run([]string{verb, "--non-interactive"}, stdout, stderr)
+		if code != exitFailure {
+			t.Errorf("%s without a database exited %d, want %d", verb, code, exitFailure)
+		}
+		if strings.TrimSpace(stderr.String()+stdout.String()) == "" {
+			t.Errorf("%s failed silently", verb)
+		}
+		if strings.Contains(stderr.String(), "not implemented") {
+			t.Errorf("%s still reports itself as a stub", verb)
 		}
 	}
 }

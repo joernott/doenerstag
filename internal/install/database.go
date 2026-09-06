@@ -250,7 +250,9 @@ func (p *Provisioner) log(message string, pairs ...any) {
 	if p.Logger == nil {
 		return
 	}
-	event := p.Logger.Info().Str("component", "install")
+	// The component field comes from the logger the caller scoped, so setting
+	// it again here would emit it twice.
+	event := p.Logger.Info()
 	for i := 0; i+1 < len(pairs); i += 2 {
 		key, _ := pairs[i].(string)
 		event = event.Interface(key, pairs[i+1])

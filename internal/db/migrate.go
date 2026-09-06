@@ -143,8 +143,9 @@ func (m *Migrator) log(message string, from, to uint) {
 	if m.logger == nil {
 		return
 	}
+	// No component field here: the caller passes a logger already scoped to
+	// whichever part of the application is migrating.
 	m.logger.Info().
-		Str("component", Component).
 		Uint("from_version", from).
 		Uint("to_version", to).
 		Msg(message)

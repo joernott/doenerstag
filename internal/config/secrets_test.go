@@ -8,12 +8,13 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// The four settings docs/09_configuration.md forbids on the command line.
+// The settings docs/09_configuration.md forbids on the command line.
 var forbiddenOnCommandLine = []string{
 	"database-password",
 	"database-root-password",
 	"database-admin-password",
 	"jwt-secret",
+	"root-password",
 }
 
 func TestExactlyTheDocumentedSettingsAreSecret(t *testing.T) {
