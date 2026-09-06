@@ -640,6 +640,16 @@ export async function orderPage(
       return bar;
     }
 
+    /**
+     * One filter, folded away until it is wanted.
+     *
+     * The three groups together are nearly forty checkboxes, and expanded they
+     * sit between the top of the menu column and the first dish: a keyboard
+     * user had to cross all of them to order anything. A <details> is three tab
+     * stops instead of forty, is open to the same keyboard without any script,
+     * and says in its own summary how many filters are active -- so folding one
+     * away cannot hide the fact that it is filtering.
+     */
     const group = (
       legend: string,
       entries: { id: string; label: string }[],
@@ -663,7 +673,14 @@ export async function orderPage(
         });
         list.appendChild(box);
       }
-      return el("fieldset", { class: "fieldset" }, el("legend", { text: legend }), list);
+
+      const label = chosen.size > 0 ? `${legend} (${String(chosen.size)})` : legend;
+      return el(
+        "details",
+        { class: "filter-group", open: chosen.size > 0 },
+        el("summary", { text: label }),
+        list,
+      );
     };
 
     append(

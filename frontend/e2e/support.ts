@@ -26,6 +26,15 @@ export function unique(prefix: string): string {
 /** Registers an account and returns it. The request context keeps its cookies. */
 export async function register(request: APIRequestContext, prefix = "user"): Promise<Account> {
   const name = unique(prefix);
+
+  // Registering is anonymous-only (error 2006), and a context that has already
+  // registered somebody is logged in as them. Several tests need two accounts,
+  // so the session is ended first. A context with no session gets a harmless
+  // refusal, which is why the result is not checked.
+  await request.post("/api/v1/auth/logout", {
+    headers: { "X-CSRF-Token": await csrf(request) },
+  });
+
   // The token is sent even for the first registration, when there is none:
   // once this context has registered anybody, it holds a session, and the
   // server rightly refuses a cookie-authenticated write without the header.

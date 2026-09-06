@@ -271,6 +271,19 @@ Coverage is a signal, not a target to game.
 The last two matter more than the percentages. A permission bug is the most
 likely serious defect in an application whose access rules are this asymmetric.
 
+Both are checked rather than estimated. The permission matrix is read out of
+[05](05_auth_and_permissions.md) by `TestEveryMatrixRowIsCovered`, so a row added
+there fails until a test covers it. And the API test fixture records which routes
+the suite actually reaches; `TestMain` fails the package when a registered route
+was served by nobody. Counting operations in the OpenAPI document proves the
+other thing -- that they are described -- and the first version of this promise
+was exactly that, which is how three routes stayed untested for nine sprints.
+
+The percentages are measured with `-coverpkg` across the module. Without it a
+package is credited only for what its own tests execute, and `internal/db`
+reported 22.6% while the API integration tests were exercising three quarters of
+it.
+
 ### Coverage is measured per platform
 
 The two supported development platforms do not execute the same code. The

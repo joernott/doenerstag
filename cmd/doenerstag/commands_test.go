@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"testing"
 
@@ -10,19 +9,12 @@ import (
 )
 
 // Every documented verb.
-var expectedVerbs = map[string]string{
-	"server":  "",
-	"install": "",
-	"update":  "14.4",
-	"cleanup": "9.7",
-	"version": "",
-}
-
-// stubTasks names the verbs still waiting on a later sprint, and the task that
-// will deliver each. server, install, cleanup and version are implemented, so
-// they are absent.
-var stubTasks = map[string]string{
-	"update": "14.4",
+var expectedVerbs = map[string]bool{
+	"server":  true,
+	"install": true,
+	"update":  true,
+	"cleanup": true,
+	"version": true,
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {
@@ -52,41 +44,10 @@ func isBuiltinCobraCommand(name string) bool {
 	return name == "help" || name == "completion"
 }
 
-func TestEveryStubFailsCleanlyWithItsTaskNumber(t *testing.T) {
-	for verb, task := range stubTasks {
-		out := &bytes.Buffer{}
-		root := newRootCommand()
-		root.SetArgs([]string{verb})
-		root.SetOut(out)
-		root.SetErr(out)
-
-		err := root.Execute()
-		if err == nil {
-			t.Errorf("%s: expected an error from the stub", verb)
-			continue
-		}
-
-		var notImplemented *notImplementedError
-		if !errors.As(err, &notImplemented) {
-			t.Errorf("%s: error is %T, want *notImplementedError", verb, err)
-			continue
-		}
-		if notImplemented.verb != verb {
-			t.Errorf("%s: error names verb %q", verb, notImplemented.verb)
-		}
-		if !strings.Contains(err.Error(), task) {
-			t.Errorf("%s: error %q does not name task %s", verb, err, task)
-		}
-		if !strings.Contains(err.Error(), "14_implementation_plan.md") {
-			t.Errorf("%s: error %q does not point at the plan", verb, err)
-		}
-	}
-}
-
 // install and version are implemented. Without a database they must still fail
 // cleanly and say something, rather than crashing or claiming to be a stub.
 func TestImplementedVerbsFailCleanlyWithoutADatabase(t *testing.T) {
-	for _, verb := range []string{"server", "install", "version"} {
+	for _, verb := range []string{"server", "install", "update", "version"} {
 		stdout := &bytes.Buffer{}
 		stderr := &bytes.Buffer{}
 
@@ -149,9 +110,10 @@ func TestUnknownVerbIsAUsageError(t *testing.T) {
 		t.Fatal("an unknown verb was accepted")
 	}
 
-	var notImplemented *notImplementedError
-	if errors.As(err, &notImplemented) {
-		t.Error("an unknown verb was reported as not implemented")
+	// The message has to say what was wrong with the invocation: a verb that
+	// does not exist and one that exists but failed are different problems.
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("error %q does not say the verb is unknown", err)
 	}
 }
 

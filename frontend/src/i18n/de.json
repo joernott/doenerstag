@@ -151,6 +151,7 @@
   "error.2003": "Sie wurden woanders angemeldet. Bitte neu anmelden.",
   "error.2004": "Dieses API-Token ist ungültig oder wurde widerrufen.",
   "error.2005": "Die Anfrage konnte nicht geprüft werden. Bitte die Seite neu laden.",
+  "error.2006": "Du bist bereits angemeldet. Bitte zuerst abmelden, um ein weiteres Konto anzulegen.",
   "error.3000": "Das kann nur die Administration.",
   "error.3001": "Das kann nur ändern, wer die Bestellung eröffnet hat.",
   "error.3002": "Sie können nur Ihre eigenen Positionen ändern.",

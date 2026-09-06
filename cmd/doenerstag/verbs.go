@@ -15,6 +15,7 @@ import (
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/install"
 	"github.com/joernott/doenerstag/internal/static"
+	"github.com/joernott/doenerstag/internal/update"
 	"github.com/joernott/doenerstag/internal/version"
 )
 
@@ -52,6 +53,56 @@ func runInstall(app *appContext, cmd *cobra.Command) error {
 	cmd.Printf("  Administrator: %s\n", result.Administrator)
 	cmd.Printf("  Configuration: %s\n", result.ConfigPath)
 	cmd.Printf("\nStart the server with:\n  doenerstag server -c %s\n", result.ConfigPath)
+	return nil
+}
+
+// runUpdate applies outstanding migrations and rewrites the configuration file.
+func runUpdate(app *appContext, cmd *cobra.Command) error {
+	cfg := app.Config
+
+	// The file that was read is the file that is rewritten. --output exists for
+	// the same reason it does on install -- writing the new file somewhere else
+	// to inspect it first -- but in place is the normal case.
+	output := cfg.Install.Output
+	if output == "" {
+		output = cfg.File
+	}
+	if output == "" {
+		output = config.DefaultConfigFile
+	}
+
+	reset, err := cmd.Flags().GetBool("reset-root-password")
+	if err != nil {
+		return err
+	}
+
+	result, err := update.Run(cmd.Context(), update.Options{
+		Config:            cfg,
+		OutputPath:        output,
+		ExistingPath:      cfg.File,
+		AppVersion:        version.Version(),
+		ResetRootPassword: reset,
+		Prompter: install.NewPrompter(
+			cmd.InOrStdin(), cmd.OutOrStdout(), cfg.Install.NonInteractive),
+		Logger: app.Logger.Component("update"),
+	})
+	if err != nil {
+		return err
+	}
+
+	cmd.Printf("\nUpdated doenerstag to %s.\n", version.Version())
+	if result.SchemaBefore == result.SchemaAfter {
+		cmd.Printf("  Schema:        version %d, already current\n", result.SchemaAfter)
+	} else {
+		cmd.Printf("  Schema:        version %d, was %d\n", result.SchemaAfter, result.SchemaBefore)
+	}
+	cmd.Printf("  Configuration: %s\n", result.ConfigPath)
+	if result.RootPasswordReset {
+		cmd.Printf("  Administrator: %s, password reset\n", install.AdministratorName)
+	}
+	for _, key := range result.Retired {
+		cmd.Printf("  Retired:       %s is no longer a setting; it is commented out\n", key)
+	}
 	return nil
 }
 

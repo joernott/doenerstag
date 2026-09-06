@@ -1,33 +1,11 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/joernott/doenerstag/internal/config"
 	"github.com/joernott/doenerstag/internal/version"
 )
-
-// notImplementedError marks a verb whose behaviour a later sprint delivers. It
-// carries the task number so that the message points at the plan rather than
-// leaving the operator wondering whether they used the command wrongly.
-type notImplementedError struct {
-	verb string
-	task string
-}
-
-func (e *notImplementedError) Error() string {
-	return fmt.Sprintf("%s is not implemented yet (task %s in docs/14_implementation_plan.md)",
-		e.verb, e.task)
-}
-
-// notImplemented returns a RunE that fails with a clear message.
-func notImplemented(verb, task string) func(*cobra.Command, []string) error {
-	return func(*cobra.Command, []string) error {
-		return &notImplementedError{verb: verb, task: task}
-	}
-}
 
 // newRootCommand builds the whole command tree.
 func newRootCommand() *cobra.Command {
@@ -65,7 +43,7 @@ It does not take payments and does not place orders with restaurants.`,
 	root.AddCommand(
 		newServerCommand(app),
 		newInstallCommand(app),
-		newUpdateCommand(),
+		newUpdateCommand(app),
 		newCleanupCommand(app),
 		newVersionCommand(app),
 	)
@@ -128,7 +106,7 @@ stored.`,
 	return cmd
 }
 
-func newUpdateCommand() *cobra.Command {
+func newUpdateCommand(app *appContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an existing installation",
@@ -140,10 +118,17 @@ Updating is not possible before the first release has shipped.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE:          notImplemented("update", "14.4"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runUpdate(app, cmd)
+		},
 	}
 	// update takes the same flags as install.
 	config.RegisterScopeFlags(cmd.Flags(), config.ScopeInstall)
+	// ...and one of its own. Resetting the administrator's password is the
+	// documented recovery path, and doing it during an update saves an
+	// operator a second run of install.
+	cmd.Flags().Bool("reset-root-password", false,
+		"ask for a new password for the root administrator")
 	return cmd
 }
 

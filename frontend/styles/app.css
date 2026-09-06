@@ -354,11 +354,20 @@ a {
   border-color: var(--border-strong);
 }
 
-/* An expired order. The opacity is never the only signal: the tile also says
-   so in words, because opacity is not information. */
+/* An expired order. The recessed surface is never the only signal: the tile
+   also says so in words, because a colour is not information.
+
+   This used to be `opacity: 0.72`, which is the obvious way to make something
+   look past and the wrong one. Opacity applies to the whole subtree and cannot
+   be undone by a child, so it dimmed the "expired" badge along with everything
+   else, and 72% of the danger colour on the dark theme's raised surface falls
+   below the AA contrast ratio. axe found it on the order list once enough
+   expired orders had accumulated to put one on the page. Recessing the
+   background and dashing the border says the same thing and leaves every
+   foreground colour at the strength it was designed at. */
 .tile-faded {
-  opacity: 0.72;
   border-style: dashed;
+  background: var(--surface-sunken);
 }
 
 .tile-add {
@@ -1246,4 +1255,17 @@ a {
   textarea {
     display: none !important;
   }
+}
+
+/* A filter that is folded away until it is wanted. Native <details>, so it
+   opens with the keyboard and is announced correctly without any script. */
+.filter-group > summary {
+  padding: 0.35rem 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.filter-group[open] > summary {
+  border-block-end: 1px solid var(--border);
+  margin-block-end: 0.35rem;
 }

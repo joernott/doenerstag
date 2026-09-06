@@ -3,6 +3,8 @@ package api_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/joernott/doenerstag/internal/api"
@@ -345,38 +347,101 @@ func TestTheAdministratorCanActWhereverTheOwnerCan(t *testing.T) {
 	}
 }
 
-// The rows this sprint cannot cover, named so the gap is visible rather than
-// silent. Each becomes a real case when its sprint lands.
-func TestPermissionMatrixCoverageIsRecorded(t *testing.T) {
-	pendingRows := map[string]string{
-		"View the order list and each order's item count": "sprint 8",
-		"View an order's items and totals":                "sprint 8",
-		"View an order's summary page":                    "sprint 9",
-		"Create an order":                                 "sprint 8",
-		"Edit an order's fields":                          "sprint 8",
-		"Change an order's restaurant (no items yet)":     "sprint 8",
-		"Delete an order":                                 "sprint 8",
-		"Add an order item to an active order":            "sprint 8",
-		"Edit or delete an order item":                    "sprint 8",
-		"Edit or delete an order item after deadline":     "sprint 8",
-		"View restaurants, menus, opening hours":          "sprint 6",
-		"Create a restaurant":                             "sprint 6",
-		"Edit a restaurant, contacts, opening hours":      "sprint 6",
-		"Delete a restaurant":                             "sprint 6",
-		"Create a menu category or menu item":             "sprint 7",
-		"Edit a menu item, mark it unavailable":           "sprint 7",
-		"Delete a menu category, item or modification":    "sprint 7",
-		"Create a free tag":                               "sprint 7",
-		"Upload an image":                                 "sprint 6",
-		"Replace imprint / legal notes":                   "sprint 9",
-		"Shut the application down":                       "sprint 9",
+// Every row of the matrix in docs/05_auth_and_permissions.md is covered
+// somewhere, and the document is what says which rows exist.
+//
+// This replaces a map of "rows awaiting their sprint" that listed twenty-one
+// entries and named the sprint each was waiting for. Those sprints all landed;
+// the map did not change, and it reported the gap to nobody because nothing
+// read it. Reading the document instead means a row added there fails here
+// until it is covered, and a row covered here that no longer exists there fails
+// too.
+func TestEveryMatrixRowIsCovered(t *testing.T) {
+	// Where each row is exercised. The value is for a person reading a failure,
+	// so it names the test rather than the file.
+	coveredBy := map[string]string{
+		"View the order list and each order's item count": "TestPermissionMatrixContent",
+		"View an order's items and totals":                "TestAnOrdersDetailIsTieredRatherThanRefused",
+		"View an order's summary page":                    "TestPermissionMatrixContent",
+		"View restaurants, menus, opening hours":          "TestPermissionMatrixContent",
+		"View imprint, legal notes, version":              "TestPermissionMatrix",
+		"Register an account":                             "TestPermissionMatrixContent",
+		"Create an order":                                 "TestPermissionMatrixContent",
+		"Edit an order's fields":                          "TestPermissionMatrixContent",
+		"Change an order's restaurant (no items yet)":     "TestPermissionMatrixContent",
+		"Delete an order":                                 "TestPermissionMatrixContent",
+		"Add an order item to an active order":            "TestPermissionMatrixContent",
+		"Edit or delete an order item":                    "TestPermissionMatrixContent",
+		"Edit or delete an order item after deadline":     "TestPermissionMatrixContent",
+		"Create a restaurant":                             "TestPermissionMatrixContent",
+		"Edit a restaurant, contacts, opening hours":      "TestPermissionMatrixContent",
+		"Delete a restaurant":                             "TestPermissionMatrixContent",
+		"Create a menu category or menu item":             "TestPermissionMatrixContent",
+		"Edit a menu item, mark it unavailable":           "TestPermissionMatrixContent",
+		"Delete a menu category, item or modification":    "TestPermissionMatrixContent",
+		"Create a free tag":                               "TestPermissionMatrixContent",
+		"Upload an image":                                 "TestPermissionMatrixContent",
+		"Edit own profile, manage own API tokens":         "TestPermissionMatrix",
+		"Delete own account":                              "TestPermissionMatrixAccountDeletion",
+		"List all users":                                  "TestPermissionMatrix",
+		"Replace imprint / legal notes":                   "TestPermissionMatrixContent",
+		"Shut the application down":                       "TestPermissionMatrixContent",
 	}
 
-	if len(pendingRows) == 0 {
-		t.Error("this test should be deleted once every row is covered")
+	documented := documentedMatrixRows(t)
+	if len(documented) == 0 {
+		t.Fatal("no matrix rows were found in docs/05_auth_and_permissions.md")
 	}
-	t.Logf("%d matrix rows covered here, %d awaiting their sprint",
-		len(accountRows()), len(pendingRows))
+
+	for _, row := range documented {
+		if _, ok := coveredBy[row]; !ok {
+			t.Errorf("the matrix row %q is documented but not covered by any test", row)
+		}
+	}
+
+	inDocument := make(map[string]bool, len(documented))
+	for _, row := range documented {
+		inDocument[row] = true
+	}
+	for row := range coveredBy {
+		if !inDocument[row] {
+			t.Errorf("%q is claimed to be covered but is no longer a row of the matrix", row)
+		}
+	}
+}
+
+// documentedMatrixRows reads the first column of the permission matrix.
+func documentedMatrixRows(t *testing.T) []string {
+	t.Helper()
+
+	const path = "../../docs/05_auth_and_permissions.md"
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+
+	var rows []string
+	inTable := false
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "| Action ") {
+			inTable = true
+			continue
+		}
+		if !inTable {
+			continue
+		}
+		if !strings.HasPrefix(line, "|") {
+			break // the table ended
+		}
+		cells := strings.Split(strings.Trim(line, "|"), "|")
+		action := strings.TrimSpace(cells[0])
+		if action == "" || strings.HasPrefix(action, "---") {
+			continue // the separator row
+		}
+		rows = append(rows, action)
+	}
+	return rows
 }
 
 // expectErrorCode asserts the internal code without pinning the status, for the

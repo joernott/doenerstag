@@ -114,6 +114,7 @@ falls back to `message` when no translation exists.
 | 2003 | 401  | Session superseded by a newer login.                            |
 | 2004 | 401  | Invalid or revoked API token.                                   |
 | 2005 | 403  | Missing or invalid CSRF token.                                  |
+| 2006 | 403  | Already logged in; log out before registering another account.  |
 | 3000 | 403  | Administrator privileges required.                              |
 | 3001 | 403  | Only the order creator may change this order.                   |
 | 3002 | 403  | Only the owner may change this order item.                      |

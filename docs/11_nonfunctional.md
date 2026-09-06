@@ -54,7 +54,26 @@ not to optimize.
 | SSE event delivered after the causing write    | < 500 ms                              |
 
 Client-side: first contentful paint under one second on the LAN; the JavaScript
-bundle under 200 KiB and the stylesheet under 100 KiB, both compressed.
+bundle under 200 KiB and the stylesheet under 100 KiB, both compressed. The two
+budgets are checked by `TestTheClientBudgetsAreMet` in `internal/static`, against
+the files a release embeds.
+
+The server-side targets are checked by the performance tests in `internal/api`,
+which seed the data volumes below and measure the 95th percentile. They are off
+by default -- a timing assertion on a shared CI runner is a flake generator --
+and are run deliberately:
+
+```
+DOENERSTAG_PERFORMANCE=1 go test ./internal/api/ -run TestPerformance -v
+```
+
+Measured on the two-core development VM in sprint 14, every target held with at
+least an order of magnitude to spare except login, which is dominated by Argon2id
+as intended: `GET /orders` 2.8 ms, the 50-item order 4.4 ms, its summary 5.2 ms,
+the 300-item menu 12.1 ms, adding an item 5.3 ms, login 106 ms, a 5 MiB upload
+with downscale 219 ms, and an event delivered 7.3 ms after the write that caused
+it. Under 50 concurrent readers with 100 streams open, a list plus a detail read
+took 137 ms.
 
 Concurrency: 50 simultaneous users and 100 concurrent SSE streams without
 degradation. That is far above the expected load and exists as a headroom check.
@@ -94,7 +113,12 @@ Requirements that hold regardless:
   command line; attempting it is a FATAL error. The configuration file is
   created mode `0600`.
 - **SQL.** Every query uses parameter binding. String-concatenated SQL is a
-  review blocker. Identifiers are never taken from user input.
+  review blocker. Identifiers are never taken from user input. Checked rather
+  than remembered: `internal/db/sqlsafety_test.go` parses this package and
+  fails on a SQL fragment formatted with anything but `%d`, or on a statement
+  built from a variable. The handful of places that legitimately assemble a
+  statement -- a PATCH sets only the fields that were sent -- are named there
+  with the reason each is safe, and an entry that stops being needed fails too.
 - **XSS.** The frontend builds the DOM through `textContent` and explicit
   element creation. `innerHTML` is used in exactly one place — rendering the
   imprint and legal notes snippets — and that content is sanitized on write with

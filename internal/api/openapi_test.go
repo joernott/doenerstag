@@ -6,6 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
+
+	"github.com/joernott/doenerstag/internal/config"
 )
 
 // The document has to be machine-readable, because Swagger UI and every
@@ -32,39 +36,118 @@ func TestOpenAPIDocumentIsValidJSON(t *testing.T) {
 }
 
 // Every route the server registers must be described, or the document is a
-// half-truth. Sprint 4 registers only the system endpoints; this test grows
-// with the API rather than being rewritten.
+// half-truth.
+//
+// The routes come from the production wiring rather than from a list kept here
+// by hand. The list version of this test passed for nine sprints while the
+// document described four endpoints out of sixty, because the list was the
+// same four.
 func TestEveryRegisteredRouteIsDocumented(t *testing.T) {
 	documented := documentedPaths(t)
 
-	// The routes SystemHandlers registers, as the document should spell them.
-	want := []string{"/health", "/metrics", "/version", "/shutdown"}
+	for _, route := range productionRoutes(t) {
+		path := documentedForm(route.Path)
+		operations, present := documented[path]
+		if !present {
+			t.Errorf("%s %s is served but not described in api/openapi.yaml",
+				route.Method, path)
+			continue
+		}
 
-	for _, path := range want {
-		if _, present := documented[path]; !present {
-			t.Errorf("route %s is served but not described in api/openapi.yaml", path)
+		// The path being present is not enough: the method has to be there
+		// too, or DELETE could be undocumented under a documented GET.
+		methods, ok := operations.(map[string]any)
+		if !ok {
+			t.Errorf("%s is not an object in the document", path)
+			continue
+		}
+		if _, described := methods[strings.ToLower(route.Method)]; !described {
+			t.Errorf("%s %s is served but only other methods are documented",
+				route.Method, path)
 		}
 	}
 }
 
-// And the other way: a documented path that nothing serves would send a client
-// to a 404.
-func TestEveryDocumentedPathIsServed(t *testing.T) {
-	r := NewRouter(Options{})
-	(&SystemHandlers{Shutdown: func() {}}).Register(r)
-	r.RegisterOpenAPI()
+// productionRoutes is what NewServer registers, which is the only list that
+// cannot drift from what is served.
+//
+// The server is built without a database: nothing here touches one, because
+// registering a route does not.
+func productionRoutes(t *testing.T) []RouteInfo {
+	t.Helper()
 
-	for path := range documentedPaths(t) {
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, APIPrefix+path, http.NoBody)
-		r.ServeHTTP(rec, req)
+	cfg := &config.Config{}
+	cfg.Session.JWTSecret = strings.Repeat("k", MinJWTSecretLength)
+	logger := zerolog.Nop()
 
-		// A documented path must resolve to something. What it answers depends
-		// on the method and on whether a database is present; the only wrong
-		// answer here is "this path does not exist".
-		if rec.Code == http.StatusNotFound {
-			t.Errorf("documented path %s is not served", path)
+	server, err := NewServer(ServerOptions{Config: cfg, Logger: &logger})
+	if err != nil {
+		t.Fatalf("building the server: %v", err)
+	}
+
+	routes := server.Routes()
+	if len(routes) == 0 {
+		t.Fatal("the server registered no routes")
+	}
+	return routes
+}
+
+// documentedForm turns httprouter's /orders/:id into the document's
+// /orders/{id}.
+func documentedForm(path string) string {
+	var out []string
+	for _, segment := range strings.Split(path, "/") {
+		if strings.HasPrefix(segment, ":") {
+			segment = "{" + segment[1:] + "}"
 		}
+		out = append(out, segment)
+	}
+	return strings.Join(out, "/")
+}
+
+// And the other way: a documented path that nothing serves would send a client
+// to a 404, which is worse than no documentation at all.
+func TestEveryDocumentedPathIsServed(t *testing.T) {
+	served := map[string]map[string]bool{}
+	for _, route := range productionRoutes(t) {
+		path := documentedForm(route.Path)
+		if served[path] == nil {
+			served[path] = map[string]bool{}
+		}
+		served[path][strings.ToLower(route.Method)] = true
+	}
+
+	for path, operations := range documentedPaths(t) {
+		methods, ok := served[path]
+		if !ok {
+			t.Errorf("documented path %s is not served by anything", path)
+			continue
+		}
+
+		described, ok := operations.(map[string]any)
+		if !ok {
+			continue
+		}
+		for method := range described {
+			// Keys that are not operations: a path item may also carry
+			// parameters, a summary or a description.
+			if !isHTTPMethod(method) {
+				continue
+			}
+			if !methods[method] {
+				t.Errorf("%s %s is documented but not served",
+					strings.ToUpper(method), path)
+			}
+		}
+	}
+}
+
+func isHTTPMethod(name string) bool {
+	switch name {
+	case "get", "put", "post", "delete", "patch", "head", "options", "trace":
+		return true
+	default:
+		return false
 	}
 }
 

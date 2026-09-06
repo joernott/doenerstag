@@ -151,6 +151,7 @@
   "error.2003": "You were logged in somewhere else. Please log in again.",
   "error.2004": "That API token is invalid or has been revoked.",
   "error.2005": "The request could not be verified. Please reload the page.",
+  "error.2006": "You are already logged in. Log out first to register another account.",
   "error.3000": "Only the administrator can do that.",
   "error.3001": "Only the person who opened this order can change it.",
   "error.3002": "You can only change your own items.",

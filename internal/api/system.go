@@ -147,11 +147,23 @@ func (h *SystemHandlers) version(w http.ResponseWriter, _ *http.Request) {
 
 // shutdownHandler begins a graceful shutdown.
 //
+// Administrator only, per the last row of the matrix in
+// docs/05_auth_and_permissions.md. The check lives here rather than in a
+// wrapper because this is the one route whose failure mode is the whole
+// application: it was written in sprint 3 with a comment promising that sprint
+// 5 would wrap it in the administrator check, sprint 5 wrapped every other
+// route and not this one, and for nine sprints an anonymous POST could stop the
+// server. Anonymous requests are deliberately exempt from the CSRF check, so
+// nothing else stood in the way.
+//
 // It responds before shutting down, so the administrator sees a confirmation
-// rather than a dropped connection. Authorisation is the caller's
-// responsibility: sprint 5 wraps this route in the administrator check, and
-// until then the route is only registered when a Shutdown function is supplied.
-func (h *SystemHandlers) shutdownHandler(w http.ResponseWriter, _ *http.Request) {
+// rather than a dropped connection.
+func (h *SystemHandlers) shutdownHandler(w http.ResponseWriter, r *http.Request) {
+	if _, err := RequireAdmin(r); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
 	_ = WriteJSON(w, http.StatusAccepted, map[string]string{
 		"status": "shutting down",
 	})

@@ -173,9 +173,11 @@ accepting new connections, closes all open SSE streams, waits up to
 pool and exits with status 0. A shutdown that exceeds the grace period is logged
 at WARN and forced.
 
-`POST /api/v1/shutdown` responds `202 Accepted` first and begins shutting down
-afterwards, so the administrator sees a confirmation rather than a dropped
-connection.
+`POST /api/v1/shutdown` is administrator only. It answers 2000 to an anonymous
+caller and 3000 to a logged-in one, like every other administrator route.
+
+It responds `202 Accepted` first and begins shutting down afterwards, so the
+administrator sees a confirmation rather than a dropped connection.
 
 ## Running in Docker
 

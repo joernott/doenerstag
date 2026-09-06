@@ -454,14 +454,21 @@ order, others can join it, and the creator can read the summary down the phone.
 
 | ID   | Task                                                                                       | Size | Spec |
 | ---- | -------------------------------------------------------------------------------------------- | :--: | ---- |
-| 14.1 | WCAG 2.1 AA pass: focus indicators, contrast in both themes, semantics, skip link, live regions | L | [06](06_ui_ux.md) |
-| 14.2 | Keyboard-only operation of every control, including category reordering and every modal          | L | [06](06_ui_ux.md) |
-| 14.3 | `axe-core` in the Playwright run across every page in both themes                                | M | [12](12_testing.md) |
-| 14.4 | `update` verb: the pre-release message, the config rewrite machinery, migration application       | L | [09](09_configuration.md) |
-| 14.5 | Performance check against the targets, and the concurrency headroom check                         | M | [11](11_nonfunctional.md) |
-| 14.6 | Security review: CSP in practice, upload handling, an audit that every query is parameterized      | L | [11](11_nonfunctional.md) |
-| 14.7 | Close the coverage gaps against the targets                                                        | M | [12](12_testing.md) |
-| 14.8 | Finish the OpenAPI document. It describes the four system endpoints and nothing else, while [04](04_api.md) promises it describes the API and [12](12_testing.md) promises a test that fails when a registered route has no operation. That test currently checks a hardcoded list of four paths, so both promises are unkept. Found in sprint 13, which added two more routes it could not honestly document | L | [04](04_api.md) |
+| ✅ 14.1 | WCAG 2.1 AA pass: focus indicators, contrast in both themes, semantics, skip link, live regions | L | [06](06_ui_ux.md) |
+| ✅ 14.1.1 | An expired order tile was drawn with `opacity: 0.72`, which applies to the whole subtree and cannot be undone by a child, so it dimmed the "expired" badge too. 72% of the danger colour on the dark theme's raised surface is below the AA ratio. The recessed surface says the same thing and leaves every foreground colour at full strength. Found in sprint 14, by axe, once enough expired orders had accumulated for one to appear on the list | S | [06](06_ui_ux.md) |
+| ✅ 14.2 | Keyboard-only operation of every control, including category reordering and every modal          | L | [06](06_ui_ux.md) |
+| ✅ 14.3 | `axe-core` in the Playwright run across every page in both themes                                | M | [12](12_testing.md) |
+| ✅ 14.3.1 | `@axe-core/playwright` was installed on the test VM and never added to `package.json`, so the type check passed locally and would have failed in CI. The same mistake as `@playwright/test` in sprint 12. Found in sprint 14 | S | [12](12_testing.md) |
+| ✅ 14.4 | `update` verb: the pre-release message, the config rewrite machinery, migration application       | L | [09](09_configuration.md) |
+| ✅ 14.5 | Performance check against the targets, and the concurrency headroom check                         | M | [11](11_nonfunctional.md) |
+| ✅ 14.6 | Security review: CSP in practice, upload handling, an audit that every query is parameterized      | L | [11](11_nonfunctional.md) |
+| ✅ 14.6.1 | `POST /shutdown` checked nothing at all. It was written in sprint 3 with a comment promising that sprint 5 would wrap it in the administrator check; sprint 5 wrapped every other route and not this one. Anonymous requests are deliberately exempt from the CSRF check, so for nine sprints any unauthenticated caller on the network could stop the server. Found in sprint 14, by writing the matrix row for it | S | [05](05_auth_and_permissions.md) |
+| ✅ 14.6.2 | Registering while already logged in was accepted, and replaced the caller's session with one for the new account. The matrix has always said registration is anonymous only. Refused with the new error 2006. Found in sprint 14 | S | [05](05_auth_and_permissions.md) |
+| ✅ 14.7 | Close the coverage gaps against the targets                                                        | M | [12](12_testing.md) |
+| ✅ 14.7.1 | `make cover` ran without `-coverpkg`, so a package was credited only for what its own tests executed. `internal/db` reported 22.6% while the API integration tests were exercising three quarters of it, and the overall figure read 60.8% against a 75% target that was in fact already met. Found in sprint 14 | S | [12](12_testing.md) |
+| ✅ 14.7.2 | Twenty-one rows of the permission matrix had never been exercised. They were listed in a `pendingRows` map naming the sprint that would deliver each; those sprints landed, the map did not change, and nothing read it. The matrix rows now come from the document itself | M | [05](05_auth_and_permissions.md) |
+| ✅ 14.7.3 | `GET /health`, `GET /metrics` and `PATCH /restaurants/{id}/categories/{cid}` were registered, documented and reached by no test. Found by counting which routes the suite actually serves rather than by counting operations in the document | S | [12](12_testing.md) |
+| ✅ 14.8 | Finish the OpenAPI document. It describes the four system endpoints and nothing else, while [04](04_api.md) promises it describes the API and [12](12_testing.md) promises a test that fails when a registered route has no operation. That test currently checks a hardcoded list of four paths, so both promises are unkept. Found in sprint 13, which added two more routes it could not honestly document | L | [04](04_api.md) |
 
 **Exit criteria:** no serious or critical axe violations. The application is
 fully operable by keyboard. The coverage targets are met, in particular 90% on
