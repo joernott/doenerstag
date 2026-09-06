@@ -243,9 +243,9 @@ exercised in CI.
 | ✅ 5.4 | `POST /auth/logout` and `GET /auth/session`                                                  | S | [04](04_api.md) |
 | ✅ 5.5 | CSRF double-submit enforcement with constant-time comparison                                  | M | [05](05_auth_and_permissions.md) |
 | ✅ 5.6 | Login rate limiting per user name and per client address                                      | M | [05](05_auth_and_permissions.md) |
-| 5.7  | API tokens: create, list, revoke, Bearer authentication, CSRF exemption                        | M | [05](05_auth_and_permissions.md) |
-| 5.8  | Authorization helpers: authenticated, owner, creator, participant, admin                       | M | [05](05_auth_and_permissions.md) |
-| 5.9  | `GET`/`PATCH /users/{id}` and the admin user list                                              | M | [04](04_api.md) |
+| ✅ 5.7 | API tokens: create, list, revoke, Bearer authentication, CSRF exemption                        | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.8 | Authorization helpers: authenticated, owner, creator, participant, admin                       | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.9 | `GET`/`PATCH /users/{id}` and the admin user list                                              | M | [04](04_api.md) |
 | 5.10 | Account deletion and `GET /users/{id}/deletion-impact` with the remap and delete rules          | L | [02](02_features.md) |
 | 5.11 | Permission matrix test suite, one case per cell                                                | L | [12](12_testing.md) |
 

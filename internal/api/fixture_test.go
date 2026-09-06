@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/auth"
+	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/testdb"
 )
 
@@ -40,6 +42,7 @@ type apiFixture struct {
 	auth          *api.AuthHandlers
 	authenticator *api.Authenticator
 	limiter       *api.LoginLimiter
+	users         *api.UserHandlers
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -108,6 +111,8 @@ func newAPIFixture(t *testing.T) *apiFixture {
 
 	f.router = api.NewRouter(api.Options{})
 	f.auth.Register(f.router)
+	f.users = &api.UserHandlers{Pool: pool, Now: clock}
+	f.users.Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()
@@ -328,4 +333,85 @@ func (f *apiFixture) sessionCookie(cookies []*http.Cookie) *http.Cookie {
 func (f *apiFixture) limitLogins() {
 	f.limiter.PerName = fixturePerName
 	f.limiter.PerAddress = fixturePerAddress
+}
+
+// loginAsAdmin creates an account and makes it the administrator.
+//
+// The API cannot do this, on purpose: docs/05_auth_and_permissions.md says
+// exactly one administrator exists, created by install, and that no other
+// account can be granted is_admin. A test needs one anyway, so it is set
+// directly in the database -- which is what install does too.
+func (f *apiFixture) loginAsAdmin(name string) []*http.Cookie {
+	f.t.Helper()
+
+	cookies := f.register(name)
+	if _, err := f.pool.Exec(context.Background(),
+		`UPDATE app_user SET is_admin = true WHERE lower(name) = lower($1)`,
+		name); err != nil {
+		f.t.Fatalf("granting is_admin to %q: %v", name, err)
+	}
+
+	// The session predates the flag, but is_admin is re-read from the database
+	// on every request, so the existing cookies are already administrator
+	// cookies. That is the property being relied on, and it is asserted in
+	// TestTheAdmClaimIsNotTrusted.
+	return cookies
+}
+
+// userID reads an account's id, for building paths.
+func (f *apiFixture) userID(name string) string {
+	f.t.Helper()
+
+	user, err := db.UserByName(context.Background(), f.pool, name)
+	if err != nil {
+		f.t.Fatalf("looking up %q: %v", name, err)
+	}
+	return user.ID.String()
+}
+
+// get, patch and remove are the remaining verbs, shaped like post.
+func (f *apiFixture) get(path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	f.t.Helper()
+	return f.do(request{method: http.MethodGet, path: path, cookies: cookies})
+}
+
+func (f *apiFixture) patch(path string, body any, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	f.t.Helper()
+	return f.do(request{method: http.MethodPatch, path: path, body: body, cookies: cookies})
+}
+
+func (f *apiFixture) remove(path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	f.t.Helper()
+	return f.do(request{method: http.MethodDelete, path: path, cookies: cookies})
+}
+
+// probeWithToken asks the probe who the caller is, authenticating by API token.
+func (f *apiFixture) probeWithToken(value string) probeResponse {
+	f.t.Helper()
+
+	rec := f.do(request{
+		method: http.MethodGet, path: "/probe",
+		headers: map[string]string{"Authorization": "Bearer " + value},
+	})
+	if rec.Code != http.StatusOK {
+		f.t.Fatalf("the probe answered %d: %s", rec.Code, rec.Body.String())
+	}
+	var body probeResponse
+	decode(f.t, rec, &body)
+	return body
+}
+
+// countSessions is how many session rows a user has, which the single-session
+// rule keeps at zero or one.
+func (f *apiFixture) countSessions(name string) int {
+	f.t.Helper()
+
+	var count int
+	if err := f.pool.QueryRow(context.Background(), `
+		SELECT count(*) FROM session s
+		JOIN app_user u ON u.id = s.user_id
+		WHERE lower(u.name) = lower($1)`, name).Scan(&count); err != nil {
+		f.t.Fatalf("counting sessions for %q: %v", name, err)
+	}
+	return count
 }

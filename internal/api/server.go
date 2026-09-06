@@ -108,6 +108,9 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	authHandlers.Limiter = limiter
 	authHandlers.Register(router)
 
+	userHandlers := &UserHandlers{Pool: opts.Pool}
+	userHandlers.Register(router)
+
 	authenticator := &Authenticator{
 		Pool:        opts.Pool,
 		Signer:      signer,
