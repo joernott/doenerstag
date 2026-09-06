@@ -37,7 +37,13 @@ linters:
       disabled-checks:
         - hugeParam
     misspell:
-      locale: UK
+      # No locale is set on purpose. Enforcing one turns misspell into a
+      # style checker that rewrites catalog to catalogue and -ize to -ise,
+      # which is a preference the project has never stated and which the
+      # existing documentation does not follow consistently. Without it,
+      # misspell still catches actual misspellings, which is the point.
+      ignore-rules:
+        - doener
     revive:
       rules:
         - name: exported

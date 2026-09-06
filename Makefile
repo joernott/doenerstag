@@ -87,9 +87,13 @@ cover: ## Run the tests and write <os>-coverage.out and <os>-coverage.html
 
 .PHONY: lint
 lint: fmt-check vet ## Run every linter
-	@command -v golangci-lint >/dev/null 2>&1 \
-		&& golangci-lint run \
-		|| echo "lint: golangci-lint not installed, skipping (see docs/12_testing.md)"
+	@# An `a && b || c` chain here would swallow b's exit status: a linter that
+	@# ran and found problems would take the || branch and report success.
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "lint: golangci-lint not installed, skipping (see docs/12_testing.md)"; \
+	fi
 
 .PHONY: vet
 vet: ## Run go vet
@@ -108,9 +112,11 @@ fmt-check: ## Fail if any Go source is not gofmt-clean
 
 .PHONY: vuln
 vuln: ## Check dependencies for known vulnerabilities
-	@command -v govulncheck >/dev/null 2>&1 \
-		&& govulncheck ./... \
-		|| echo "vuln: govulncheck not installed, skipping"
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	else \
+		echo "vuln: govulncheck not installed, skipping"; \
+	fi
 
 .PHONY: tidy
 tidy: ## Tidy go.mod and go.sum

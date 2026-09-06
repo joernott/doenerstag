@@ -75,24 +75,27 @@ func start() *harness {
 
 	// Docker first, as specified. It gives a disposable server of exactly the
 	// right version, which a developer's local install may not be.
-	if container, dsn, err := startContainer(ctx); err == nil {
+	container, dsn, dockerErr := startContainer(ctx)
+	if dockerErr == nil {
 		return &harness{
 			adminDSN: dsn,
 			cleanup: func() {
 				_ = testcontainers.TerminateContainer(container)
 			},
 		}
-	} else if url := os.Getenv(DatabaseURLEnv); url != "" {
+	}
+
+	if url := os.Getenv(DatabaseURLEnv); url != "" {
 		return &harness{adminDSN: url, cleanup: func() {}}
-	} else {
-		return &harness{
-			cleanup: func() {},
-			skip: fmt.Sprintf(
-				"no test database available: Docker could not start a container (%v) "+
-					"and %s is not set. Run contrib/setup_dev_pipeline.sh, or set %s to a "+
-					"PostgreSQL 18 connection string.",
-				err, DatabaseURLEnv, DatabaseURLEnv),
-		}
+	}
+
+	return &harness{
+		cleanup: func() {},
+		skip: fmt.Sprintf(
+			"no test database available: Docker could not start a container (%v) "+
+				"and %s is not set. Run contrib/setup_dev_pipeline.sh, or set %s to a "+
+				"PostgreSQL 18 connection string.",
+			dockerErr, DatabaseURLEnv, DatabaseURLEnv),
 	}
 }
 
