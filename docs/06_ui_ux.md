@@ -82,6 +82,7 @@ Each tile shows:
 | Deadline               | Local date and time, with a relative hint ("in 2 h") for active orders.|
 | Item count             | "9 items". Shown to everyone. The participant count and the order total are shown only to logged-in visitors, since both are item data. |
 | Order total            | Formatted with the order's currency. Logged-in visitors only.          |
+| Creator                | Who opened the order. Logged-in visitors only: an anonymous response names no user at all (F1.2). |
 | Summary button         | Opens the summary page directly, skipping the order page. Shown only to participants of that order (F1.3). |
 
 ## Order page

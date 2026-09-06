@@ -235,11 +235,12 @@ parameter names, OR within one parameter name:
 `GET /orders/{id}` returns a different shape depending on who is asking (F1.2):
 
 - **Anonymous caller** — the order header only: id, derived title, restaurant,
-  fulfilment type and time, deadline, status, creator display name, currency,
-  minimum order value, delivery fee, and `item_count`. The `items` field is
-  **absent**, and no total of any kind is returned.
-- **Authenticated caller** — the same header plus `items`, each with its owner,
-  quantity, snapshots, modifications and line total, plus the order totals.
+  fulfilment type and time, deadline, status, currency, minimum order value,
+  delivery fee, and `item_count`. The `items` field is **absent**, no total of
+  any kind is returned, and **no user is named** — the creator included.
+- **Authenticated caller** — the same header plus the creator, plus `items`,
+  each with its owner, quantity, snapshots, modifications and line total, plus
+  the order totals.
 
 `item_count` is present in both shapes so the frontend does not branch on it.
 `GET /orders` behaves the same way for every caller: header and `item_count`

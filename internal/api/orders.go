@@ -70,12 +70,13 @@ type orderHeaderBody struct {
 	DeadlineAt   string `json:"deadline_at"`
 	Status       string `json:"status"`
 
-	// CreatorName is a display name, not a login name, and it is the one piece
-	// of person-shaped data an anonymous caller sees. docs/adr/0011 puts the
-	// creator in the header deliberately: the point of the list is to show
-	// whose order it is so you know who to talk to.
-	CreatorID   string `json:"creator_id"`
-	CreatorName string `json:"creator_name"`
+	// There is deliberately no creator here.
+	//
+	// An anonymous response names no user at all, the creator included, and
+	// this struct is what an anonymous caller is served -- so the rule is
+	// enforced by the type rather than by remembering to blank a field. The
+	// creator lives on orderDetailBody, which only an authenticated caller
+	// receives. See docs/adr/0011-tiered-order-visibility.md.
 
 	MoneyCollector string `json:"money_collector"`
 	PickupPerson   string `json:"pickup_person"`
@@ -92,9 +93,16 @@ type orderHeaderBody struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
-// orderDetailBody is the authenticated shape: the header plus the items.
+// orderDetailBody is the authenticated shape: the header, the creator and the
+// items.
 type orderDetailBody struct {
 	orderHeaderBody
+
+	// The creator is here rather than in the header, because naming the person
+	// who opened an order is still naming a person.
+	CreatorID   string `json:"creator_id"`
+	CreatorName string `json:"creator_name"`
+
 	Items           []orderItemBody `json:"items"`
 	ItemTotalCents  int64           `json:"item_total_cents"`
 	GrandTotalCents int64           `json:"grand_total_cents"`
@@ -134,8 +142,6 @@ func (h *OrderHandlers) publicHeader(o model.Order) orderHeaderBody {
 		FulfilmentAt:       o.FulfilmentAt.UTC().Format(time.RFC3339),
 		DeadlineAt:         o.DeadlineAt.UTC().Format(time.RFC3339),
 		Status:             o.Status(h.now()),
-		CreatorID:          o.CreatorID.String(),
-		CreatorName:        o.CreatorName,
 		MoneyCollector:     o.MoneyCollector,
 		PickupPerson:       o.PickupPerson,
 		CurrencyCode:       o.CurrencyCode,
@@ -179,11 +185,23 @@ func publicOrderItem(i model.OrderItem) orderItemBody {
 	return body
 }
 
+// orderListEntry is a list tile for a logged-in caller: the header plus who
+// opened the order.
+//
+// docs/06_ui_ux.md shows the creator on the tile for logged-in visitors, and
+// only for them. Still no item detail -- docs/04_api.md says the list never
+// carries that for anybody, and this type has nowhere to put one.
+type orderListEntry struct {
+	orderHeaderBody
+	CreatorID   string `json:"creator_id"`
+	CreatorName string `json:"creator_name"`
+}
+
 // list serves the order list.
 //
-// The same shape for every caller: header and item count, never item detail.
-// docs/04_api.md says so explicitly, so there is no branch here at all -- which
-// is the safest way to implement "never".
+// Item detail is absent for everybody, so there is no branch for it at all --
+// which is the safest way to implement "never". The creator does branch, on the
+// same rule as the detail endpoint: an anonymous response names no user.
 func (h *OrderHandlers) list(w http.ResponseWriter, r *http.Request) {
 	orders, err := db.ListOrders(r.Context(), h.Pool, h.now())
 	if err != nil {
@@ -191,9 +209,22 @@ func (h *OrderHandlers) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodies := make([]orderHeaderBody, 0, len(orders))
+	if PrincipalFrom(r.Context()) == nil {
+		bodies := make([]orderHeaderBody, 0, len(orders))
+		for i := range orders {
+			bodies = append(bodies, h.publicHeader(orders[i]))
+		}
+		_ = WriteJSON(w, http.StatusOK, map[string]any{"orders": bodies})
+		return
+	}
+
+	bodies := make([]orderListEntry, 0, len(orders))
 	for i := range orders {
-		bodies = append(bodies, h.publicHeader(orders[i]))
+		bodies = append(bodies, orderListEntry{
+			orderHeaderBody: h.publicHeader(orders[i]),
+			CreatorID:       orders[i].CreatorID.String(),
+			CreatorName:     orders[i].CreatorName,
+		})
 	}
 	_ = WriteJSON(w, http.StatusOK, map[string]any{"orders": bodies})
 }
@@ -228,6 +259,8 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 
 	body := orderDetailBody{
 		orderHeaderBody: h.publicHeader(order),
+		CreatorID:       order.CreatorID.String(),
+		CreatorName:     order.CreatorName,
 		Items:           make([]orderItemBody, 0, len(items)),
 	}
 	for i := range items {

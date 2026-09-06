@@ -267,9 +267,13 @@ func TestAnAnonymousReadLeaksNothing(t *testing.T) {
 	}
 	body := rec.Body.String()
 
-	// Nothing about who ordered, what they ordered, or what it cost.
+	// Nothing about who ordered, who opened the order, what was ordered, or
+	// what it cost. No user is named at all -- the creator included, which is
+	// the rule docs/adr/0011 settled on rather than an omission.
 	forbidden := map[string]string{
 		"the ordering user's name": "hungrig",
+		"the creator's name":       "cook",
+		"the creator's id":         "creator_id",
 		"the menu item's name":     "Döner Kebab",
 		"a modification's name":    "ohne Zwiebeln",
 		"the free-text note":       "viel Schärfe",
@@ -294,10 +298,20 @@ func TestAnAnonymousReadLeaksNothing(t *testing.T) {
 	if anonymous.Items != nil {
 		t.Errorf("the anonymous shape carries items: %+v", anonymous.Items)
 	}
+	if anonymous.CreatorName != "" || anonymous.CreatorID != "" {
+		t.Errorf("the anonymous shape names the creator: %q / %q",
+			anonymous.CreatorName, anonymous.CreatorID)
+	}
 
-	// The header is there: the point of the list is to show whose order it is.
-	if anonymous.RestaurantName == "" || anonymous.CreatorName == "" {
+	// What is left still identifies the order: the restaurant and the times,
+	// which is what a passer-by needs to know whether lunch is still open.
+	if anonymous.RestaurantName == "" || anonymous.Title == "" || anonymous.DeadlineAt == "" {
 		t.Errorf("the anonymous header is incomplete: %+v", anonymous)
+	}
+
+	// A logged-in caller does see the creator, which is the tier boundary.
+	if named := o.readOrder(hungry...); named.CreatorName == "" {
+		t.Error("a logged-in caller cannot see who opened the order")
 	}
 }
 
@@ -308,12 +322,13 @@ func TestTheOrderListNeverCarriesItemDetail(t *testing.T) {
 	o.addOrderItem(hungry, map[string]any{"note": "geheim"})
 
 	for _, who := range []struct {
-		name    string
-		cookies []*http.Cookie
+		name       string
+		cookies    []*http.Cookie
+		seeCreator bool
 	}{
-		{"anonymous", nil},
-		{"a logged-in user", hungry},
-		{"the administrator", o.admin},
+		{"anonymous", nil, false},
+		{"a logged-in user", hungry, true},
+		{"the administrator", o.admin, true},
 	} {
 		rec := o.get("/orders", who.cookies...)
 		if rec.Code != http.StatusOK {
@@ -324,6 +339,15 @@ func TestTheOrderListNeverCarriesItemDetail(t *testing.T) {
 			if strings.Contains(body, needle) {
 				t.Errorf("the list leaks %q to %s", needle, who.name)
 			}
+		}
+
+		// The creator is on the tile for a logged-in visitor and for nobody
+		// else, per docs/06_ui_ux.md.
+		if named := strings.Contains(body, "creator_name"); named != who.seeCreator {
+			t.Errorf("%s sees the creator: %v, want %v", who.name, named, who.seeCreator)
+		}
+		if !who.seeCreator && strings.Contains(body, "cook") {
+			t.Errorf("the list names the creator to %s", who.name)
 		}
 
 		var list struct {
@@ -613,8 +637,9 @@ func TestAccountDeletionAgainstRealOrders(t *testing.T) {
 	}
 
 	// The order they created survives, owned by the placeholder, and still
-	// reads through the API.
-	rec := o.get("/orders/" + theirOrder.ID)
+	// reads through the API. Read as a logged-in caller, because the creator is
+	// only named to those.
+	rec := o.get("/orders/"+theirOrder.ID, o.cookies...)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("the created order did not survive: %d %s", rec.Code, rec.Body.String())
 	}
