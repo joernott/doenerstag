@@ -12,8 +12,14 @@ CMD         := ./cmd/doenerstag
 DIST        := dist
 
 # Version reported by `doenerstag --version` and stamped into the binary.
-# Derived from git; falls back to 0.0.0-dev outside a repository.
-VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
+#
+# It must be major.minor.patch, because install records it in app_version and
+# update compares against it. --always is deliberately absent: in a repository
+# with no tags it returns the bare commit hash, which built a binary whose
+# install verb failed after it had already created the database. Falling back
+# to 0.0.0-dev is right for an untagged build, and the hash is not lost -- it
+# is stamped separately as COMMIT.
+VERSION     ?= $(shell v=$$(git describe --tags --match 'v[0-9]*' --dirty 2>/dev/null | sed 's/^v//'); echo $${v:-0.0.0-dev})
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 

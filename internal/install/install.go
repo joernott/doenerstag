@@ -65,6 +65,16 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
+	// The version is a property of the binary, so it is knowable before
+	// anything happens. Parsing it here rather than at the point of use means a
+	// binary stamped with something unusable fails immediately, instead of
+	// after it has asked for three passwords, created the roles and applied
+	// every migration.
+	appVersion, err := ParseSemanticVersion(opts.AppVersion)
+	if err != nil {
+		return Result{}, err
+	}
+
 	p := opts.Prompter
 	p.Say("Installing doenerstag. Press return to accept the value in brackets.")
 	p.Say("")
@@ -128,10 +138,6 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		}
 	}
 
-	appVersion, err := ParseSemanticVersion(opts.AppVersion)
-	if err != nil {
-		return Result{}, err
-	}
 	if err := RecordVersion(ctx, pool, appVersion, schemaVersion); err != nil {
 		return Result{}, err
 	}

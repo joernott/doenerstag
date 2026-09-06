@@ -218,6 +218,8 @@ static assets in both modes, and answers the operational endpoints.
 | ✅ 4.11.1 | Document error code 4006 (405) in [04](04_api.md); `handleMethodNotAllowed` was answering 405 with the 404 code | S | [04](04_api.md) |
 | ✅ 4.12 | CORS handling for `--cors-allowed-origins`                                                      | S | [05](05_auth_and_permissions.md) |
 | ✅ 4.13 | API tests for all of the above, including the security header assertions                        | M | [12](12_testing.md) |
+| ✅ 4.14 | Deploy on the VM exactly as [10](10_operations.md) documents it, to test the document as well as the build | S | [10](10_operations.md) |
+| ✅ 4.14.1 | `install` validates the binary's version before touching the database; the Makefile stops stamping a bare commit hash | S | [10](10_operations.md) |
 
 **Exit criteria:** `doenerstag server` serves HTTPS. `/health` returns 200 with
 the database up and 503 without it. Assets serve from disk in a default build and

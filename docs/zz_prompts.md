@@ -458,3 +458,8 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 20
 
 > yes, please continue with the remaining steps
+
+### Prompt 21
+
+> Please build and run the application on the VM. I want to access is myself
+> using my browser

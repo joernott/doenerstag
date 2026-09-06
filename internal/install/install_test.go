@@ -470,3 +470,40 @@ func valueOf(t *testing.T, body, key string) string {
 	}
 	return ""
 }
+
+// A binary stamped with a version install cannot record must say so before it
+// does anything, not after it has created the database.
+//
+// This is not hypothetical: `git describe --tags --always` returns a bare
+// commit hash in a repository with no tags, and the Makefile used to stamp
+// that. The resulting binary asked for three passwords, created two roles,
+// created the database and applied eight migrations, and only then refused.
+func TestInstallRefusesAnUnusableVersionBeforeTouchingAnything(t *testing.T) {
+	f := newInstallFixture(t)
+	f.opts.AppVersion = "7c81636"
+
+	_, err := install.Run(context.Background(), f.opts)
+	if err == nil {
+		t.Fatal("a version that is not major.minor.patch was accepted")
+	}
+	if !strings.Contains(err.Error(), "major.minor.patch") {
+		t.Errorf("the error does not say what is wrong with the version: %v", err)
+	}
+
+	conn, err := db.Connect(context.Background(),
+		f.server.WithDatabase(install.MaintenanceDatabase), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	var exists bool
+	if err := conn.QueryRow(context.Background(),
+		"SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)",
+		f.database).Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Error("the database was created despite the version being unusable")
+	}
+}
