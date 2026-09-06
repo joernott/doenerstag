@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,10 +32,25 @@ func (h *AuthHandlers) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := strings.TrimSpace(body.Name)
+	address := clientAddress(r)
+
+	// The limit is checked before the password is, so that a locked-out caller
+	// costs an Argon2id verification neither to themselves nor to the server.
+	if h.Limiter != nil {
+		if allowed, retryAfter := h.Limiter.Allow(name, address); !allowed {
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(retryAfter)))
+			WriteError(w, r, &Error{Code: CodeTooManyLogins})
+			return
+		}
+	}
+
 	if name == "" || body.Password == "" {
 		// Still a 2001 rather than a validation error: an empty field is a
 		// failed login attempt, and answering it differently would be another
-		// way to learn something about the account.
+		// way to learn something about the account. It counts as one, too --
+		// otherwise posting an empty body would be an unlimited way to keep the
+		// endpoint busy.
+		h.recordLoginFailure(name, address)
 		WriteError(w, r, &Error{Code: CodeInvalidLogin})
 		return
 	}
@@ -48,6 +64,7 @@ func (h *AuthHandlers) login(w http.ResponseWriter, r *http.Request) {
 		// account", and Argon2id's whole point is that it is slow enough to
 		// measure.
 		equaliseLoginTiming()
+		h.recordLoginFailure(name, address)
 		WriteError(w, r, &Error{Code: CodeInvalidLogin})
 		return
 	case err != nil:
@@ -59,13 +76,22 @@ func (h *AuthHandlers) login(w http.ResponseWriter, r *http.Request) {
 		// The deleted-user placeholder, and anything else deliberately locked
 		// out. Verify would reject it anyway; saying so here keeps the reason
 		// visible rather than looking like a coincidence.
+		h.recordLoginFailure(name, address)
 		WriteError(w, r, &Error{Code: CodeInvalidLogin})
 		return
 	}
 
 	if err := auth.Verify(body.Password, hash); err != nil {
+		h.recordLoginFailure(name, address)
 		WriteError(w, r, &Error{Code: CodeInvalidLogin, Cause: err})
 		return
+	}
+
+	// Past this point the password was right, so the name is forgiven: somebody
+	// who mistypes five times and then succeeds should not be locked out an hour
+	// later for two more slips.
+	if h.Limiter != nil {
+		h.Limiter.RecordSuccess(name)
 	}
 
 	// A hash made with weaker parameters than the current ones is upgraded now,
@@ -134,4 +160,22 @@ var dummyHash = sync.OnceValue(func() string {
 // equaliseLoginTiming spends roughly what a real verification spends.
 func equaliseLoginTiming() {
 	_ = auth.Verify("any password at all", dummyHash())
+}
+
+// recordLoginFailure counts an attempt against both limits.
+func (h *AuthHandlers) recordLoginFailure(name, address string) {
+	if h.Limiter != nil {
+		h.Limiter.RecordFailure(name, address)
+	}
+}
+
+// retryAfterSeconds rounds a wait up to whole seconds, with a floor of one.
+//
+// Retry-After is measured in seconds, so a wait of 200 milliseconds would
+// truncate to 0 and invite an immediate retry that is still refused.
+func retryAfterSeconds(d time.Duration) int {
+	if seconds := int(d.Round(time.Second).Seconds()); seconds > 1 {
+		return seconds
+	}
+	return 1
 }

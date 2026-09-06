@@ -39,6 +39,7 @@ type apiFixture struct {
 	router        *api.Router
 	auth          *api.AuthHandlers
 	authenticator *api.Authenticator
+	limiter       *api.LoginLimiter
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -57,6 +58,21 @@ const (
 	fixtureAbsoluteTimeout = 7 * 24 * time.Hour
 )
 
+// Login limits for the rate limit tests.
+//
+// Deliberately far below the documented defaults of 10 and 60. Every failed
+// login costs a full Argon2id verification at 64 MiB -- on purpose, so that a
+// miss takes as long as a hit -- and running the real per-address limit to
+// exhaustion meant sixty of them per test, which took the package from thirty
+// seconds to two minutes. The limits are configuration, so what these tests
+// exercise is the mechanism; that the shipped defaults are 10, 60 and 15
+// minutes is asserted in the config package, where checking it costs nothing.
+const (
+	fixturePerName    = 3
+	fixturePerAddress = 6
+	fixtureWindow     = 15 * time.Minute
+)
+
 func newAPIFixture(t *testing.T) *apiFixture {
 	t.Helper()
 
@@ -69,11 +85,18 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	f := &apiFixture{t: t, pool: pool, now: time.Now()}
 	clock := func() time.Time { return f.now }
 
+	// No limit by default. A limiter in the shared fixture would silently
+	// govern every test that logs in more than a handful of times, so a test
+	// about something else would start failing with 5000 for reasons that have
+	// nothing to do with it. Zero disables a counter; the rate limit tests
+	// switch it on with limitLogins.
+	f.limiter = &api.LoginLimiter{Window: fixtureWindow, Now: clock}
 	f.auth = &api.AuthHandlers{
 		Pool:            pool,
 		Signer:          signer,
 		AbsoluteTimeout: fixtureAbsoluteTimeout,
 		Secure:          true,
+		Limiter:         f.limiter,
 		Now:             clock,
 	}
 	f.authenticator = &api.Authenticator{
@@ -299,4 +322,10 @@ func (f *apiFixture) sessionCookie(cookies []*http.Cookie) *http.Cookie {
 	}
 	f.t.Fatal("no session cookie in the set")
 	return nil
+}
+
+// limitLogins turns on the login rate limit for a test that is about it.
+func (f *apiFixture) limitLogins() {
+	f.limiter.PerName = fixturePerName
+	f.limiter.PerAddress = fixturePerAddress
 }

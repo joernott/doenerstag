@@ -99,6 +99,13 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Secure:          secure,
 		Logger:          opts.Logger,
 	}
+
+	limiter := &LoginLimiter{
+		PerName:    cfg.Session.LoginRateLimitUser,
+		PerAddress: cfg.Session.LoginRateLimitIP,
+		Window:     cfg.Session.LoginRateLimitWindow,
+	}
+	authHandlers.Limiter = limiter
 	authHandlers.Register(router)
 
 	authenticator := &Authenticator{

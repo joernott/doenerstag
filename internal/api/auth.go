@@ -53,6 +53,10 @@ type AuthHandlers struct {
 	// allowed and discards, so a test does not have to supply one.
 	Logger *zerolog.Logger
 
+	// Limiter throttles failed logins. Nil disables the limit, which only a
+	// test does.
+	Limiter *LoginLimiter
+
 	// Now is the clock, injectable so a test can age a session without
 	// sleeping through an idle timeout.
 	Now func() time.Time
