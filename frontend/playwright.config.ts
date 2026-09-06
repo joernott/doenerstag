@@ -24,7 +24,12 @@ export default defineConfig({
   forbidOnly: !!process.env["CI"],
   retries: 0,
   reporter: process.env["CI"] ? "github" : "list",
-  timeout: 30_000,
+  // Generous, because these tests are not fast by nature: the live-update one
+  // opens two browser contexts, logs both in and seeds a restaurant and an
+  // order before it asserts anything. Thirty seconds was enough on a fast
+  // machine and not on a two-core VM, which is exactly the kind of flake worth
+  // spending thirty more seconds to avoid.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
 
   use: {

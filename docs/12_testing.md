@@ -250,6 +250,12 @@ of depending on a seed somebody else maintains.
 The browsers are Chromium and Firefox. `contrib/setup_dev_pipeline.sh` installs
 them, so a machine provisioned by that script can run the suite.
 
+On a small machine, run one at a time — `npx playwright test --project=firefox`.
+The development VM has 2 GB of memory, and running both projects in a single
+invocation puts it into swap: every test passes on its own and several time out
+together, which looks like flakiness and is arithmetic. CI has the memory to run
+both at once, and does.
+
 ## Coverage
 
 Coverage is a signal, not a target to game.

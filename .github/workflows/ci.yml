@@ -280,7 +280,7 @@ jobs:
         run: |
           ./dist/doenerstag install --non-interactive \
             --output doenerstag.yaml \
-            --database-host localhost \
+            --database-server localhost \
             --database-port 5432 \
             --database-name doenerstag \
             --database-user doenerstag \
