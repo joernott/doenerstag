@@ -45,6 +45,7 @@ type apiFixture struct {
 	limiter       *api.LoginLimiter
 	users         *api.UserHandlers
 	restaurants   *api.RestaurantHandlers
+	images        *api.ImageHandlers
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -62,6 +63,12 @@ const (
 	fixtureIdleTimeout     = 6 * time.Hour
 	fixtureAbsoluteTimeout = 7 * 24 * time.Hour
 )
+
+// fixtureMaxImageBytes is the upload cap the fixture applies.
+//
+// Far below the shipped 5 MiB, so the too-large test can exceed it with a
+// picture rather than with five megabytes of noise.
+const fixtureMaxImageBytes = 256 * 1024
 
 // Login limits for the rate limit tests.
 //
@@ -121,6 +128,8 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	(&api.SystemHandlers{Pool: pool}).Register(f.router)
 	f.restaurants = &api.RestaurantHandlers{Pool: pool}
 	f.restaurants.Register(f.router)
+	f.images = &api.ImageHandlers{Pool: pool, MaxUploadBytes: fixtureMaxImageBytes}
+	f.images.Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()
@@ -446,3 +455,7 @@ func (f *apiFixture) seedOrderAt(restaurantID, creator string, deadline time.Tim
 	}
 	return orderID
 }
+
+// ctx is the background context, so a test does not import context just to
+// run a query against the fixture's pool.
+func (f *apiFixture) ctx() context.Context { return context.Background() }

@@ -272,10 +272,10 @@ re-verifies the behaviour against real orders.
 | ✅ 6.3 | Opening hours: whole-set `PUT`, validation, midnight crossing, multiple ranges per day     | M | [03](03_data_model.md) |
 | ✅ 6.4 | Reference endpoints `/currencies` and `/contact-types`                                    | S | [04](04_api.md) |
 | ✅ 6.5 | Restaurant delete: admin only, 409 while referenced by an order                            | S | [04](04_api.md) |
-| 6.6 | Image pipeline: content sniffing, size cap, decode, downscale, thumbnail, SHA-256 dedupe   | L | [adr/0008](adr/0008-images-in-the-database.md) |
-| 6.7 | `POST /images`, `GET /images/{id}`, `GET /images/{id}/thumbnail` with `ETag` and caching   | M | [04](04_api.md) |
-| 6.8 | Logo association on restaurants                                                            | S | [03](03_data_model.md) |
-| 6.9 | Tests, including a file whose extension lies about its contents                            | M | [12](12_testing.md) |
+| ✅ 6.6 | Image pipeline: content sniffing, size cap, decode, downscale, thumbnail, SHA-256 dedupe   | L | [adr/0008](adr/0008-images-in-the-database.md) |
+| ✅ 6.7 | `POST /images`, `GET /images/{id}`, `GET /images/{id}/thumbnail` with `ETag` and caching   | M | [04](04_api.md) |
+| ✅ 6.8 | Logo association on restaurants                                                            | S | [03](03_data_model.md) |
+| ✅ 6.9 | Tests, including a file whose extension lies about its contents                            | M | [12](12_testing.md) |
 
 **Exit criteria:** a restaurant with a logo, several contacts and a lunch-break
 opening-hours pattern can be created and read back through the API. Uploading a
