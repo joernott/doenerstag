@@ -1,11 +1,17 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 
+	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/config"
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/install"
+	"github.com/joernott/doenerstag/internal/static"
 	"github.com/joernott/doenerstag/internal/version"
 )
 
@@ -87,4 +93,57 @@ func matchesBinary(installed install.InstalledVersion, binary string) bool {
 		return true
 	}
 	return parsed == installed.SemanticVersion
+}
+
+// runServer starts the web server and blocks until it stops.
+func runServer(app *appContext, cmd *cobra.Command) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg := app.Config
+
+	pool, err := db.Connect(ctx, db.OptionsFromConfig(cfg.Database), app.Logger.Component("db"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	assets, err := static.Open(cfg.Server.StaticDir)
+	if err != nil {
+		return err
+	}
+
+	staticDirWasSet := cmd.Flags().Changed("static-dir")
+	if assets.IgnoresStaticDir() && staticDirWasSet {
+		// "My CSS edits do nothing" is otherwise a confusing hour.
+		app.Logger.Component("server").Warn().
+			Str("static_dir", cfg.Server.StaticDir).
+			Msg("--static-dir is ignored: this binary was built with -tags embedstatic " +
+				"and serves the frontend from inside itself")
+	}
+
+	opts := api.ServerOptions{
+		Config:          cfg,
+		Pool:            pool,
+		Logger:          app.Logger.Component("api"),
+		Assets:          assets,
+		StaticDirWasSet: staticDirWasSet,
+	}
+
+	// Everything that can be checked before listening, is.
+	if err := api.StartupChecks(ctx, opts); err != nil {
+		return err
+	}
+
+	server, err := api.NewServer(opts)
+	if err != nil {
+		return err
+	}
+
+	app.Logger.Component("server").Info().
+		Str("assets", assets.Source()).
+		Bool("swagger", !cfg.Server.NoSwagger).
+		Msg("frontend ready")
+
+	return server.ListenAndServe(ctx)
 }

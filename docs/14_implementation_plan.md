@@ -203,18 +203,18 @@ static assets in both modes, and answers the operational endpoints.
 
 | ID   | Task                                                                                     | Size | Spec |
 | ---- | ------------------------------------------------------------------------------------------ | :--: | ---- |
-| 4.1  | httprouter setup, `router.Handler` registration, `ParamsFromContext` helper                 | M | [08](08_technologies.md) |
-| 4.2  | `NotFound` SPA fallback, JSON 404 under `/api/`, `MethodNotAllowed`, `OPTIONS`, `PanicHandler` | M | [08](08_technologies.md) |
-| 4.3  | Router construction test proving no route conflicts                                          | S | [12](12_testing.md) |
-| 4.4  | Middleware chain: request ID, INFO request logging, recovery, security headers                | M | [05](05_auth_and_permissions.md) |
-| 4.5  | Error envelope and the error number registry                                                  | M | [04](04_api.md) |
-| 4.6  | `internal/static` with the `embedstatic` build tag; `embed.go` and `embed_disabled.go`        | M | [adr/0002](adr/0002-static-assets-embed-toggle.md) |
+| ✅ 4.1 | httprouter setup, `router.Handler` registration, `ParamsFromContext` helper                 | M | [08](08_technologies.md) |
+| ✅ 4.2 | `NotFound` SPA fallback, JSON 404 under `/api/`, `MethodNotAllowed`, `OPTIONS`, `PanicHandler` | M | [08](08_technologies.md) |
+| ✅ 4.3 | Router construction test proving no route conflicts                                          | S | [12](12_testing.md) |
+| ✅ 4.4 | Middleware chain: request ID, INFO request logging, recovery, security headers                | M | [05](05_auth_and_permissions.md) |
+| ✅ 4.5 | Error envelope and the error number registry                                                  | M | [04](04_api.md) |
+| ✅ 4.6 | `internal/static` with the `embedstatic` build tag; `embed.go` and `embed_disabled.go`        | M | [adr/0002](adr/0002-static-assets-embed-toggle.md) |
 | 4.7  | Minimal frontend build: esbuild, Tailwind, `index.html` skeleton; `make frontend`/`dev`/`release` | L | [08](08_technologies.md) |
-| 4.8  | TLS listener, `--no-https`, bind address, HTTP timeouts, all five startup checks                | M | [09](09_configuration.md) |
-| 4.9  | Graceful shutdown on `SIGTERM`/`SIGINT` with `--shutdown-grace`                                | M | [10](10_operations.md) |
-| 4.10 | `/health`, `/metrics`, `/version` endpoints                                                    | M | [04](04_api.md) |
+| ✅ 4.8 | TLS listener, `--no-https`, bind address, HTTP timeouts, all five startup checks                | M | [09](09_configuration.md) |
+| ✅ 4.9 | Graceful shutdown on `SIGTERM`/`SIGINT` with `--shutdown-grace`                                | M | [10](10_operations.md) |
+| ✅ 4.10 | `/health`, `/metrics`, `/version` endpoints                                                    | M | [04](04_api.md) |
 | 4.11 | OpenAPI document skeleton, Swagger UI serving, `--no-swagger`                                   | M | [04](04_api.md) |
-| 4.12 | CORS handling for `--cors-allowed-origins`                                                      | S | [05](05_auth_and_permissions.md) |
+| ✅ 4.12 | CORS handling for `--cors-allowed-origins`                                                      | S | [05](05_auth_and_permissions.md) |
 | 4.13 | API tests for all of the above, including the security header assertions                        | M | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag server` serves HTTPS. `/health` returns 200 with

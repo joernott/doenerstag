@@ -63,7 +63,7 @@ It does not take payments and does not place orders with restaurants.`,
 	config.RegisterGlobalFlags(root.PersistentFlags())
 
 	root.AddCommand(
-		newServerCommand(),
+		newServerCommand(app),
 		newInstallCommand(app),
 		newUpdateCommand(),
 		newCleanupCommand(),
@@ -86,7 +86,7 @@ It does not take payments and does not place orders with restaurants.`,
 	return root
 }
 
-func newServerCommand() *cobra.Command {
+func newServerCommand(app *appContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Run the web server",
@@ -97,7 +97,9 @@ deployments behind a TLS-terminating reverse proxy.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE:          notImplemented("server", "4.8"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runServer(app, cmd)
+		},
 	}
 	config.RegisterScopeFlags(cmd.Flags(), config.ScopeServer)
 	return cmd
