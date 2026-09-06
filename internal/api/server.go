@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
+	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/config"
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/static"
@@ -81,6 +82,23 @@ func NewServer(opts ServerOptions) (*Server, error) {
 
 	system := &SystemHandlers{Pool: opts.Pool, Shutdown: s.beginShutdown}
 	system.Register(router)
+
+	// The signer is built here rather than per request: an unusable secret must
+	// stop the server starting, not fail the first login. StartupChecks has
+	// already rejected a short one, so this only fails on a configuration that
+	// never reached it -- a test constructing a server directly, say.
+	signer, err := auth.NewSigner(cfg.Session.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	authHandlers := &AuthHandlers{
+		Pool:            opts.Pool,
+		Signer:          signer,
+		AbsoluteTimeout: cfg.Session.AbsoluteTimeout,
+		Secure:          secure,
+	}
+	authHandlers.Register(router)
 
 	// The request ID is outermost because every line inside carries it. Recovery
 	// sits inside logging so that a panicking request still produces its
