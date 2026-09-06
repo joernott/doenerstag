@@ -184,7 +184,7 @@ func TestTouchTokenIsThrottled(t *testing.T) {
 
 	// A never-used token is touched whatever the throttle: there is no earlier
 	// write to be within it.
-	if err := db.TouchAPIToken(ctx, pool, created.ID, time.Hour); err != nil {
+	if err := db.TouchAPIToken(ctx, pool, created.ID, time.Now(), time.Hour); err != nil {
 		t.Fatal(err)
 	}
 	first, err := db.APITokenByID(ctx, pool, created.ID)
@@ -196,7 +196,7 @@ func TestTouchTokenIsThrottled(t *testing.T) {
 	}
 
 	// Immediately afterwards, the throttle suppresses the write.
-	if err := db.TouchAPIToken(ctx, pool, created.ID, time.Hour); err != nil {
+	if err := db.TouchAPIToken(ctx, pool, created.ID, time.Now(), time.Hour); err != nil {
 		t.Fatal(err)
 	}
 	second, err := db.APITokenByID(ctx, pool, created.ID)
@@ -265,7 +265,7 @@ func TestExpiredTokensAreCollected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := db.DeleteExpiredAPITokens(ctx, pool)
+	removed, err := db.DeleteExpiredAPITokens(ctx, pool, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -97,17 +97,30 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Signer:          signer,
 		AbsoluteTimeout: cfg.Session.AbsoluteTimeout,
 		Secure:          secure,
+		Logger:          opts.Logger,
 	}
 	authHandlers.Register(router)
+
+	authenticator := &Authenticator{
+		Pool:        opts.Pool,
+		Signer:      signer,
+		IdleTimeout: cfg.Session.IdleTimeout,
+	}
 
 	// The request ID is outermost because every line inside carries it. Recovery
 	// sits inside logging so that a panicking request still produces its
 	// completion line.
+	//
+	// Authentication is innermost of the four that always run: it needs the
+	// request ID for its error envelope, it must be inside the recovery
+	// handler, and it must run before the CSRF check, which asks how the caller
+	// authenticated. Everything below it therefore sees a resolved principal.
 	handler := Chain(router,
 		RequestID(),
 		LogRequests(opts.Logger),
 		Recover(opts.Logger),
 		SecurityHeaders(secure),
+		authenticator.Middleware(),
 	)
 
 	s.http = &http.Server{

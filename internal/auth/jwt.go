@@ -105,7 +105,7 @@ func (s *Signer) Parse(raw string) (Claims, error) {
 	case errors.Is(err, jwt.ErrTokenExpired):
 		return Claims{}, ErrTokenExpired
 	case err != nil:
-		return Claims{}, fmt.Errorf("%w: %s", ErrTokenInvalid, err)
+		return Claims{}, fmt.Errorf("%w: %w", ErrTokenInvalid, err)
 	case !token.Valid:
 		return Claims{}, ErrTokenInvalid
 	}

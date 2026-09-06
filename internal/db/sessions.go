@@ -35,6 +35,24 @@ type NewSession struct {
 	Lifetime   time.Duration
 	RemoteAddr string
 	UserAgent  string
+
+	// IssuedAt is when the session starts. The zero value means now.
+	//
+	// The application supplies the time rather than the statement calling
+	// now(), because the idle timeout compares last_seen_at against the
+	// application's clock: a row written by the database clock and judged by
+	// the application's is two clocks deciding one question, which is right
+	// only for as long as they agree. One clock also makes the timeouts
+	// testable without sleeping through them.
+	IssuedAt time.Time
+}
+
+// at returns the supplied time, or now when it is zero.
+func at(t time.Time) time.Time {
+	if t.IsZero() {
+		return time.Now()
+	}
+	return t
 }
 
 // ReplaceSession makes a new session the user's only one.
@@ -59,10 +77,17 @@ func ReplaceSession(ctx context.Context, q Querier, in NewSession) (model.Sessio
 		return model.Session{}, fmt.Errorf("generating a session id: %w", err)
 	}
 
+	issued := at(in.IssuedAt)
+
 	row := q.QueryRow(ctx, `
-		INSERT INTO session (id, user_id, absolute_expires, remote_addr, user_agent,
-		                     created_by, updated_by)
-		VALUES ($1, $2, now() + $3::interval, nullif($4, ''), nullif($5, ''), $2, $2)
+		INSERT INTO session (id, user_id, issued_at, last_seen_at, absolute_expires,
+		                     remote_addr, user_agent, created_by, updated_by)
+		-- $3 is cast at every use: without it PostgreSQL sees the same parameter
+		-- as a timestamp in two places and as the left operand of an interval
+		-- addition in a third, and refuses with "inconsistent types deduced".
+		VALUES ($1, $2, $3::timestamptz, $3::timestamptz,
+		        $3::timestamptz + $4::interval,
+		        nullif($5, ''), nullif($6, ''), $2, $2)
 		ON CONFLICT (user_id) DO UPDATE SET
 			id               = EXCLUDED.id,
 			issued_at        = EXCLUDED.issued_at,
@@ -72,7 +97,7 @@ func ReplaceSession(ctx context.Context, q Querier, in NewSession) (model.Sessio
 			user_agent       = EXCLUDED.user_agent,
 			updated_by       = EXCLUDED.updated_by
 		RETURNING `+sessionColumns,
-		id, in.UserID, in.Lifetime.String(), in.RemoteAddr, in.UserAgent)
+		id, in.UserID, issued, in.Lifetime.String(), in.RemoteAddr, in.UserAgent)
 
 	return scanSession(row)
 }
@@ -121,11 +146,16 @@ func SessionWithUser(ctx context.Context, q Querier, id uuid.UUID) (model.Sessio
 // of requests costs one UPDATE rather than one per request. The condition is in
 // the WHERE clause rather than in Go so that two concurrent requests cannot
 // both decide to write.
-func TouchSession(ctx context.Context, q Querier, id uuid.UUID, throttle time.Duration) error {
+//
+// now comes from the caller, for the reason given on NewSession.IssuedAt: the
+// value written here is the one the idle check reads back, so both must come
+// from the same clock.
+func TouchSession(ctx context.Context, q Querier, id uuid.UUID, now time.Time, throttle time.Duration) error {
+	stamp := at(now)
 	_, err := q.Exec(ctx, `
-		UPDATE session SET last_seen_at = now()
-		WHERE id = $1 AND last_seen_at < now() - $2::interval`,
-		id, throttle.String())
+		UPDATE session SET last_seen_at = $2::timestamptz
+		WHERE id = $1 AND last_seen_at < $2::timestamptz - $3::interval`,
+		id, stamp, throttle.String())
 	return err
 }
 
@@ -141,8 +171,9 @@ func DeleteSession(ctx context.Context, q Querier, id uuid.UUID) error {
 // Sessions are also rejected on use, so this is housekeeping rather than a
 // security control: without it the table would grow by one abandoned row per
 // login forever. The cleanup verb calls it.
-func DeleteExpiredSessions(ctx context.Context, q Querier) (int64, error) {
-	tag, err := q.Exec(ctx, `DELETE FROM session WHERE absolute_expires <= now()`)
+func DeleteExpiredSessions(ctx context.Context, q Querier, now time.Time) (int64, error) {
+	tag, err := q.Exec(ctx,
+		`DELETE FROM session WHERE absolute_expires <= $1`, at(now))
 	if err != nil {
 		return 0, err
 	}

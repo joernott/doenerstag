@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/auth"
@@ -33,15 +34,28 @@ const fixtureSecret = "0123456789abcdef0123456789abcdef"
 // a handler that works but is registered on the wrong method or path is a bug
 // the test should catch.
 type apiFixture struct {
-	t      *testing.T
-	pool   *pgxpool.Pool
-	router *api.Router
-	auth   *api.AuthHandlers
+	t             *testing.T
+	pool          *pgxpool.Pool
+	router        *api.Router
+	auth          *api.AuthHandlers
+	authenticator *api.Authenticator
+
+	// handler is the router wrapped in the middleware chain, which is what the
+	// tests drive. Anything that depends on a resolved principal has to go
+	// through the chain to see one.
+	handler http.Handler
 
 	// now is the clock the handlers read, so a test can move time forward
 	// rather than sleeping through a six-hour idle timeout.
 	now time.Time
 }
+
+// Session timeouts for the fixture. Long enough that no test lapses by
+// accident, short enough that advancing past them is obviously deliberate.
+const (
+	fixtureIdleTimeout     = 6 * time.Hour
+	fixtureAbsoluteTimeout = 7 * 24 * time.Hour
+)
 
 func newAPIFixture(t *testing.T) *apiFixture {
 	t.Helper()
@@ -53,16 +67,33 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	}
 
 	f := &apiFixture{t: t, pool: pool, now: time.Now()}
+	clock := func() time.Time { return f.now }
+
 	f.auth = &api.AuthHandlers{
 		Pool:            pool,
 		Signer:          signer,
-		AbsoluteTimeout: 7 * 24 * time.Hour,
+		AbsoluteTimeout: fixtureAbsoluteTimeout,
 		Secure:          true,
-		Now:             func() time.Time { return f.now },
+		Now:             clock,
+	}
+	f.authenticator = &api.Authenticator{
+		Pool:        pool,
+		Signer:      signer,
+		IdleTimeout: fixtureIdleTimeout,
+		Now:         clock,
 	}
 
 	f.router = api.NewRouter(api.Options{})
 	f.auth.Register(f.router)
+	f.registerProbe()
+
+	logger := zerolog.Nop()
+	f.handler = api.Chain(f.router,
+		api.RequestID(),
+		api.LogRequests(&logger),
+		api.Recover(&logger),
+		f.authenticator.Middleware(),
+	)
 	return f
 }
 
@@ -109,7 +140,7 @@ func (f *apiFixture) do(req request) *httptest.ResponseRecorder {
 	r.RemoteAddr = "192.0.2.55:41234"
 
 	rec := httptest.NewRecorder()
-	f.router.ServeHTTP(rec, r)
+	f.handler.ServeHTTP(rec, r)
 	return rec
 }
 
@@ -129,7 +160,7 @@ func (f *apiFixture) postRaw(path, body string) *httptest.ResponseRecorder {
 	r.RemoteAddr = "192.0.2.55:41234"
 
 	rec := httptest.NewRecorder()
-	f.router.ServeHTTP(rec, r)
+	f.handler.ServeHTTP(rec, r)
 	return rec
 }
 
@@ -196,3 +227,63 @@ func cookie(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 
 // validPassword satisfies three of the five classes: upper, lower and digit.
 const validPassword = "Correct-Horse9"
+
+// probeResponse is what the fixture's own route reports about the caller.
+type probeResponse struct {
+	Authenticated bool   `json:"authenticated"`
+	Name          string `json:"name"`
+	IsAdmin       bool   `json:"is_admin"`
+	ViaToken      bool   `json:"via_token"`
+	SessionID     string `json:"session_id"`
+}
+
+// registerProbe adds a route that reports what the authentication middleware
+// resolved.
+//
+// A route of the fixture's own rather than a real endpoint, because the thing
+// under test in 5.3 is the middleware, and pinning those assertions to whichever
+// endpoint happens to exist would make them fail for unrelated reasons later.
+// It is registered on GET and on POST, so the CSRF tests have a state-changing
+// method to aim at.
+func (f *apiFixture) registerProbe() {
+	report := func(w http.ResponseWriter, r *http.Request) {
+		var body probeResponse
+		if p := api.PrincipalFrom(r.Context()); p != nil {
+			body = probeResponse{
+				Authenticated: true,
+				Name:          p.User.Name,
+				IsAdmin:       p.IsAdmin(),
+				ViaToken:      p.ViaToken,
+				SessionID:     p.SessionID.String(),
+			}
+		}
+		_ = api.WriteJSON(w, http.StatusOK, body)
+	}
+	f.router.HandleFunc(http.MethodGet, "/probe", report)
+	f.router.HandleFunc(http.MethodPost, "/probe", report)
+}
+
+// whoami calls the probe with the given cookies and returns what it reported.
+func (f *apiFixture) whoami(cookies ...*http.Cookie) probeResponse {
+	f.t.Helper()
+
+	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
+	if rec.Code != http.StatusOK {
+		f.t.Fatalf("the probe answered %d: %s", rec.Code, rec.Body.String())
+	}
+	var body probeResponse
+	decode(f.t, rec, &body)
+	return body
+}
+
+// sessionCookie picks the session cookie out of a set, failing if it is absent.
+func (f *apiFixture) sessionCookie(cookies []*http.Cookie) *http.Cookie {
+	f.t.Helper()
+	for _, c := range cookies {
+		if c.Name == api.SessionCookieName {
+			return c
+		}
+	}
+	f.t.Fatal("no session cookie in the set")
+	return nil
+}

@@ -12,6 +12,10 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
+// The linter reads "token" in the name and suspects a hardcoded credential.
+// It is a column list; the only token-shaped thing in this file is a hash.
+//
+//nolint:gosec // G101: a SELECT projection, not a credential
 const tokenColumns = `id, user_id, name, token_prefix, expires_at, last_used_at, created_at`
 
 func scanToken(row pgx.Row) (model.APIToken, error) {
@@ -122,12 +126,14 @@ func APITokenByID(ctx context.Context, q Querier, id uuid.UUID) (model.APIToken,
 		`SELECT `+tokenColumns+` FROM api_token WHERE id = $1`, id))
 }
 
-// TouchAPIToken advances last_used_at under the same throttle as sessions.
-func TouchAPIToken(ctx context.Context, q Querier, id uuid.UUID, throttle time.Duration) error {
+// TouchAPIToken advances last_used_at under the same throttle as sessions, and
+// takes its clock from the caller for the same reason.
+func TouchAPIToken(ctx context.Context, q Querier, id uuid.UUID, now time.Time, throttle time.Duration) error {
+	stamp := at(now)
 	_, err := q.Exec(ctx, `
-		UPDATE api_token SET last_used_at = now()
-		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - $2::interval)`,
-		id, throttle.String())
+		UPDATE api_token SET last_used_at = $2::timestamptz
+		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < $2::timestamptz - $3::interval)`,
+		id, stamp, throttle.String())
 	return err
 }
 
@@ -146,9 +152,10 @@ func DeleteAPIToken(ctx context.Context, q Querier, id uuid.UUID) error {
 
 // DeleteExpiredAPITokens removes tokens past their expiry date, for the cleanup
 // verb. As with sessions, expiry is enforced on use as well.
-func DeleteExpiredAPITokens(ctx context.Context, q Querier) (int64, error) {
+func DeleteExpiredAPITokens(ctx context.Context, q Querier, now time.Time) (int64, error) {
 	tag, err := q.Exec(ctx,
-		`DELETE FROM api_token WHERE expires_at IS NOT NULL AND expires_at <= now()`)
+		`DELETE FROM api_token WHERE expires_at IS NOT NULL AND expires_at <= $1`,
+		at(now))
 	if err != nil {
 		return 0, err
 	}

@@ -237,7 +237,9 @@ exercised in CI.
 | ✅ 5.1.1 | `internal/model` domain types, the user/session/token queries in `internal/db`, JWT signing and API token generation in `internal/auth` | L | [03](03_data_model.md) |
 | ✅ 5.1 | `POST /auth/register` with the complexity rules from 3.5                                    | M | [05](05_auth_and_permissions.md) |
 | ✅ 5.2 | `POST /auth/login`: session row, JWT issue, single-session replacement, both cookies          | L | [adr/0004](adr/0004-jwt-with-server-side-sessions.md) |
-| 5.3  | Session validation middleware: signature, `exp`, session row, idle and absolute timeouts, `last_seen_at` throttle | L | [05](05_auth_and_permissions.md) |
+| ✅ 5.3 | Session validation middleware: signature, `exp`, session row, idle and absolute timeouts, `last_seen_at` throttle | L | [05](05_auth_and_permissions.md) |
+| ✅ 5.3.1 | Make the request log line see the acting user. `WithUserName` returned a context the outer logging middleware never saw, so the user field would have read `-` on every authenticated request | S | [08](08_technologies.md) |
+| ✅ 5.3.2 | Give session and token timestamps one clock. `last_seen_at` was written by the database and judged against the application clock | S | [05](05_auth_and_permissions.md) |
 | 5.4  | `POST /auth/logout` and `GET /auth/session`                                                  | S | [04](04_api.md) |
 | 5.5  | CSRF double-submit enforcement with constant-time comparison                                  | M | [05](05_auth_and_permissions.md) |
 | 5.6  | Login rate limiting per user name and per client address                                      | M | [05](05_auth_and_permissions.md) |

@@ -315,7 +315,7 @@ func TestRegisterRejectsAMalformedBody(t *testing.T) {
 		{"empty", "", api.CodeMalformedJSON},
 		{"two objects", `{"name":"a"}{"name":"b"}`, api.CodeMalformedJSON},
 		{"wrong type", `{"name": 42, "password": "x"}`, api.CodeInvalidField},
-		{"unknown field", `{"nmae": "typo", "password": "x"}`, api.CodeInvalidField},
+		{"unknown field", `{"diplay_name": "typo", "password": "x"}`, api.CodeInvalidField},
 	}
 
 	for _, tc := range cases {

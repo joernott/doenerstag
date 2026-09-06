@@ -165,7 +165,7 @@ func TestTouchIsThrottled(t *testing.T) {
 	}
 
 	// A minute's throttle on a session created moments ago: no write.
-	if err := db.TouchSession(ctx, pool, created.ID, time.Minute); err != nil {
+	if err := db.TouchSession(ctx, pool, created.ID, time.Now(), time.Minute); err != nil {
 		t.Fatal(err)
 	}
 	unchanged, err := db.SessionByID(ctx, pool, created.ID)
@@ -178,7 +178,7 @@ func TestTouchIsThrottled(t *testing.T) {
 
 	// A zero throttle always writes, which is how the timestamp advances once
 	// the throttle has elapsed.
-	if err := db.TouchSession(ctx, pool, created.ID, 0); err != nil {
+	if err := db.TouchSession(ctx, pool, created.ID, time.Now(), 0); err != nil {
 		t.Fatal(err)
 	}
 	touched, err := db.SessionByID(ctx, pool, created.ID)
@@ -217,7 +217,7 @@ func TestExpiredSessionsAreCollected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := db.DeleteExpiredSessions(ctx, pool)
+	removed, err := db.DeleteExpiredSessions(ctx, pool, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

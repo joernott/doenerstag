@@ -36,18 +36,44 @@ func RequestIDFrom(ctx context.Context) string {
 	return "-"
 }
 
+// actingUser is a box for the acting user's name.
+//
+// A box rather than the string itself, because of where the two ends sit. The
+// name is learned by the authentication middleware, deep inside the chain, and
+// it is read by the request log line, which is written by LogRequests after
+// next.ServeHTTP has returned -- from the request value it still holds, whose
+// context is the one from *before* authentication ran. A context value written
+// on the way in is therefore invisible on the way out, and the user field would
+// read "-" on every authenticated request.
+//
+// LogRequests installs the box; authentication fills it in; the log line reads
+// it. One request is one goroutine, so the write always happens-before the
+// read.
+type actingUser struct{ name string }
+
 // UserNameFrom returns the acting user, or the anonymous marker.
 func UserNameFrom(ctx context.Context) string {
-	if name, ok := ctx.Value(userNameKey).(string); ok && name != "" {
-		return name
+	if box, ok := ctx.Value(userNameKey).(*actingUser); ok && box.name != "" {
+		return box.name
 	}
 	return logging.AnonymousUser
 }
 
-// WithUserName records the acting user for the log line. Authentication in
-// sprint 5 calls it; until then every request is anonymous.
-func WithUserName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, userNameKey, name)
+// WithActingUser installs the box. LogRequests calls it; nothing else should.
+func WithActingUser(ctx context.Context) context.Context {
+	return context.WithValue(ctx, userNameKey, &actingUser{})
+}
+
+// SetUserName records who is making the request, for the log line.
+//
+// It writes into the box installed by LogRequests, so it takes a context rather
+// than returning one. A request that never reached LogRequests -- a handler
+// driven directly by a test -- silently records nothing, which is the right
+// outcome: the log line it would have fed does not exist either.
+func SetUserName(ctx context.Context, name string) {
+	if box, ok := ctx.Value(userNameKey).(*actingUser); ok {
+		box.name = name
+	}
 }
 
 // Middleware wraps a handler.
@@ -152,6 +178,12 @@ func LogRequests(logger *zerolog.Logger) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
 			recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+			// The box the authentication middleware fills in. It must be
+			// installed here, outside the call, because the log line below
+			// reads r -- whose context is the one from before anything inside
+			// had a chance to replace it.
+			r = r.WithContext(WithActingUser(r.Context()))
 
 			next.ServeHTTP(recorder, r)
 

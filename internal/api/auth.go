@@ -204,6 +204,7 @@ func (h *AuthHandlers) startSession(r *http.Request, w http.ResponseWriter, user
 	session, err := db.ReplaceSession(r.Context(), h.Pool, db.NewSession{
 		UserID:     user.ID,
 		Lifetime:   h.AbsoluteTimeout,
+		IssuedAt:   h.now(),
 		RemoteAddr: clientAddress(r),
 		UserAgent:  truncate(r.UserAgent(), UserAgentLogLimit),
 	})
@@ -325,7 +326,7 @@ func truncate(s string, n int) string {
 		return s
 	}
 	cut := s[:n]
-	for len(cut) > 0 && !utf8.ValidString(cut) {
+	for cut != "" && !utf8.ValidString(cut) {
 		cut = cut[:len(cut)-1]
 	}
 	return cut

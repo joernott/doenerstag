@@ -24,10 +24,16 @@ const (
 // secure is false only under --no-https. Sending Secure over plain HTTP would
 // mean the browser never returns the cookie, so a development server would
 // appear to log in and then immediately not be logged in.
+// gosec flags both calls below as possibly missing Secure, because the value is
+// a variable it cannot evaluate rather than a literal true. It is not missing:
+// it is false exactly when the server was started with --no-https, and hard-
+// coding true there would mean a development server appears to log in and is
+// then immediately not logged in, because the browser never returns the cookie
+// over plain HTTP. ListenAndServe already warns loudly in that mode.
 func setSessionCookies(w http.ResponseWriter, token, csrf string, lifetime time.Duration, secure bool) {
 	maxAge := int(lifetime.Seconds())
 
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is conditional on --no-https; see above
 		Name:     SessionCookieName,
 		Value:    token,
 		Path:     "/",
@@ -36,7 +42,7 @@ func setSessionCookies(w http.ResponseWriter, token, csrf string, lifetime time.
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // as above, and HttpOnly is false on purpose
 		Name:  CSRFCookieName,
 		Value: csrf,
 		Path:  "/",
@@ -51,24 +57,6 @@ func setSessionCookies(w http.ResponseWriter, token, csrf string, lifetime time.
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
-}
-
-// clearSessionCookies expires both cookies.
-//
-// The attributes must match the ones they were set with, or the browser treats
-// them as different cookies and keeps the originals.
-func clearSessionCookies(w http.ResponseWriter, secure bool) {
-	for _, name := range []string{SessionCookieName, CSRFCookieName} {
-		http.SetCookie(w, &http.Cookie{
-			Name:     name,
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: name == SessionCookieName,
-			Secure:   secure,
-			SameSite: http.SameSiteStrictMode,
-		})
-	}
 }
 
 // cookieValue reads a cookie, returning empty when it is absent.
