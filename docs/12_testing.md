@@ -256,6 +256,27 @@ invocation puts it into swap: every test passes on its own and several time out
 together, which looks like flakiness and is arithmetic. CI has the memory to run
 both at once, and does.
 
+### The one retry
+
+The browser suite runs with `retries: 1`, which is otherwise not this project's
+habit. It exists for one failure, and only one.
+
+Roughly one navigation in sixty, Firefox never completes `page.goto`. The server
+logs the request served in under a millisecond, the failure report's page
+snapshot shows the page fully rendered behind the stalled navigation, and it
+sits there until the test times out. It happens on any page, in no fixed place,
+over HTTP and HTTPS alike, and waiting for `domcontentloaded` rather than `load`
+does not avoid it -- the stall is before either event. Chromium has never done
+it. It is a browser-level stall, not something the application can fix or that a
+better assertion would catch.
+
+A retry is the honest response and not a way of hiding a failure. Playwright
+reports a test that passes on the second attempt as *flaky* rather than as
+passed, so it stays visible in the summary, and a genuine defect fails both
+attempts. `navigationTimeout` is set to 20 s -- far above any page here, far
+below the 60 s test timeout -- so a stall gives up quickly and the retry is
+cheap.
+
 ## Coverage
 
 Coverage is a signal, not a target to game.
