@@ -175,7 +175,7 @@ administrator and a valid configuration file.
 | 3.2  | Safe output handling: writability probe that cannot truncate the input file, temp file + rename | M | [09](09_configuration.md) |
 | 3.3  | Root and admin identities: create database, create runtime role, grant DML only                 | L | [09](09_configuration.md) |
 | 3.4  | Apply migrations using the admin identity                                                       | S | [10](10_operations.md) |
-| 3.5  | Password package: Argon2id hashing in PHC format, and the three-of-five complexity rules with NFC | L | [05](05_auth_and_permissions.md) |
+| ✅ 3.5 | Password package: Argon2id hashing in PHC format, and the three-of-five complexity rules with NFC | L | [05](05_auth_and_permissions.md) |
 | 3.6  | Create the `root` administrator interactively                                                    | S | [05](05_auth_and_permissions.md) |
 | 3.7  | Generate `jwt_secret` and write it to the config file                                            | S | [05](05_auth_and_permissions.md) |
 | 3.8  | Load imprint and legal notes snippets from files, sanitize with bluemonday, insert                | M | [02](02_features.md) |
