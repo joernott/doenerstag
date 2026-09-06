@@ -118,7 +118,7 @@ anything depends on it is the cheapest ordering there is.
 
 | ID   | Task                                                                                       | Size | Spec |
 | ---- | ------------------------------------------------------------------------------------------ | :--: | ---- |
-| 2.1  | pgx pool: connection string assembly, `sslmode`, `--max-connection-pool`, UTC session         | M | [08](08_technologies.md) |
+| ✅ 2.1 | pgx pool: connection string assembly, `sslmode`, `--max-connection-pool`, UTC session       | M | [08](08_technologies.md) |
 | 2.2  | golang-migrate integration with embedded migration files                                     | M | [08](08_technologies.md) |
 | 2.3  | Audit column convention and the `updated_at` trigger                                          | S | [03](03_data_model.md) |
 | 2.4  | Migration: `app_user`, `session`, `api_token`; deleted-user placeholder with its fixed UUID    | M | [03](03_data_model.md) |
