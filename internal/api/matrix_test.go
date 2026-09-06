@@ -127,7 +127,7 @@ func accountRows() []matrixCase {
 			body:   map[string]any{"display_name": "changed"},
 			cells: []cell{
 				{anonymous, false, api.CodeNotAuthenticated},
-				{otherUser, false, api.CodeNotItemOwner},
+				{otherUser, false, api.CodeNotOwner},
 				{owner, true, 0},
 				{admin, true, 0},
 			},
@@ -149,7 +149,7 @@ func accountRows() []matrixCase {
 			path:   func(m *matrixFixture) string { return "/users/" + m.subjectID + "/tokens" },
 			cells: []cell{
 				{anonymous, false, api.CodeNotAuthenticated},
-				{otherUser, false, api.CodeNotItemOwner},
+				{otherUser, false, api.CodeNotOwner},
 				{owner, true, 0},
 				{admin, true, 0},
 			},
@@ -161,7 +161,7 @@ func accountRows() []matrixCase {
 			body:   map[string]any{"name": "created-by-the-matrix"},
 			cells: []cell{
 				{anonymous, false, api.CodeNotAuthenticated},
-				{otherUser, false, api.CodeNotItemOwner},
+				{otherUser, false, api.CodeNotOwner},
 				{owner, true, 0},
 				{admin, true, 0},
 			},
@@ -174,7 +174,7 @@ func accountRows() []matrixCase {
 			},
 			cells: []cell{
 				{anonymous, false, api.CodeNotAuthenticated},
-				{otherUser, false, api.CodeNotItemOwner},
+				{otherUser, false, api.CodeNotOwner},
 				{owner, true, 0},
 				{admin, true, 0},
 			},
@@ -240,7 +240,7 @@ func TestPermissionMatrix(t *testing.T) {
 func TestPermissionMatrixAccountDeletion(t *testing.T) {
 	cases := []cell{
 		{anonymous, false, api.CodeNotAuthenticated},
-		{otherUser, false, api.CodeNotItemOwner},
+		{otherUser, false, api.CodeNotOwner},
 		{owner, true, 0},
 		{admin, true, 0},
 	}
@@ -266,7 +266,7 @@ func TestPermissionMatrixAccountDeletion(t *testing.T) {
 func TestPermissionMatrixTokenRevocation(t *testing.T) {
 	cases := []cell{
 		{anonymous, false, api.CodeNotAuthenticated},
-		{otherUser, false, api.CodeNotItemOwner},
+		{otherUser, false, api.CodeNotOwner},
 		{owner, true, 0},
 		{admin, true, 0},
 	}

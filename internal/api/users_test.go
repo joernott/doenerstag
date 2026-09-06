@@ -162,7 +162,7 @@ func TestOneUserCannotEditAnother(t *testing.T) {
 	rec := f.patch("/users/"+f.userID("frieda"), map[string]any{
 		"display_name": "not theirs to set",
 	}, intruder...)
-	expectError(t, rec, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, rec, http.StatusForbidden, api.CodeNotOwner)
 
 	anonymous := f.patch("/users/"+f.userID("frieda"), map[string]any{
 		"display_name": "nor mine",

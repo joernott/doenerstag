@@ -62,11 +62,7 @@ func RequireOwner(r *http.Request, ownerID uuid.UUID) (*Principal, *Error) {
 		return nil, err
 	}
 	if !principal.Is(ownerID) && !principal.IsAdmin() {
-		// 3002 is the item-owner code and reads oddly for a profile, but the
-		// documented set has no general "not yours" number and inventing one
-		// would break the promise that a code's meaning never changes. This is
-		// the closest documented fit.
-		return nil, &Error{Code: CodeNotItemOwner}
+		return nil, &Error{Code: CodeNotOwner}
 	}
 	return principal, nil
 }

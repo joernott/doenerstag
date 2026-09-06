@@ -279,13 +279,13 @@ func TestTokensArePrivateToTheirOwner(t *testing.T) {
 	path := "/users/" + f.userID("hanna") + "/tokens"
 
 	list := f.get(path, intruder...)
-	expectError(t, list, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, list, http.StatusForbidden, api.CodeNotOwner)
 
 	create := f.post(path, map[string]string{"name": "theirs"}, intruder...)
-	expectError(t, create, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, create, http.StatusForbidden, api.CodeNotOwner)
 
 	revoke := f.remove(path+"/"+created.ID, intruder...)
-	expectError(t, revoke, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, revoke, http.StatusForbidden, api.CodeNotOwner)
 
 	anonymous := f.get(path)
 	expectError(t, anonymous, http.StatusUnauthorized, api.CodeNotAuthenticated)

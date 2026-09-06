@@ -264,7 +264,7 @@ func TestOneUserCannotDeleteAnother(t *testing.T) {
 	intruder := f.register("erik")
 
 	rec := f.remove("/users/"+f.userID("dora"), intruder...)
-	expectError(t, rec, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, rec, http.StatusForbidden, api.CodeNotOwner)
 
 	anonymous := f.remove("/users/" + f.userID("dora"))
 	expectError(t, anonymous, http.StatusUnauthorized, api.CodeNotAuthenticated)
@@ -322,7 +322,7 @@ func TestDeletionImpactIsPrivate(t *testing.T) {
 	intruder := f.register("hanna")
 
 	rec := f.get("/users/"+f.userID("gustav")+"/deletion-impact", intruder...)
-	expectError(t, rec, http.StatusForbidden, api.CodeNotItemOwner)
+	expectError(t, rec, http.StatusForbidden, api.CodeNotOwner)
 }
 
 // A user with nothing to lose sees zeroes rather than an error.
