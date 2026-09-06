@@ -125,10 +125,7 @@ func Load(opts LoadOptions) (*Config, error) {
 		return nil, err
 	}
 
-	path, explicit, err := configFilePath(opts.Flags)
-	if err != nil {
-		return nil, err
-	}
+	path, explicit := configFilePath(opts.Flags)
 
 	v := viper.New()
 
@@ -154,9 +151,7 @@ func Load(opts LoadOptions) (*Config, error) {
 	// 4. Flags. viper consults a bound flag only when it was actually changed,
 	//    so an unset flag falls through to the environment, then the file, then
 	//    the default. That is exactly the documented precedence.
-	if err := bindFlags(v, opts.Flags, opts.Scope); err != nil {
-		return nil, err
-	}
+	bindFlags(v, opts.Flags, opts.Scope)
 
 	cfg := &Config{File: usedFile}
 	if err := populate(cfg, v, opts.Flags, opts.Scope, getenv); err != nil {
@@ -168,12 +163,12 @@ func Load(opts LoadOptions) (*Config, error) {
 // configFilePath returns the configuration file path and whether the operator
 // named it explicitly. An explicitly named file that does not exist is an
 // error; a missing default file is not.
-func configFilePath(flags *pflag.FlagSet) (path string, explicit bool, err error) {
+func configFilePath(flags *pflag.FlagSet) (path string, explicit bool) {
 	flag := flags.Lookup(ConfigFlag)
 	if flag == nil {
-		return DefaultConfigFile, false, nil
+		return DefaultConfigFile, false
 	}
-	return flag.Value.String(), flag.Changed, nil
+	return flag.Value.String(), flag.Changed
 }
 
 func readConfigFile(v *viper.Viper, path string, explicit bool) (string, error) {
@@ -218,7 +213,7 @@ func bindEnvironment(v *viper.Viper, getenv func(string) (string, bool)) {
 	}
 }
 
-func bindFlags(v *viper.Viper, flags *pflag.FlagSet, scope Scope) error {
+func bindFlags(v *viper.Viper, flags *pflag.FlagSet, scope Scope) {
 	for _, setting := range Settings {
 		if !setting.InConfigFile() {
 			continue
@@ -234,7 +229,6 @@ func bindFlags(v *viper.Viper, flags *pflag.FlagSet, scope Scope) error {
 		// environment values Set above.
 		v.Set(setting.Key, flag.Value.String())
 	}
-	return nil
 }
 
 // populate converts the resolved values into the typed Config.

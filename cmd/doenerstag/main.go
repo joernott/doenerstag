@@ -42,7 +42,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		// Errors are silenced on the commands so that cobra does not print
 		// them alongside the usage text, which means reporting them here.
-		fmt.Fprintln(stderr, "Error:", err)
+		_, _ = fmt.Fprintln(stderr, "Error:", err)
 		return exitFailure
 	}
 	return exitOK

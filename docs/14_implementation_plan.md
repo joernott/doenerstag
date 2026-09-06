@@ -73,10 +73,25 @@ Sprint 3 needs configuration and logging to already work.
 | ✅ 1.9 | Redaction deny-list for the DEBUG parameter logging                                          | S | [08](08_technologies.md) |
 | ✅ 1.10 | Unit tests: precedence, secret rule, permission check, redaction, level mapping             | M | [12](12_testing.md) |
 | ✅ 1.11 | CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                           | M | [12](12_testing.md) |
+| ✅ 1.12 | Extend `contrib/setup_dev_pipeline.sh` with everything the build and test pipeline needs at this stage | M | [08](08_technologies.md) |
+| ✅ 1.13 | Add the tools later sprints are already known to need to the same script                    | S | [08](08_technologies.md) |
+| ✅ 1.14 | Run the build and test pipeline on the Linux VM                                             | M | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag --version` prints the version. Every verb runs and
 exits with a clear "not implemented". Passing a password on the command line is
-fatal. A `0644` config file is fatal. CI is green.
+fatal. A `0644` config file is fatal. CI is green. The pipeline runs on a Linux
+machine provisioned solely by `contrib/setup_dev_pipeline.sh`.
+
+### The development VM
+
+`contrib/setup_dev_pipeline.sh` provisions a Debian machine with everything the
+project needs. It is the definition of the development environment: a tool the
+pipeline needs and the script does not install is a defect in the script.
+
+It is deliberately close to what CI installs. The Windows workstation cannot run
+`go test -race`, which needs cgo, so the Linux VM is where the race detector and
+the Docker-dependent database tests from sprint 2 onwards actually run before
+they reach CI.
 
 ---
 

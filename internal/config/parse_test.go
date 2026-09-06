@@ -13,7 +13,6 @@ func TestParseDurationAcceptsStandardUnits(t *testing.T) {
 		"120s":   120 * time.Second,
 		"500ms":  500 * time.Millisecond,
 		"1h30m":  90 * time.Minute,
-		" 6h ":   6 * time.Hour,
 		"0s":     0,
 		"-5m":    -5 * time.Minute,
 		"1.5h":   90 * time.Minute,
@@ -117,7 +116,6 @@ func TestParseByteSize(t *testing.T) {
 		"5MiB":    5 * 1024 * 1024,
 		"5mib":    5 * 1024 * 1024,
 		"5MIB":    5 * 1024 * 1024,
-		" 5MiB ":  5 * 1024 * 1024,
 		"512KiB":  512 * 1024,
 		"1GiB":    1024 * 1024 * 1024,
 		"1KB":     1000,
@@ -206,4 +204,23 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// Values arriving from a configuration file or an environment variable can
+// carry incidental whitespace. Both parsers trim it. Kept out of the tables
+// above because a map key with padding reads as a typo.
+func TestParsersTrimSurroundingWhitespace(t *testing.T) {
+	duration, err := ParseDuration(" 6h ")
+	if err != nil {
+		t.Errorf("ParseDuration(\" 6h \"): %v", err)
+	} else if duration != 6*time.Hour {
+		t.Errorf("ParseDuration(\" 6h \") = %v, want 6h", duration)
+	}
+
+	size, err := ParseByteSize(" 5MiB ")
+	if err != nil {
+		t.Errorf("ParseByteSize(\" 5MiB \"): %v", err)
+	} else if size != 5*1024*1024 {
+		t.Errorf("ParseByteSize(\" 5MiB \") = %d, want 5MiB", size)
+	}
 }

@@ -11,7 +11,6 @@ func TestParseLevelAcceptsAnyCasingAndWhitespace(t *testing.T) {
 		"FATAL":   LevelFatal,
 		"fatal":   LevelFatal,
 		"FaTaL":   LevelFatal,
-		"  info ": LevelInfo,
 		"ERROR":   LevelError,
 		"warn":    LevelWarn,
 		"WARNING": LevelWarn,
@@ -114,4 +113,15 @@ func indexOf(haystack, needle string) int {
 		}
 	}
 	return -1
+}
+
+// A level read from a configuration file or an environment variable can carry
+// incidental whitespace. Kept out of the table above because a map key with
+// padding reads as a typo.
+func TestParseLevelTrimsSurroundingWhitespace(t *testing.T) {
+	for _, input := range []string{"  info ", "\tDEBUG\n", " warn"} {
+		if _, err := ParseLevel(input); err != nil {
+			t.Errorf("ParseLevel(%q): %v", input, err)
+		}
+	}
 }
