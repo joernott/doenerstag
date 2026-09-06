@@ -113,6 +113,13 @@ lint: fmt-check vet lint-frontend ## Run every linter
 		echo "lint: golangci-lint not installed, skipping (see docs/12_testing.md)"; \
 	fi
 
+.PHONY: e2e
+e2e: ## Run the Playwright suite against a running server
+	@# The server is not started here: it needs a database, and where that is
+	@# depends on the machine. Point the suite at one with DOENER_E2E_URL,
+	@# which defaults to https://localhost:8443.
+	cd frontend && npx playwright test
+
 .PHONY: lint-frontend
 lint-frontend: ## Type-check and lint the frontend
 	@if [ -d frontend/node_modules ]; then \

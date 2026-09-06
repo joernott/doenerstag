@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { accountPage } from "../src/pages/account";
 import type { App } from "../src/app";
-import { mountApp, settle, stubServer } from "./helpers";
+import { fails, mountApp, settle, stubServer } from "./helpers";
 
 function render(app: App): HTMLElement {
   const rendered = accountPage(app);
@@ -125,10 +125,9 @@ describe("logged out", () => {
 
   it("says what went wrong when the password is refused", async () => {
     stubServer({
-      "POST /auth/login": {
-        status: 401,
-        body: { error: { code: 2001, message: "invalid user name or password" } },
-      },
+      "POST /auth/login": fails(401, {
+        error: { code: 2001, message: "invalid user name or password" },
+      }),
     });
 
     const app = mountApp(() => []);

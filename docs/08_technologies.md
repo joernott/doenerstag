@@ -194,6 +194,7 @@ The `Makefile` is the entry point. All of it runs locally.
 | `make release`   | `make frontend` then `go build -tags embedstatic -ldflags "-X main.version=…"`. |
 | `make test`      | `go test ./...` and the frontend type check.                             |
 | `make lint`      | `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.                     |
+| `make e2e`       | Playwright against a running server, named by `DOENER_E2E_URL`.          |
 | `make migrate`   | Applies migrations against the configured database, for development.     |
 | `make packages`  | `make release`, then `nfpm` builds the `.deb` and the `.rpm` from one shared configuration. |
 | `make image`     | Builds the container image for `linux/amd64` and `linux/arm64`.          |

@@ -15,6 +15,21 @@ export interface RouteContext {
   params: Record<string, string>;
   /** The query string. */
   query: URLSearchParams;
+  /**
+   * Registers work to undo when *this* page is replaced.
+   *
+   * A page that opens something the DOM does not own -- an event stream, a
+   * timer, a listener on the window -- has to close it when it goes away, and
+   * it cannot notice that on its own.
+   *
+   * The registration belongs to the render that was given this context, which
+   * is the whole point of it being here rather than on the router: a page
+   * registering a cleanup while it is still being built must not have that
+   * cleanup run by the very render that is building it, and a render that is
+   * overtaken must undo its own work rather than the work of the page that
+   * overtook it.
+   */
+  onCleanup: (cleanup: () => void) => void;
 }
 
 /** A page. */
@@ -76,6 +91,11 @@ export class Router {
   // allowed to touch the DOM.
   private ticket = 0;
 
+  // What the page on screen has to undo when it is replaced: streams to
+  // close, timers to stop. Each render collects its own list and takes
+  // ownership of it only once it is actually shown.
+  private cleanups: (() => void)[] = [];
+
   constructor(
     private readonly routes: Route[],
     private readonly notFound: (context: RouteContext) => Node | Promise<Node>,
@@ -93,10 +113,11 @@ export class Router {
     void this.render();
   }
 
-  /** Detaches the listeners. Only a test needs this. */
+  /** Detaches the listeners and undoes the current page. */
   stop(): void {
     document.removeEventListener("click", this.onClick);
     window.removeEventListener("popstate", this.onPopState);
+    Router.run(this.cleanups);
   }
 
   /** Navigates to a path within the application. */
@@ -123,16 +144,22 @@ export class Router {
     return () => this.listeners.delete(listener);
   }
 
+  private static run(cleanups: (() => void)[]): void {
+    for (const cleanup of cleanups.splice(0)) {
+      cleanup();
+    }
+  }
+
   /** The context for the current URL, whether or not it matches a route. */
   context(): RouteContext {
     const url = new URL(location.href);
     for (const route of this.routes) {
       const params = matchPath(route.pattern, url.pathname);
       if (params) {
-        return { path: url.pathname, params, query: url.searchParams };
+        return { path: url.pathname, params, query: url.searchParams, onCleanup: () => {} };
       }
     }
-    return { path: url.pathname, params: {}, query: url.searchParams };
+    return { path: url.pathname, params: {}, query: url.searchParams, onCleanup: () => {} };
   }
 
   private async render(): Promise<void> {
@@ -143,10 +170,16 @@ export class Router {
 
     const mine = ++this.ticket;
     const url = new URL(location.href);
+
+    // This render's own list. The page being built registers into it, and it
+    // becomes the router's only when that page is actually shown.
+    const collected: (() => void)[] = [];
+
     const context: RouteContext = {
       path: url.pathname,
       params: {},
       query: url.searchParams,
+      onCleanup: (cleanup) => collected.push(cleanup),
     };
 
     let build: (context: RouteContext) => Node | Promise<Node> = this.notFound;
@@ -161,9 +194,17 @@ export class Router {
 
     const page = await build(context);
     if (mine !== this.ticket) {
+      // Overtaken. This page will never be shown, so whatever it opened while
+      // being built is closed here rather than left running for the life of
+      // the session.
+      Router.run(collected);
       return;
     }
 
+    // The outgoing page is dismantled only once its replacement is ready, so a
+    // render that fails leaves the working page alone.
+    Router.run(this.cleanups);
+    this.cleanups = collected;
     outlet.replaceChildren(page);
 
     // Focus moves to the top of the new page, or a keyboard user would carry

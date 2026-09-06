@@ -337,6 +337,35 @@ EOF
 }
 
 # -----------------------------------------------------------------------------
+# Playwright browsers, for the end-to-end tests from sprint 12 onwards
+# -----------------------------------------------------------------------------
+
+install_playwright() {
+  local dev_home
+  dev_home="$(getent passwd "$DEV_USER" | cut -d: -f6)"
+
+  if [ -d "${dev_home}/.cache/ms-playwright" ] && \
+     [ -n "$(ls -A "${dev_home}/.cache/ms-playwright" 2>/dev/null)" ]; then
+    log "Playwright browsers already installed for $DEV_USER"
+    return
+  fi
+
+  log "Installing the Playwright browsers (Chromium and Firefox)"
+
+  # The system libraries the browsers link against. Installed as root; the
+  # browsers themselves belong to the user who runs the tests, because
+  # Playwright looks for them under that user's cache.
+  #
+  # Chromium and Firefox, and not WebKit: docs/12_testing.md names those two,
+  # they are what this application is designed for, and a third browser is
+  # another 300 MB on a machine that does not have it to spare.
+  ( cd "${dev_home}/doenerstag/frontend" 2>/dev/null || cd /tmp
+    npx --yes playwright@latest install-deps chromium firefox
+    sudo -u "$DEV_USER" npx --yes playwright@latest install chromium firefox
+  ) || log "Playwright install failed; run 'npx playwright install' by hand"
+}
+
+# -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
 
@@ -406,6 +435,7 @@ main() {
   create_test_database
   install_docker
   install_node
+  install_playwright
   report
 }
 
