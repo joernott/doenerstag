@@ -20,3 +20,17 @@ var MigrationsFS embed.FS
 
 // MigrationsDir is the path MigrationsFS is rooted at.
 const MigrationsDir = "migrations"
+
+// OpenAPISpec holds the API description served at /api/v1/openapi.json.
+//
+// YAML is the source of truth because that is what a person maintains; the
+// JSON the endpoint serves is converted from it at runtime, so the two cannot
+// drift apart the way a checked-in generated file would.
+//
+//go:embed api/openapi.yaml
+var OpenAPISpec embed.FS
+
+// OpenAPIYAML returns the embedded description.
+func OpenAPIYAML() ([]byte, error) {
+	return OpenAPISpec.ReadFile("api/openapi.yaml")
+}

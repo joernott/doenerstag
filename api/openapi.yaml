@@ -1,0 +1,243 @@
+openapi: 3.1.0
+
+info:
+  title: doenerstag
+  version: "1"
+  summary: Coordinate food orders for a group.
+  description: |
+    doenerstag coordinates food orders for a group. It does not take payments
+    and does not place orders with restaurants.
+
+    This document describes the endpoints that exist today. It grows with the
+    implementation: sprint 4 delivers the operational endpoints, sprint 5 the
+    accounts, and sprints 6 to 9 the restaurants, menus and orders. A test walks
+    the registered routes and fails when one is missing from here, so the two
+    cannot drift apart.
+
+    Reading is mostly open. An unauthenticated visitor sees restaurants, menus,
+    the list of orders and each order's item count, but not who ordered what.
+  license:
+    name: BSD-3-Clause
+    identifier: BSD-3-Clause
+
+servers:
+  - url: /api/v1
+    description: This installation.
+
+tags:
+  - name: system
+    description: Operational endpoints for monitoring and administration.
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Report whether the database is reachable.
+      description: |
+        What a monitor polls. It does the smallest possible round trip: the
+        question is whether the connection is up, not whether the schema is
+        right.
+
+        Unauthenticated on purpose. It exposes no data, and requiring a
+        credential would make it harder to wire into a monitoring system than
+        the information is worth.
+      security: []
+      responses:
+        "200":
+          description: The database answered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example: { status: ok }
+        "503":
+          description: The database did not answer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example: { status: error }
+
+  /metrics:
+    get:
+      tags: [system]
+      operationId: getMetrics
+      summary: Object counts and database pool usage.
+      description: |
+        Plain JSON rather than the Prometheus text exposition format. If
+        scraping is ever needed it belongs behind a separate path, so this one
+        stays stable.
+
+        Every counter is read in one round trip, so the numbers cannot disagree
+        with each other.
+      security: []
+      responses:
+        "200":
+          description: Current counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metrics"
+        "503":
+          description: The database is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /version:
+    get:
+      tags: [system]
+      operationId: getVersion
+      summary: What this binary is.
+      description: |
+        Reports the running binary, not what the database records as installed.
+        The two disagreeing is what a forgotten `doenerstag update` looks like;
+        the `version` verb reports the other side of that comparison.
+
+        Answers even when the database does not, which is what makes it useful
+        during an incident.
+      security: []
+      responses:
+        "200":
+          description: The running binary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+
+  /shutdown:
+    post:
+      tags: [system]
+      operationId: postShutdown
+      summary: Begin a graceful shutdown.
+      description: |
+        Responds before shutting down, so the administrator sees a confirmation
+        rather than a dropped connection. In-flight requests are given the
+        configured grace period to finish.
+
+        Restricted to the administrator from sprint 5, when authentication
+        exists.
+      responses:
+        "202":
+          description: The shutdown has begun.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    const: shutting down
+        "403":
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: doener_session
+      description: |
+        A JWT backed by a server-side session row. State-changing requests must
+        also send the CSRF token from the doener_csrf cookie in the
+        X-CSRF-Token header.
+    token:
+      type: http
+      scheme: bearer
+      description: |
+        An API token for third-party and scripted access. Not subject to the
+        CSRF check, because it carries no ambient browser credentials.
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+
+    Metrics:
+      type: object
+      required:
+        - restaurants
+        - menu_items
+        - orders_active
+        - orders_expired
+        - users
+        - db_connections_open
+        - db_connections_idle
+        - db_connections_max
+      properties:
+        restaurants:
+          type: integer
+          description: Restaurants that have not been deleted.
+        menu_items:
+          type: integer
+          description: Menu items that have not been deleted.
+        orders_active:
+          type: integer
+          description: Orders whose deadline has not passed.
+        orders_expired:
+          type: integer
+          description: Orders past their deadline and not yet cleaned up.
+        users:
+          type: integer
+          description: Registered accounts, including the deleted-user placeholder.
+        db_connections_open:
+          type: integer
+        db_connections_idle:
+          type: integer
+        db_connections_max:
+          type: integer
+
+    Version:
+      type: object
+      required: [version, commit, build_date]
+      properties:
+        version:
+          type: string
+          examples: ["1.0.0"]
+        commit:
+          type: string
+        build_date:
+          type: string
+
+    Error:
+      type: object
+      required: [error]
+      description: |
+        Every failure carries this shape. The code is an internal, stable
+        number the frontend keys its translations on; the message is
+        developer-facing English and is never the primary way a user learns
+        what went wrong.
+
+        The request_id matches the X-Request-Id response header and the log
+        line, which is what makes a report of "it went wrong just now"
+        traceable without the response ever carrying SQL text or a stack trace.
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: integer
+              description: |
+                Ranges: 1000-1999 validation, 2000-2999 authentication,
+                3000-3999 authorization, 4000-4999 resource state,
+                5000-5999 rate limiting, 9000-9999 server.
+              examples: [4000]
+            message:
+              type: string
+              examples: ["resource not found"]
+            field:
+              type: string
+              description: The offending request field, for validation errors.
+            request_id:
+              type: string

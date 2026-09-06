@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Dark is the default; the light theme is opt-in through the doener_theme
+   cookie, which the shell turns into this attribute before first paint. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+:root {
+  color-scheme: dark light;
+}

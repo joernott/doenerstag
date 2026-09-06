@@ -1,8 +1,9 @@
 # doenerstag build entry point.
 #
-# Targets that need the Node toolchain are stubbed until sprint 4 (task 4.7).
-# See docs/08_technologies.md for the full target list and docs/14_implementation_plan.md
-# for what is implemented so far.
+# The frontend targets shell out to npm in frontend/, so `make release` needs
+# the Node toolchain installed; `make build` does not, because a development
+# binary serves its assets from --static-dir rather than carrying them.
+# See docs/08_technologies.md for the full target list.
 
 SHELL := /bin/sh
 
@@ -47,8 +48,8 @@ deps: ## Download Go and frontend dependencies
 	@$(MAKE) --no-print-directory deps-frontend
 
 .PHONY: deps-frontend
-deps-frontend:
-	@echo "deps-frontend: not implemented until task 4.7 (npm ci in frontend/)"
+deps-frontend: ## Install the frontend toolchain
+	cd frontend && npm ci
 
 # --- build -------------------------------------------------------------------
 
@@ -62,11 +63,11 @@ release: frontend ## Build a release binary with the frontend embedded
 
 .PHONY: frontend
 frontend: ## Build the frontend into static/
-	@echo "frontend: not implemented until task 4.7 (esbuild + Tailwind into static/)"
+	cd frontend && npm run build
 
 .PHONY: dev
-dev: ## Frontend watch mode plus a development binary
-	@echo "dev: not implemented until task 4.7"
+dev: build ## Frontend watch mode plus a development binary
+	cd frontend && npm run watch
 
 # --- quality -----------------------------------------------------------------
 

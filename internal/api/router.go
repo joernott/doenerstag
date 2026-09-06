@@ -122,8 +122,10 @@ func (r *Router) handleNotFound(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleMethodNotAllowed(w http.ResponseWriter, req *http.Request) {
-	// httprouter has already set Allow.
-	WriteError(w, req, Errorf(CodeNotFound,
+	// 405 rather than 404: httprouter has already set Allow, and answering
+	// "not found" beside a header listing the methods that do work would be
+	// contradictory.
+	WriteError(w, req, Errorf(CodeMethodNotAllowed,
 		"the %s method is not allowed on %s", req.Method, req.URL.Path))
 }
 

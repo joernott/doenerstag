@@ -161,3 +161,17 @@ func contentType(name string) string {
 		return "application/octet-stream"
 	}
 }
+
+// SwaggerDir is where the frontend build vendors Swagger UI.
+const SwaggerDir = "swagger"
+
+// SwaggerIndex serves the vendored Swagger UI page.
+//
+// The assets it loads come through the ordinary /static/ handler; only the
+// entry document needs its own route, because it is mounted at /tools/swagger
+// rather than under /static.
+func (a *Assets) SwaggerIndex() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.serveFile(w, r, path.Join(SwaggerDir, IndexFile))
+	})
+}

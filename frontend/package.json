@@ -1,0 +1,19 @@
+{
+  "name": "doenerstag-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Build for the doenerstag web frontend. Output goes to ../static.",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "swagger-ui-dist": "^5.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

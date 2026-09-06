@@ -78,7 +78,7 @@ falls back to `message` when no translation exists.
 | 1000 – 1999 | Request validation     | 400, 413, 415        |
 | 2000 – 2999 | Authentication         | 401                  |
 | 3000 – 3999 | Authorization          | 403                  |
-| 4000 – 4999 | Resource state         | 404, 409, 410        |
+| 4000 – 4999 | Resource state         | 404, 405, 409, 410   |
 | 5000 – 5999 | Rate limiting          | 429                  |
 | 9000 – 9999 | Server / database      | 500, 503             |
 
@@ -117,6 +117,7 @@ falls back to `message` when no translation exists.
 | 4003 | 409  | The restaurant is still referenced by an order.                 |
 | 4004 | 409  | Menu item is marked unavailable.                                |
 | 4005 | 409  | Name already exists within this restaurant.                     |
+| 4006 | 405  | The HTTP method is not allowed on this path.                    |
 | 5000 | 429  | Too many login attempts.                                        |
 | 9000 | 500  | Unexpected server error.                                        |
 | 9001 | 503  | Database unavailable.                                           |

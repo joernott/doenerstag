@@ -209,13 +209,15 @@ static assets in both modes, and answers the operational endpoints.
 | ✅ 4.4 | Middleware chain: request ID, INFO request logging, recovery, security headers                | M | [05](05_auth_and_permissions.md) |
 | ✅ 4.5 | Error envelope and the error number registry                                                  | M | [04](04_api.md) |
 | ✅ 4.6 | `internal/static` with the `embedstatic` build tag; `embed.go` and `embed_disabled.go`        | M | [adr/0002](adr/0002-static-assets-embed-toggle.md) |
-| 4.7  | Minimal frontend build: esbuild, Tailwind, `index.html` skeleton; `make frontend`/`dev`/`release` | L | [08](08_technologies.md) |
+| ✅ 4.7 | Minimal frontend build: esbuild, Tailwind, `index.html` skeleton; `make frontend`/`dev`/`release` | L | [08](08_technologies.md) |
+| ✅ 4.7.1 | CI: build the frontend, type-check it, and fail if the committed `static/` no longer matches its sources | S | [12](12_testing.md) |
 | ✅ 4.8 | TLS listener, `--no-https`, bind address, HTTP timeouts, all five startup checks                | M | [09](09_configuration.md) |
 | ✅ 4.9 | Graceful shutdown on `SIGTERM`/`SIGINT` with `--shutdown-grace`                                | M | [10](10_operations.md) |
 | ✅ 4.10 | `/health`, `/metrics`, `/version` endpoints                                                    | M | [04](04_api.md) |
-| 4.11 | OpenAPI document skeleton, Swagger UI serving, `--no-swagger`                                   | M | [04](04_api.md) |
+| ✅ 4.11 | OpenAPI document skeleton, Swagger UI serving, `--no-swagger`                                   | M | [04](04_api.md) |
+| ✅ 4.11.1 | Document error code 4006 (405) in [04](04_api.md); `handleMethodNotAllowed` was answering 405 with the 404 code | S | [04](04_api.md) |
 | ✅ 4.12 | CORS handling for `--cors-allowed-origins`                                                      | S | [05](05_auth_and_permissions.md) |
-| 4.13 | API tests for all of the above, including the security header assertions                        | M | [12](12_testing.md) |
+| ✅ 4.13 | API tests for all of the above, including the security header assertions                        | M | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag server` serves HTTPS. `/health` returns 200 with
 the database up and 503 without it. Assets serve from disk in a default build and

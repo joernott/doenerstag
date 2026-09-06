@@ -86,9 +86,9 @@ func TestCodeRangesMatchTheirStatusFamilies(t *testing.T) {
 				t.Errorf("authorization code %d answers %d, want 403", code, status)
 			}
 		case code >= 4000 && code < 5000:
-			if status != http.StatusNotFound && status != http.StatusConflict &&
-				status != http.StatusGone {
-				t.Errorf("resource code %d answers %d, want 404, 409 or 410", code, status)
+			if status != http.StatusNotFound && status != http.StatusMethodNotAllowed &&
+				status != http.StatusConflict && status != http.StatusGone {
+				t.Errorf("resource code %d answers %d, want 404, 405, 409 or 410", code, status)
 			}
 		case code >= 5000 && code < 6000:
 			if status != http.StatusTooManyRequests {

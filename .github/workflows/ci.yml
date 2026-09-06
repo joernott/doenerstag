@@ -170,6 +170,43 @@ jobs:
             windows-coverage.html
           retention-days: 14
 
+  # static/ is committed so that a release can be built without Node, which
+  # means a stale commit is invisible: everything still compiles, and the
+  # binary quietly ships last week's JavaScript. The build is reproducible
+  # (npm ci pins the toolchain, and nothing in build.mjs writes a timestamp or
+  # a content hash), so rebuilding and diffing is a reliable check rather than
+  # a flaky one.
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: frontend
+
+      - name: Type-check
+        run: npx tsc --noEmit
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+      - name: The committed static/ matches its sources
+        run: |
+          if ! git diff --exit-code --stat -- static; then
+            echo "static/ is out of date: run make frontend and commit the result"
+            exit 1
+          fi
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -186,12 +223,20 @@ jobs:
         run: make build
 
       # Both build configurations must compile. The embedded build is what a
-      # release ships, and it is the one nobody exercises during development.
-      # It is expected to fail until task 4.7 creates the static assets and
-      # task 4.6 adds the embed directives, so it is not yet a blocker.
+      # release ships, and it is the one nobody exercises during development,
+      # which is exactly why CI has to.
+      #
+      # It builds against the committed static/ rather than rebuilding the
+      # frontend: go:embed fails on a missing directory, so this step also
+      # proves the assets a release needs are actually in the repository.
       - name: Embedded build
-        continue-on-error: true
         run: go build -tags embedstatic ./...
+
+      # The embedded build only proves static/ exists. Its tests are the ones
+      # that check what is in it, and they are skipped by the ordinary test
+      # jobs because the tag changes which files those packages compile.
+      - name: Embedded tests
+        run: go test -tags embedstatic ./internal/static/... ./internal/api/...
 
       - name: Smoke test the binary
         run: |

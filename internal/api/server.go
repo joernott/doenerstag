@@ -60,9 +60,17 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	if opts.Assets != nil {
 		routerOptions.Assets = opts.Assets.Handler()
 		routerOptions.Index = opts.Assets.Index()
+
+		// --no-swagger omits the route entirely rather than answering 404, so
+		// an operator who turned it off cannot tell it apart from a path that
+		// never existed.
+		if !cfg.Server.NoSwagger {
+			routerOptions.Swagger = SwaggerHandler(opts.Assets.SwaggerIndex())
+		}
 	}
 
 	router := NewRouter(routerOptions)
+	router.RegisterOpenAPI()
 
 	s := &Server{
 		cfg:      cfg,

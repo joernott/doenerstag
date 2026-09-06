@@ -244,3 +244,25 @@ func TestParseCORSOrigins(t *testing.T) {
 		t.Error("an empty setting produced origins")
 	}
 }
+
+// A wrong method answers 405 with the Allow header, not 404. Answering "not
+// found" beside a header listing the methods that do work would contradict
+// itself.
+func TestWrongMethodAnswers405(t *testing.T) {
+	r := testRouter(t)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/orders/abc", http.NoBody))
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status %d, want 405", rec.Code)
+	}
+
+	var body envelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("the 405 body is not the envelope: %v (%s)", err, rec.Body)
+	}
+	if body.Error.Code != CodeMethodNotAllowed {
+		t.Errorf("code is %d, want %d", body.Error.Code, CodeMethodNotAllowed)
+	}
+}
