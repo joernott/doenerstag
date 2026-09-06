@@ -319,8 +319,9 @@ menu would be, and filtered by tag and by allergen exclusion.
 | 8.7  | Order item modifications with their own snapshots; line total arithmetic                        | M | [03](03_data_model.md) |
 | 8.8  | Ownership and deadline rules, including read-only after the deadline for the administrator      | M | [05](05_auth_and_permissions.md) |
 | 8.9  | Derived status and computed title                                                               | S | [02](02_features.md) |
-| 8.10 | Re-verify account deletion against real orders                                                  | M | [02](02_features.md) |
-| 8.11 | Tests, including the anonymous leak test that scans the whole response body                     | L | [12](12_testing.md) |
+| ✅ 8.10 | Re-verify account deletion against real orders                                                  | M | [02](02_features.md) |
+| ✅ 8.11 | Tests, including the anonymous leak test that scans the whole response body                     | L | [12](12_testing.md) |
+| ✅ 8.11.1 | Fix a sprint-6 test that deduplication and Go's map iteration order had made vacuous | S | [12](12_testing.md) |
 
 **Exit criteria:** an order can be created, filled by several users and read
 back. Changing a menu item's name and price afterwards leaves the order

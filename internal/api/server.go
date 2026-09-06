@@ -114,6 +114,9 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	menuHandlers := &MenuHandlers{Pool: opts.Pool}
 	menuHandlers.Register(router)
 
+	orderHandlers := &OrderHandlers{Pool: opts.Pool}
+	orderHandlers.Register(router)
+
 	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
 	restaurantHandlers.Register(router)
 

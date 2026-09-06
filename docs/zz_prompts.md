@@ -488,3 +488,11 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 24
 
 > Please continue with sprint 7
+
+---
+
+## Sprint 8
+
+### Prompt 25
+
+> Please continue with sprint 8
