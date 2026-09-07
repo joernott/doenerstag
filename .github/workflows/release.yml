@@ -107,13 +107,13 @@ jobs:
           name: release-artefacts
           path: dist
 
-      - name: Install, upgrade and remove
+      - name: Install, reinstall and remove
         run: |
-          docker run --rm -v "$PWD/dist:/dist" ${{ matrix.image }} sh -eux -c '
+          docker run --rm -v "$PWD/dist:/dist:ro" ${{ matrix.image }} sh -eux -c '
             if [ "${{ matrix.format }}" = "deb" ]; then
               apt-get update -qq
-              # The package depends on postgresql-client, so a real install has
-              # to resolve it: `dpkg -i` alone would not.
+              # The package depends on the PostgreSQL client, so a real install
+              # has to resolve it: `dpkg -i` alone would not.
               apt-get install -y -qq /dist/doenerstag_*_amd64.deb
             else
               dnf install -y -q /dist/doenerstag-*.x86_64.rpm
@@ -133,8 +133,11 @@ jobs:
             /usr/bin/doenerstag --version
 
             # A modified configuration file survives reinstalling over the top,
-            # which is what marking it as a config file is for.
+            # which is what marking it as a config file is for. A log file is
+            # created too: what removal must not destroy is evidence, and an
+            # empty directory is not evidence.
             echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+            touch /var/log/doenerstag/doenerstag.log
             if [ "${{ matrix.format }}" = "deb" ]; then
               apt-get install -y -qq --reinstall /dist/doenerstag_*_amd64.deb
             else
@@ -142,15 +145,24 @@ jobs:
             fi
             grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
 
-            # And removal leaves the configuration and the logs alone.
             if [ "${{ matrix.format }}" = "deb" ]; then
               apt-get remove -y -qq doenerstag
             else
               dnf remove -y -q doenerstag
             fi
             test ! -e /usr/bin/doenerstag
-            test -f /etc/doenerstag/doenerstag.yaml
-            test -d /var/log/doenerstag
+
+            # The log file survives both formats. The configuration file does
+            # too, but under a different name: rpm renames a modified config
+            # file to .rpmsave on erase, and dpkg leaves it in place. Asserting
+            # one rule for both would either be wrong or too weak to be worth
+            # running.
+            test -f /var/log/doenerstag/doenerstag.log
+            if [ "${{ matrix.format }}" = "deb" ]; then
+              grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+            else
+              grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml.rpmsave
+            fi
           '
 
   # The image, for both architectures. Pushed only for a real tag: a

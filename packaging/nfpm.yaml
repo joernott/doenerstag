@@ -24,9 +24,14 @@ vendor: "Joern Ott"
 homepage: "https://github.com/joernott/doenerstag"
 license: "BSD-3-Clause"
 
-# psql on the host is a convenience for the operator, not a runtime need. The
-# database server itself is deliberately not a dependency: it usually lives on
-# another machine, and requiring it here would force an unwanted local install.
+# psql and pg_dump on the host are what the backup, restore and troubleshooting
+# sections of docs/10_operations.md tell an operator to use. The database server
+# itself is deliberately not a dependency: it usually lives on another machine,
+# and requiring it here would force an unwanted local install.
+#
+# The package that carries the client tools has a different name in each world,
+# and nothing on an RPM distribution provides "postgresql-client" -- the .rpm
+# was uninstallable on Fedora until this was split.
 depends:
   - postgresql-client
 
@@ -106,6 +111,12 @@ scripts:
   preinstall: ./packaging/preinstall.sh
   postinstall: ./packaging/postinstall.sh
   preremove: ./packaging/preremove.sh
+
+overrides:
+  rpm:
+    depends:
+      # Fedora, RHEL, Rocky, Alma and openSUSE all call it this.
+      - postgresql
 
 rpm:
   group: Applications/Internet

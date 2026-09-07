@@ -55,18 +55,34 @@ They install:
 | `/var/log/doenerstag/`                         | Log directory, owned by the service user.                     |
 
 The packages also create the system user and group `doenerstag` with no login
-shell and no home directory, and they declare a dependency on
-`postgresql-client` for the convenience of `psql` on the host. They do **not**
-depend on a PostgreSQL server — the database usually lives elsewhere.
+shell and no home directory, and they depend on the PostgreSQL client tools so
+that `psql` and `pg_dump` — which the backup, restore and troubleshooting
+sections below tell you to use — are present. That package is
+`postgresql-client` on Debian and Ubuntu and `postgresql` on the RPM
+distributions; nothing on an RPM distribution provides the Debian name. Neither
+package depends on a PostgreSQL **server**: the database usually lives
+elsewhere.
 
 Neither package starts or enables the service. It cannot work until step 2 has
 run, so the post-install script prints the next command instead of failing a
 service start.
 
-Removing the package leaves `/etc/doenerstag/doenerstag.yaml`, the log directory
-and the database untouched. `apt purge` / `dnf remove` plus an explicit
-`rm -rf /etc/doenerstag` is the full uninstall; the database is never dropped by
-a package operation.
+Removal never touches the database, and never destroys evidence or a password
+you chose. What exactly survives differs between the two formats, because the
+two packaging systems differ:
+
+| Removing…                       | `.deb`                                  | `.rpm`                                              |
+| ------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| A modified `doenerstag.yaml`    | left in place, unchanged                | renamed to `doenerstag.yaml.rpmsave`                |
+| An unmodified `doenerstag.yaml` | left in place                           | removed, along with `/etc/doenerstag`               |
+| `/var/log/doenerstag` with logs | kept                                    | kept                                                |
+| `/var/log/doenerstag` when empty | removed                                | removed                                             |
+
+A real installation always has a modified configuration file, because
+`doenerstag install` writes it. So on an RPM distribution, expect to find your
+settings in `doenerstag.yaml.rpmsave` after a removal. `apt purge` / `dnf
+remove` plus an explicit `rm -rf /etc/doenerstag` is the full uninstall; the
+database is never dropped by a package operation.
 
 ### Step 1c — plain binary
 

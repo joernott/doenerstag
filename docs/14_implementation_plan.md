@@ -560,6 +560,17 @@ reading the code:
   refuses to start from. Configuration is now resolved for every section
   whatever the verb, which also makes `install`'s "keep the existing secret so a
   re-run does not log everyone out" branch reachable for the first time.
+- **15.3.1** ✅ The `.rpm` was uninstallable. `depends: postgresql-client` is a
+  Debian package name and nothing on an RPM distribution provides it, so
+  `dnf install` failed with "nothing provides postgresql-client". The dependency
+  is now per format: `postgresql` for the RPM.
+- **15.3.2** ✅ The package test asserted a removal behaviour neither format
+  has. `dpkg` removes `/var/log/doenerstag` when it is empty, and `rpm` renames
+  a modified configuration file to `.rpmsave` on erase rather than leaving it in
+  place. Both are correct behaviour; the test and
+  [10_operations.md](10_operations.md) now describe it per format, and what they
+  assert is that removal never destroys a log file or a password the operator
+  chose.
 - **15.8.1** ✅ `docs/10_operations.md` showed the systemd unit with
   `ExecStart=/usr/local/bin/doenerstag` while claiming the packages install
   exactly that file; the packages install `/usr/bin/doenerstag`.
