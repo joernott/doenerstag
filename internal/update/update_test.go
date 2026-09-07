@@ -302,19 +302,20 @@ func TestUpdateRefusesADatabaseNewerThanTheBinary(t *testing.T) {
 	}
 }
 
-func TestUpdateRefusesBeforeTheFirstRelease(t *testing.T) {
+func TestUpdateRefusesAnUnreleasedBuild(t *testing.T) {
 	f := newFixture(t)
 
-	// docs/09_configuration.md: until the first release ships, update says so
-	// and does nothing. The machinery above is written and tested regardless,
-	// so that the day it is needed is not the day it is first run.
+	// docs/09_configuration.md: an untagged development build reports 0.0.0 and
+	// has nothing to update from, so it says so and does nothing. The machinery
+	// above is tested regardless, so the day it is needed is not the day it runs
+	// for the first time.
 	f.opts.AppVersion = "0.0.0-dev"
 
 	_, err := update.Run(context.Background(), f.opts)
 	if err == nil {
 		t.Fatal("a pre-release binary updated anyway")
 	}
-	if !strings.Contains(err.Error(), "before the first release") {
+	if !strings.Contains(err.Error(), "unreleased build") {
 		t.Errorf("the error does not explain why: %v", err)
 	}
 }
@@ -357,4 +358,22 @@ func (f *fixture) adminPool(t *testing.T) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+// The first release is 0.1.0, not 1.0.0, so an upgrade inside the 0.x line is
+// the only kind of upgrade that exists for now. The gate used to read
+// "major version below 1", which refused exactly that and told the operator to
+// run install instead -- on a database whose roles install would then try to
+// create a second time.
+func TestUpdateWorksInsideTheZeroPointLine(t *testing.T) {
+	f := newFixture(t)
+	f.opts.AppVersion = "0.2.0"
+
+	result, err := update.Run(context.Background(), f.opts)
+	if err != nil {
+		t.Fatalf("updating from one 0.x release to the next was refused: %v", err)
+	}
+	if result.AppVersion != (install.SemanticVersion{Major: 0, Minor: 2, Patch: 0}) {
+		t.Errorf("recorded %v, want 0.2.0", result.AppVersion)
+	}
 }

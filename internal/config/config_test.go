@@ -497,3 +497,69 @@ func sharesCommandLine(a, b Setting) bool {
 	}
 	return a.Scopes&b.Scopes != 0
 }
+
+// The configuration a verb resolves has to describe the whole file, not the
+// part that verb has flags for.
+//
+// update runs under the install scope and rewrites the file it read. While
+// Server and Session were populated only for the server scope, that rewrite
+// replaced every one of their settings with the declared default: a tuned port
+// and timeouts silently reverted, and session.jwt_secret was written empty,
+// which leaves a configuration the server refuses to start from with "the
+// session signing secret is 0 characters".
+func TestEverySectionIsResolvedWhateverTheScope(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultConfigFile)
+	body := `database:
+  server: "db.example"
+  password: "runtime-pw"
+server:
+  port: 9443
+  tls_cert: "/etc/ssl/doener.crt"
+  http_write_timeout: "90s"
+session:
+  jwt_secret: "a-secret-long-enough-to-be-usable-here"
+cleanup:
+  retention: "30d"
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// The install scope, which is what update uses, and which registers no
+	// server, session or cleanup flags at all.
+	cfg, err := loadFor(t, ScopeInstall, nil, nil, path)
+	if err != nil {
+		t.Fatalf("loading: %v", err)
+	}
+
+	if cfg.Server.Port != 9443 {
+		t.Errorf("server.port resolved to %d, want the file's 9443", cfg.Server.Port)
+	}
+	if cfg.Server.TLSCert != "/etc/ssl/doener.crt" {
+		t.Errorf("server.tls_cert resolved to %q, want the file's path", cfg.Server.TLSCert)
+	}
+	if cfg.Server.HTTPWriteTimeout != 90*time.Second {
+		t.Errorf("http_write_timeout resolved to %s, want 90s", cfg.Server.HTTPWriteTimeout)
+	}
+	if cfg.Session.JWTSecret != "a-secret-long-enough-to-be-usable-here" {
+		t.Errorf("the session signing secret resolved to %q", cfg.Session.JWTSecret)
+	}
+	if cfg.Cleanup.Retention != 30*24*time.Hour {
+		t.Errorf("cleanup.retention resolved to %s, want 30d", cfg.Cleanup.Retention)
+	}
+
+	// And the file that would be written back keeps every one of them.
+	values := ValuesFrom(cfg)
+	for flag, want := range map[string]string{
+		"port":               "9443",
+		"tls-cert":           "/etc/ssl/doener.crt",
+		"jwt-secret":         "a-secret-long-enough-to-be-usable-here",
+		"http-write-timeout": "90s",
+		"retention":          "30d",
+	} {
+		if got := values[flag]; got != want {
+			t.Errorf("update would write %s as %q, want %q", flag, got, want)
+		}
+	}
+}

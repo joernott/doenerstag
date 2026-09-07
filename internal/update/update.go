@@ -22,16 +22,22 @@ import (
 	"github.com/joernott/doenerstag/internal/install"
 )
 
-// ErrPreRelease is returned by a binary that has not been released yet.
+// ErrPreRelease is returned by a binary that was never released.
 //
 // docs/09_configuration.md: "Until the first release ships, update prints a
 // message that updating is not yet possible and exits with status 1." The
 // machinery below is written and tested regardless -- a verb whose code is
 // written on the day it is first needed is a verb nobody has ever run.
+//
+// The test is 0.0.0 and not "below 1.0.0". The first release is 0.1.0, and a
+// major-version test would refuse every upgrade inside the whole 0.x line
+// while telling the operator to run install instead -- which would try to
+// create a database and roles that already exist.
 var ErrPreRelease = errors.New(
-	"updating is not possible before the first release.\n" +
-		"This binary reports a version below 1.0.0, which means there is no released\n" +
-		"version it could be updating from. Use doenerstag install instead")
+	"updating is not possible from an unreleased build.\n" +
+		"This binary reports 0.0.0, the version an untagged development build\n" +
+		"carries, so there is no released version it could be updating from.\n" +
+		"Use doenerstag install instead")
 
 // Options are what the update verb needs.
 type Options struct {
@@ -99,7 +105,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if appVersion.Major < 1 {
+	if appVersion == (install.SemanticVersion{}) {
 		return Result{}, ErrPreRelease
 	}
 

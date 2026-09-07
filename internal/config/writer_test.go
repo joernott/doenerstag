@@ -412,3 +412,46 @@ func TestChangedSettingsAreWrittenAsSet(t *testing.T) {
 		t.Error("a changed write timeout was not written as set")
 	}
 }
+
+// The file install writes has to be one the server can start from. It was not:
+// the install verb never populates Server.TLSCert, and the empty string was
+// written over the declared default, so `doenerstag server` refused to start
+// immediately after a documented install with "no TLS certificate was
+// configured". Every setting with a non-empty default is checked, not only the
+// two that were wrong, because the next one to be added would fail the same way.
+func TestWrittenFileKeepsNonEmptyDefaults(t *testing.T) {
+	// Loaded for the install scope, which is what writes the file: the server
+	// settings are absent from its flag set and so are never populated.
+	cfg, err := loadFor(t, ScopeInstall, nil, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	values := ValuesFrom(cfg)
+	for _, setting := range Settings {
+		if !setting.InConfigFile() {
+			continue
+		}
+		// String settings only. A duration declares its default as a string
+		// too, and "1m" is the same value as the declared "60s".
+		if setting.Kind != KindString {
+			continue
+		}
+		want, ok := setting.Default.(string)
+		if !ok || want == "" {
+			continue
+		}
+		if got := values[setting.Flag]; got != want {
+			t.Errorf("%s was written as %q, want the declared default %q",
+				setting.Flag, got, want)
+		}
+	}
+
+	body, err := Render(values, time.Now())
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if strings.Contains(body, `tls_cert: ""`) {
+		t.Error("the TLS certificate path was written empty")
+	}
+}

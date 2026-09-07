@@ -1,0 +1,76 @@
+# A working compose stack: PostgreSQL, the server, and the cleanup job.
+#
+# Copy this file, the .env next to it and an empty config/ directory to wherever
+# you keep the stack, then follow the first-run sequence in
+# docs/10_operations.md. Nothing here is a placeholder to be filled in later --
+# this is the file the release is tested with.
+
+services:
+  db:
+    image: postgres:18-alpine
+    # The superuser, and only the superuser. The doenerstag database and its
+    # runtime role are created by `doenerstag install`, which needs a role
+    # permitted to do that; presetting POSTGRES_DB and POSTGRES_USER here would
+    # hand install a database it is supposed to create.
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    # The mount is at /var/lib/postgresql, not .../data. From 18 the image
+    # stores the cluster in a version-named subdirectory of that path, and
+    # refuses to start with a volume mounted over the old location.
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Run once, before the first start: `docker compose run --rm install`.
+  # It is the only service that mounts the configuration directory writable,
+  # because it is the only one that writes to it.
+  install:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["install", "-o", "/config/doenerstag.yaml", "-R", "postgres"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+      # Asked for interactively when unset, which is the normal way to run it.
+      DOENER_DATABASE_ROOT_PASSWORD: ${DOENER_DATABASE_ROOT_PASSWORD:-}
+    volumes:
+      - ./config:/config
+    profiles: ["install"]
+
+  doenerstag:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["server", "-c", "/config/doenerstag.yaml"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+    ports:
+      - "${DOENERSTAG_PORT:-8443}:8443"
+    volumes:
+      - ./config:/config:ro
+    restart: unless-stopped
+
+  # Behind a profile so it never starts with the stack. Run it from the host's
+  # cron: 17 3 * * * cd /srv/doenerstag && docker compose run --rm cleanup
+  cleanup:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["cleanup", "-c", "/config/doenerstag.yaml"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+    volumes:
+      - ./config:/config:ro
+    profiles: ["cleanup"]
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+
+volumes:
+  pgdata:

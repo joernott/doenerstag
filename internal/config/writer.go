@@ -78,8 +78,15 @@ func ValuesFrom(cfg *Config) Values {
 }
 
 // isZeroValue reports whether a rendered value is the type's zero rather than a
-// deliberate setting. An empty string is legitimate for several settings, so it
-// only counts as unset for the numeric and duration kinds.
+// deliberate setting. An unset value falls back to the declared default, which
+// is what makes the generated file document every setting.
+//
+// An empty string counts as unset. That is safe because every setting whose
+// default is non-empty -- the TLS paths, the static directory, the database
+// coordinates -- has no meaning when empty, and for the rest the default is
+// empty too, so the fallback changes nothing. Before this, install wrote
+// tls_cert: "" over the declared server.crt and the server it had just
+// installed refused to start with "no TLS certificate was configured".
 func isZeroValue(setting Setting, rendered string) bool {
 	switch setting.Kind {
 	case KindInt:
@@ -89,7 +96,7 @@ func isZeroValue(setting Setting, rendered string) bool {
 	case KindByteSize:
 		return rendered == "0" || rendered == ""
 	default:
-		return false
+		return rendered == ""
 	}
 }
 
