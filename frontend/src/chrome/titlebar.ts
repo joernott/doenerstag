@@ -156,7 +156,14 @@ function menuButton(app: App): HTMLElement {
 
   const menu = el("nav", { class: "menu", id: menuId, hidden: true, "aria-label": t.t("nav.menu") });
   for (const entry of menuEntries(app)) {
-    menu.appendChild(el("a", { class: "menu-entry", href: entry.href, text: entry.label }));
+    menu.appendChild(
+      el("a", {
+        class: "menu-entry",
+        href: entry.href,
+        text: entry.label,
+        ...(entry.external ? { target: "_blank", rel: "noreferrer" } : {}),
+      }),
+    );
   }
 
   const container = el("div", { class: "menu-container" }, button, menu);
@@ -208,6 +215,15 @@ function menuButton(app: App): HTMLElement {
 interface MenuEntry {
   href: string;
   label: string;
+  /**
+   * Opened in a new tab.
+   *
+   * For the API documentation, which is Swagger UI rather than a page of this
+   * application: following it in place loses whatever the reader was doing,
+   * and coming back from it means the browser back button rather than the
+   * navigation they were using a moment ago.
+   */
+  external?: boolean;
 }
 
 /**
@@ -239,7 +255,7 @@ function menuEntries(app: App): MenuEntry[] {
   );
 
   if (app.version?.swagger !== false) {
-    entries.push({ href: "/tools/swagger/", label: t.t("nav.api_docs") });
+    entries.push({ href: "/tools/swagger/", label: t.t("nav.api_docs"), external: true });
   }
   return entries;
 }

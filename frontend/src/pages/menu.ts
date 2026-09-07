@@ -321,6 +321,10 @@ export function menuSection(
       actions(
         button({
           label: t.t("action.edit"),
+          variant: "primary",
+          // Named for the item it edits: this tab has an Edit on every item and
+          // on every category, so the word alone is not an accessible name.
+          ariaLabel: `${t.t("action.edit")}: ${item.name}`,
           onclick: () => {
             edit(item, item.category_id);
           },

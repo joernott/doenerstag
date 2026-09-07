@@ -148,7 +148,7 @@ describe("logged in", () => {
     return app;
   }
 
-  it("has the profile, password, token and deletion sections", () => {
+  it("has the profile, password and token tabs, and deletion on the heading", () => {
     stubServer({
       "GET /users/u1": { id: "u1", name: "jo", email: "jo@example.org" },
       "GET /users/u1/tokens": { tokens: [] },
@@ -156,14 +156,46 @@ describe("logged in", () => {
 
     const app = loggedInApp();
     const rendered = render(app);
-    const titles = [...rendered.querySelectorAll(".card-title")].map((entry) => entry.textContent);
 
-    expect(titles).toEqual([
+    const tabs = [...rendered.querySelectorAll("[role='tab']")].map((entry) => entry.textContent);
+    expect(tabs).toEqual([
       app.t.t("account.profile"),
       app.t.t("account.password"),
       app.t.t("account.tokens"),
-      app.t.t("account.delete"),
     ]);
+
+    // Deleting the account is not a section any more: it is a button on the
+    // title's line, and the warning it used to print permanently is in the
+    // dialog it opens, where it applies.
+    const heading = rendered.querySelector(".page-heading-actions");
+    const labels = [...(heading?.querySelectorAll("button") ?? [])].map(
+      (control) => control.textContent,
+    );
+    expect(labels).toEqual([app.t.t("action.save"), app.t.t("account.delete")]);
+    expect(rendered.textContent).not.toContain(app.t.t("account.delete.intro"));
+  });
+
+  it("keeps Save quiet until a field or the password changes", () => {
+    stubServer({
+      "GET /users/u1": { id: "u1", name: "jo", email: "jo@example.org" },
+      "GET /users/u1/tokens": { tokens: [] },
+    });
+
+    const app = loggedInApp();
+    const rendered = render(app);
+
+    const save = rendered.querySelector<HTMLButtonElement>(".page-heading-actions button");
+    expect(save?.textContent).toBe(app.t.t("action.save"));
+    expect(save?.disabled).toBe(true);
+
+    const displayName = rendered.querySelector<HTMLInputElement>("input[name='display_name']");
+    if (!displayName || !save) {
+      throw new Error("the profile form is missing its display name field");
+    }
+
+    displayName.value = "Jo the Second";
+    displayName.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(save.disabled).toBe(false);
   });
 
   it("does not offer the administrator a way to delete the one admin account", () => {

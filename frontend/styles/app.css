@@ -921,6 +921,22 @@ a {
   min-width: 0;
 }
 
+/* The buttons fill their column on every row.
+ *
+ * "Add a contact" is alone in the cell where the other rows have Save and
+ * Remove, so its left edge lines up with their Save and its right with their
+ * Remove -- but only if both fill the column. Left to their natural widths, the
+ * pair came up short of the column's right edge and the single button did not,
+ * which is the 32 pixels that made the new row look out of line. */
+.contact-row .actions {
+  display: flex;
+  width: 100%;
+}
+
+.contact-row .actions > .button {
+  flex: 1 1 auto;
+}
+
 /* The column the open button lives in, reserved whether or not there is a
    button in it. */
 .contact-open {
@@ -1169,12 +1185,26 @@ a {
   margin-block-end: 1rem;
 }
 
+/* The category's heading and its controls, in a frame of their own.
+ *
+ * A menu is a list of lists, and without a border the category headings read as
+ * items in the same stream as the dishes under them. The frame says where one
+ * category starts. The controls go to the right-hand end, so a column of
+ * categories has its buttons in a column too. */
 .menu-group-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
-  margin-block-end: 0.5rem;
+  margin-block-end: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.menu-group-header .actions {
+  margin-inline-start: auto;
 }
 
 /* The category name and its disclosure are one button, so the whole heading is
@@ -1382,6 +1412,16 @@ a {
 .notice-warning {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+/* A notice that follows something it is about, rather than heading a page.
+ *
+ * The "below the minimum order value" box sat directly under the total with
+ * less space between the two than the box has inside it, so the total read as
+ * though it were part of the warning. The gap above is now the box's own
+ * padding plus a little, which is the least that makes them two things. */
+.notice-spaced {
+  margin-block-start: 1.5rem;
 }
 
 .restaurant-line {

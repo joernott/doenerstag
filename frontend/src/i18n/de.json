@@ -237,6 +237,7 @@
 
   "account.profile": "Profil",
   "account.password": "Passwort",
+  "account.sections": "Bereiche des Kontos",
   "account.tokens": "API-Token",
   "account.tokens.intro": "Ein Token weist ein Skript aus statt eines Browsers. Es wird nur einmal angezeigt.",
   "account.tokens.none": "Noch keine Token.",

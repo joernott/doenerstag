@@ -73,11 +73,12 @@ export function imageField(options: ImageFieldOptions): ImageField {
 
   const choose = button({
     label: current ? t.t("image.replace") : t.t("image.choose"),
+    variant: "primary",
     onclick: () => file.click(),
   });
   const remove = button({
     label: t.t("image.remove"),
-    variant: "quiet",
+    variant: "danger",
     onclick: () => {
       current = null;
       options.onChange(null);

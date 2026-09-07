@@ -655,3 +655,45 @@ recorded on the branch of the sprint it belongs to.
 >   input field. There should be an icon left to it that shows a down or sideways
 >   arrow to show and hide the elements in that category. Replace the "Save"
 >   button with an orange "Edit" button
+
+---
+
+### Prompt 39
+
+> Having the day dropdown at 118px is fine with me
+> More changes to the restaurant page:
+> - On the menu tab, make the Edit button for menu items orange as well. Align
+>   the edit and the up/down buttons for categories to the right as well and add
+>   a border around the category headline and buttons
+> - On the restaurant tab: Make the "Remove the picture" button red and the
+>   "Replace picture" button orange
+> - On the contact page, make the "Save" buttons and "Add a contact" button
+>   orange, resize the "Adfd a contact" button so that it's left border aligns
+>   with the "Save " buttons above and the right border aligns with the "Remove"
+>   button.
+> - Remove the "Save" button from the "Opening hours" tab and make the "Add
+>   opening hours" button orange
+> On the order page:
+> - Increase the distance between the Total and the red warning box "Below the
+>   minimum value", so that the distance between the border and the Total is at
+>   least as big as the distance to the text inside the box
+> - Make the "Add an item" page on the menu there orange as well
+> - Always show the "Summary" button on the order but fade it out if the order
+>   can't be placed
+> On the order overview: Always show the "Summarty" button but fade it out if the
+> order can't be placed
+> On the account page:
+> - Use the same tab design as for the restaurant.
+> - Move the "Delete my account" button to the top on the level of the Heading
+>   and align it to the right.
+> - Move the "Save" button to the left of the delete account. Fade it out if
+>   there are no changes to be saved
+> - Remove the second "Save" button on the password tile, that functionality
+>   should be covered by the button in the top line
+> - Remove the warning that an account deletion can't be uindone and get ridf of
+>   the whole tile. The warning cayn be shown in a modal after clicking the
+>   button.
+> On the version page:
+> - Add the background image similar to the overview pages and create a tile
+>   around the version information
+> Open the api documentation in a separate tab

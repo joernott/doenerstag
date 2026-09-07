@@ -11,7 +11,8 @@ import { formatDateTime } from "../format";
 import { button, field, form, input } from "../components/forms";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
-import { actions, page, section, statusLine } from "./page";
+import { tabs } from "../components/tabs";
+import { actions, card, page, pageWithActions, statusLine } from "./page";
 
 /** The account page, in whichever of its two shapes applies. */
 export function accountPage(app: App): HTMLElement {
@@ -29,50 +30,21 @@ export function accountPage(app: App): HTMLElement {
 function anonymous(app: App): HTMLElement {
   const { t } = app;
 
-  const loginPanel = loginForm(app);
-  const registerPanel = registerForm(app);
-  registerPanel.hidden = true;
-
-  const loginTab = tab(t.t("auth.login"), true);
-  const registerTab = tab(t.t("auth.register"), false);
-
-  const select = (wanted: HTMLButtonElement): void => {
-    const login = wanted === loginTab;
-    loginTab.setAttribute("aria-selected", String(login));
-    registerTab.setAttribute("aria-selected", String(!login));
-    loginTab.tabIndex = login ? 0 : -1;
-    registerTab.tabIndex = login ? -1 : 0;
-    loginPanel.hidden = !login;
-    registerPanel.hidden = login;
-    wanted.focus();
-  };
-
-  for (const [current, other] of [
-    [loginTab, registerTab],
-    [registerTab, loginTab],
-  ] as const) {
-    current.addEventListener("click", () => select(current));
-    current.addEventListener("keydown", (event: KeyboardEvent) => {
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-        event.preventDefault();
-        select(other);
-      }
-    });
-  }
-
-  const tabs = el("div", { class: "tabs", role: "tablist" }, loginTab, registerTab);
-  return page(t.t("auth.login_or_register"), tabs, loginPanel, registerPanel);
-}
-
-function tab(label: string, selected: boolean): HTMLButtonElement {
-  return el("button", {
-    type: "button",
-    class: "tab",
-    role: "tab",
-    "aria-selected": String(selected),
-    tabindex: selected ? "0" : "-1",
-    text: label,
-  });
+  // The shared component, like every other tab strip in the application. This
+  // page used to build its own -- the same two classes, a hand-written
+  // selection handler and arrow keys that moved but did not rove the tabindex.
+  // Two implementations of one pattern is one too many, and this was the older
+  // and the weaker of the two.
+  return page(
+    t.t("auth.login_or_register"),
+    tabs(
+      [
+        { id: "login", label: t.t("auth.login"), panel: loginForm(app) },
+        { id: "register", label: t.t("auth.register"), panel: registerForm(app) },
+      ],
+      { label: t.t("auth.login_or_register"), initial: 0 },
+    ),
+  );
 }
 
 function loginForm(app: App): HTMLElement {
@@ -119,7 +91,7 @@ function loginForm(app: App): HTMLElement {
     }
   }
 
-  return el("div", { role: "tabpanel", class: "panel" }, element);
+  return el("div", { class: "panel" }, element);
 }
 
 function registerForm(app: App): HTMLElement {
@@ -180,7 +152,7 @@ function registerForm(app: App): HTMLElement {
     }
   }
 
-  return el("div", { role: "tabpanel", class: "panel" }, element);
+  return el("div", { class: "panel" }, element);
 }
 
 /** Records the new session and rebuilds everything that depends on it. */
@@ -192,28 +164,108 @@ function finishLogin(app: App, user: SessionUser): void {
 
 // --- logged in ---------------------------------------------------------------
 
+/**
+ * The account page for somebody logged in.
+ *
+ * The same shape as the restaurant page: tabs, with Save and Delete on the
+ * title's line. Save covers the whole account rather than one tab of it, which
+ * is why the profile and the password forms no longer carry one each -- two
+ * buttons called Save on one page, each covering a different part of it, is a
+ * question nobody should have to answer.
+ */
 function loggedIn(app: App, user: SessionUser): HTMLElement {
   const { t } = app;
-  return page(
+
+  const profile = profileSection(app, user);
+  const password = passwordSection(app, user);
+
+  return pageWithActions(
     t.t("nav.account"),
-    profileSection(app, user),
-    passwordSection(app, user),
-    tokensSection(app, user),
-    // The administrator account cannot be deleted, and the server says so with
-    // error 3000. Not offering the button is the "nothing that cannot be done
-    // is shown as available" rule from docs/06_ui_ux.md.
-    user.is_admin ? null : deleteSection(app, user),
+    accountControls(app, user, profile, password),
+    tabs(
+      [
+        { id: "profile", label: t.t("account.profile"), panel: profile.element },
+        { id: "password", label: t.t("account.password"), panel: password.element },
+        { id: "tokens", label: t.t("account.tokens"), panel: tokensSection(app, user) },
+      ],
+      { label: t.t("account.sections"), initial: 0 },
+    ),
   );
 }
 
-function profileSection(app: App, user: SessionUser): HTMLElement {
+/** Save and Delete, on the account title's line. */
+function accountControls(
+  app: App,
+  user: SessionUser,
+  profile: EditableSection,
+  password: EditableSection,
+): HTMLElement {
+  const { t } = app;
+
+  let profileDirty = false;
+  let passwordDirty = false;
+
+  const save = button({ label: t.t("action.save"), variant: "primary" });
+  save.disabled = true;
+  save.addEventListener("click", () => {
+    void (async (): Promise<void> => {
+      save.disabled = true;
+      try {
+        if (profileDirty) {
+          await profile.save();
+        }
+        if (passwordDirty) {
+          await password.save();
+        }
+      } catch {
+        // Each form reports its own failure in its own tab; all that is left
+        // here is to let somebody try again.
+        save.disabled = false;
+      }
+    })();
+  });
+
+  const update = (): void => {
+    save.disabled = !profileDirty && !passwordDirty;
+  };
+  profile.onDirtyChange((dirty) => {
+    profileDirty = dirty;
+    update();
+  });
+  password.onDirtyChange((dirty) => {
+    passwordDirty = dirty;
+    update();
+  });
+
+  const controls: Child[] = [save];
+
+  // The administrator account cannot be deleted, and the server says so with
+  // error 3000. Not offering the button at all is the "nothing that cannot be
+  // done is shown as available" rule from docs/06_ui_ux.md; unlike the
+  // restaurant's delete, there is no state in which this one becomes available,
+  // so there is nothing a disabled button could usefully explain.
+  if (!user.is_admin) {
+    controls.push(deleteControl(app, user));
+  }
+
+  return el("div", { class: "page-heading-actions" }, ...controls);
+}
+
+/** A section of the account page that has something to save. */
+interface EditableSection {
+  element: HTMLElement;
+  /** Rejects so the caller can leave Save enabled. */
+  save(): Promise<void>;
+  onDirtyChange(listen: (dirty: boolean) => void): void;
+}
+
+function profileSection(app: App, user: SessionUser): EditableSection {
   const { t } = app;
   const status = statusLine();
 
   const name = input({ name: "name", value: user.name, required: true });
   const displayName = input({ name: "display_name", value: user.display_name });
   const email = input({ name: "email", type: "email" });
-  const submit = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
 
   // The e-mail address is not in the session -- the public profile does not
   // carry it -- so it is fetched for the form that edits it.
@@ -221,6 +273,10 @@ function profileSection(app: App, user: SessionUser): HTMLElement {
     .get<{ email?: string }>(`/users/${user.id}`)
     .then((body) => {
       email.value = body.email ?? "";
+      // The address arriving is not somebody editing: it is the form finishing
+      // loading, and Save must stay quiet until there is a real change.
+      saved = snapshot();
+      touched();
     })
     .catch(() => {
       // Leaving it empty would offer to clear an address that is set, so the
@@ -235,29 +291,48 @@ function profileSection(app: App, user: SessionUser): HTMLElement {
     name.title = t.t("error.3003");
   }
 
-  const element = form(
-    () => {
-      void save();
-    },
-    field({ label: t.t("auth.name"), control: name, hint: t.t("auth.name_hint") }),
-    field({
-      label: t.t("auth.display_name"),
-      control: displayName,
-      hint: t.t("auth.display_name_hint"),
-      optionalLabel: t.t("auth.optional"),
-    }),
-    field({
-      label: t.t("auth.email"),
-      control: email,
-      optionalLabel: t.t("auth.optional"),
-    }),
-    actions(submit),
-    status.element,
+  // Compared against a snapshot, so typing a character and deleting it again
+  // leaves Save disabled.
+  const snapshot = (): string =>
+    JSON.stringify([name.value.trim(), displayName.value.trim(), email.value.trim()]);
+
+  let saved = snapshot();
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const touched = (): void => {
+    const dirty = snapshot() !== saved;
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+  for (const control of [name, displayName, email]) {
+    control.addEventListener("input", touched);
+  }
+
+  const element = card(
+    // Still a form, so Enter in a field saves. The button that submits it is on
+    // the page heading.
+    form(
+      () => {
+        void save();
+      },
+      field({ label: t.t("auth.name"), control: name, hint: t.t("auth.name_hint") }),
+      field({
+        label: t.t("auth.display_name"),
+        control: displayName,
+        hint: t.t("auth.display_name_hint"),
+        optionalLabel: t.t("auth.optional"),
+      }),
+      field({
+        label: t.t("auth.email"),
+        control: email,
+        optionalLabel: t.t("auth.optional"),
+      }),
+      status.element,
+    ),
   );
 
   async function save(): Promise<void> {
     status.clear();
-    submit.disabled = true;
     try {
       const updated = await api.patch<SessionUser>(`/users/${user.id}`, {
         ...(name.disabled ? {} : { name: name.value.trim() }),
@@ -268,17 +343,24 @@ function profileSection(app: App, user: SessionUser): HTMLElement {
       // The title bar shows the display name, so it has to be rebuilt.
       app.render();
       status.say(t.t("state.saved"));
+      saved = snapshot();
+      touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
+      throw error;
     }
   }
 
-  return section(t.t("account.profile"), element);
+  return {
+    element,
+    save,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+  };
 }
 
-function passwordSection(app: App, user: SessionUser): HTMLElement {
+function passwordSection(app: App, user: SessionUser): EditableSection {
   const { t } = app;
   const status = statusLine();
 
@@ -294,26 +376,39 @@ function passwordSection(app: App, user: SessionUser): HTMLElement {
     name: "password",
     indicator: true,
   });
-  const submit = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
+  // "Dirty" here means a new password has been typed. There is nothing to save
+  // otherwise, and the current-password field on its own changes nothing.
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const touched = (): void => {
+    const dirty = next.control.value !== "";
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+  for (const control of [current.control, next.control]) {
+    control.addEventListener("input", touched);
+  }
 
-  const element = form(
-    () => {
-      void save();
-    },
-    current.element,
-    next.element,
-    actions(submit),
-    status.element,
+  const element = card(
+    form(
+      () => {
+        void save();
+      },
+      current.element,
+      next.element,
+      status.element,
+    ),
   );
 
   async function save(): Promise<void> {
     status.clear();
     if (!next.acceptable()) {
       next.control.focus();
-      return;
+      // Refused before it was sent, which is still a refusal: throwing leaves
+      // the page's Save enabled so it can be tried again with a better one.
+      throw new Error("the new password does not meet the rules");
     }
 
-    submit.disabled = true;
     try {
       await api.patch(`/users/${user.id}`, {
         password: next.value(),
@@ -325,12 +420,17 @@ function passwordSection(app: App, user: SessionUser): HTMLElement {
       status.say(t.t("state.saved"));
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
+      throw error;
     }
   }
 
-  return section(t.t("account.password"), element);
+  return {
+    element,
+    save,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+  };
 }
 
 interface TokenBody {
@@ -456,8 +556,7 @@ function tokensSection(app: App, user: SessionUser): HTMLElement {
     actions(submit),
   );
 
-  return section(
-    t.t("account.tokens"),
+  return card(
     el("p", { class: "muted", text: t.t("account.tokens.intro") }),
     list,
     creator,
@@ -515,9 +614,17 @@ interface DeletionImpact {
  * will actually happen rather than describing it in general terms, and the
  * person types their own user name to confirm. Both are docs/06_ui_ux.md.
  */
-function deleteSection(app: App, user: SessionUser): HTMLElement {
+/**
+ * The Delete button for the account, for the page heading.
+ *
+ * The warning that this cannot be undone used to be a card of its own with a
+ * paragraph and a button in it. The modal already says the same thing, and says
+ * it at the moment it matters -- after the button is pressed and before
+ * anything happens -- so the card was a permanent warning about something
+ * nobody had asked to do yet.
+ */
+function deleteControl(app: App, user: SessionUser): HTMLElement {
   const { t } = app;
-  const status = statusLine();
 
   const start = button({
     label: t.t("account.delete"),
@@ -528,12 +635,18 @@ function deleteSection(app: App, user: SessionUser): HTMLElement {
   });
 
   async function begin(): Promise<void> {
-    status.clear();
     let impact: DeletionImpact;
     try {
       impact = await api.get<DeletionImpact>(`/users/${user.id}/deletion-impact`);
     } catch (error) {
-      status.fail(errorMessage(t, error));
+      // Nowhere on the heading to report this, so it goes where the rest of the
+      // deletion conversation happens: the dialog it was about to open.
+      openModal({
+        title: t.t("account.delete"),
+        closeLabel: t.t("action.close"),
+        className: "modal-narrow",
+        body: el("p", { class: "field-error", role: "alert", text: errorMessage(t, error) }),
+      });
       return;
     }
     openDeleteModal(impact);
@@ -618,10 +731,5 @@ function deleteSection(app: App, user: SessionUser): HTMLElement {
     return el("ul", { class: "impact" }, ...lines);
   }
 
-  return section(
-    t.t("account.delete"),
-    el("p", { text: t.t("account.delete.intro") }),
-    actions(start),
-    status.element,
-  );
+  return start;
 }

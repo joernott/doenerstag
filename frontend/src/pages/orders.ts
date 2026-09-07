@@ -169,16 +169,7 @@ function orderTile(
       detail.creator_id === me ||
       detail.items.some((item) => item.user_id === me));
 
-  const controls: Child[] = [];
-  if (participant) {
-    controls.push(
-      el("a", {
-        class: "button button-quiet",
-        href: `/orders/${order.id}/summary`,
-        text: t.t("order.summary"),
-      }),
-    );
-  }
+  const controls: Child[] = [summaryLink(app, order.id, participant)];
 
   // The creator's own controls, as icons: a grid of tiles has no room for three
   // words per tile, and a pencil and a bin are the two icons everybody already
@@ -206,6 +197,36 @@ function orderTile(
     },
     ...parts,
   );
+}
+
+/**
+ * The link to an order's summary.
+ *
+ * Always rendered, and disabled with the reason when this visitor is not one of
+ * the people the summary is for (F1.3). It used to be left out entirely, which
+ * leaves somebody wondering whether the feature exists at all; a control that is
+ * visibly unavailable and says why answers that.
+ *
+ * The disabled form is a button rather than a link, because a link that goes
+ * nowhere is not a link. The explanation is error 3004's own text, so the
+ * tooltip and the refusal the server would send say the same thing.
+ */
+export function summaryLink(app: App, orderID: string, allowed: boolean): HTMLElement {
+  const { t } = app;
+  if (allowed) {
+    return el("a", {
+      class: "button button-primary",
+      href: `/orders/${orderID}/summary`,
+      text: t.t("order.summary"),
+    });
+  }
+  return el("button", {
+    type: "button",
+    class: "button button-primary",
+    text: t.t("order.summary"),
+    disabled: true,
+    title: t.t("error.3004"),
+  });
 }
 
 /** A square icon control that leads somewhere. */

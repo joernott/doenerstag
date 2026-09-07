@@ -47,7 +47,7 @@ Fixed to the top of the viewport on every page. Left to right:
 | Version          | everyone        | Version page.                              |
 | Imprint          | everyone        | Imprint page.                              |
 | Legal notes      | everyone        | Legal notes page.                          |
-| API documentation| everyone        | `/tools/swagger`. Hidden when `--no-swagger`. |
+| API documentation| everyone        | `/tools/swagger`, in a new tab: it is Swagger UI rather than a page of this application, and following it in place loses whatever the reader was doing. Hidden when `--no-swagger`. |
 
 ### Breakpoints
 
@@ -84,7 +84,7 @@ order itself, one click away.
 | Fulfilment type        | Icon plus label: pickup or delivery.                                   |
 | Deadline               | Local date and time, with a relative hint ("in 2 h") for active orders.|
 | Expired badge          | The word, on an expired order, beside the fading. Opacity is not information. |
-| Summary button         | Opens the summary page directly, skipping the order page. Shown only to participants of that order (F1.3), expired orders included: the summary is what somebody settling up afterwards wants. |
+| Summary button         | Opens the summary page directly, skipping the order page. Always present, and disabled with error 3004's own text when the viewer is not one of the people the summary is for (F1.3) -- a control that vanishes leaves somebody wondering whether the feature exists. Expired orders keep it: the summary is what somebody settling up afterwards wants. |
 | Edit and delete        | A pencil and a bin, for the creator of that order and only while it is still open — F6.6 makes an expired order read-only for its creator too. Icons rather than words because a grid has no room for three labels per tile; each carries its name for a screen reader and a tooltip for a pointer. |
 
 The plus tile's sign is sized as a share of the card rather than in fixed units,
@@ -123,8 +123,9 @@ administrator.
 
 The **Summary** button is not in this column. It sits on the page title's line,
 right-aligned and primary: it opens a different page rather than doing something
-to this one, and it is the control somebody arrives wanting. It is shown only to
-participants (F1.3).
+to this one, and it is the control somebody arrives wanting. It is always there,
+and disabled with the reason when this visitor is not one of the people the
+summary is for (F1.3).
 
 #### The anonymous view of an order
 
@@ -305,10 +306,24 @@ references the restaurant.
 
 ## User page
 
+The same shape as the restaurant page: tabs, with the controls that act on the
+whole account on the title's line.
+
 - **Anonymous visitor**: a combined login / register panel, two tabs.
-- **Logged-in user**: forms for display name, user name, e-mail and password
-  change; a list of API tokens with create and revoke controls; a
-  "Delete my account" button.
+- **Logged-in user**: three tabs — profile, password, API tokens.
+- **Save and Delete my account sit on the title's line**, Save to the left.
+  Save covers the whole account rather than one tab of it, writing whichever of
+  the profile and the password has changed, and it is disabled until one of them
+  has. The forms carry no Save of their own: two buttons with the same name on
+  one page, each covering a different part of it, is a question nobody should
+  have to answer.
+- The administrator sees no delete button at all. Unlike the restaurant's, there
+  is no state in which it becomes available, so there is nothing a disabled one
+  could usefully explain.
+- There is no card warning that deletion cannot be undone. The modal says so at
+  the moment it matters — after the button is pressed and before anything
+  happens — and a permanent warning about something nobody has asked to do is
+  furniture.
 - Deleting the account first calls `GET /users/{id}/deletion-impact` and shows a
   confirmation modal stating exactly what will happen: how many items in active
   orders will be deleted, how many items in expired orders will be reassigned to

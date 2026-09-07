@@ -26,7 +26,13 @@ import { confirmDialog, openModal } from "../components/modal";
 import { minorUnitOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
-import { isActive, type OrderDetail, type OrderHeader, type OrderItem } from "./orders";
+import {
+  isActive,
+  summaryLink,
+  type OrderDetail,
+  type OrderHeader,
+  type OrderItem,
+} from "./orders";
 import { actions, page, pageWithActions, section, statusLine } from "./page";
 import type { Contact, Restaurant } from "./restaurant";
 
@@ -396,7 +402,11 @@ export async function orderPage(
       t.t("order.totals"),
       list,
       own.below_minimum
-        ? el("p", { class: "notice notice-warning", role: "status", text: t.t("order.below_minimum") })
+        ? el("p", {
+            class: "notice notice-warning notice-spaced",
+            role: "status",
+            text: t.t("order.below_minimum"),
+          })
         : null,
     );
   }
@@ -777,6 +787,9 @@ export async function orderPage(
       addable
         ? button({
             label: t.t("item.add"),
+            variant: "primary",
+            // Named for the dish: the menu column has one of these per item.
+            ariaLabel: `${t.t("item.add")}: ${item.name}`,
             onclick: () => {
               void openItemEditor(null, item);
             },
@@ -1015,16 +1028,15 @@ export async function orderPage(
   // administrator (F1.3). The summary page refuses anyone else, so this only
   // decides whether to offer the link -- and offering it to somebody who would
   // be refused is exactly what docs/06_ui_ux.md says not to do.
-  const heading = el("div", { class: "page-heading-actions" });
-  if (isParticipant()) {
-    heading.appendChild(
-      el("a", {
-        class: "button button-primary",
-        href: `/orders/${id}/summary`,
-        text: t.t("order.summary"),
-      }),
-    );
-  }
+  // Always there, and disabled with the reason when this visitor is not one of
+  // the people the summary is for. A control that vanishes leaves somebody
+  // wondering whether the feature exists; one that is visibly unavailable and
+  // says why answers the question.
+  const heading = el(
+    "div",
+    { class: "page-heading-actions" },
+    summaryLink(app, id, isParticipant()),
+  );
 
   return pageWithActions(
     order.title,

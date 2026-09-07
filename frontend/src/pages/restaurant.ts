@@ -83,7 +83,8 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
     .catch(() => false);
 
   const data = dataSection(app, reference, restaurant);
-  const header = restaurantControls(app, data, blocking);
+  const hours = hoursSection(app, restaurant);
+  const header = restaurantControls(app, data, hours, blocking);
 
   const article = pageWithActions(
     restaurant.name,
@@ -100,11 +101,7 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
           label: t.t("restaurant.contacts"),
           panel: contactsSection(app, reference, restaurant),
         },
-        {
-          id: "hours",
-          label: t.t("restaurant.opening_hours"),
-          panel: hoursSection(app, restaurant),
-        },
+        { id: "hours", label: t.t("restaurant.opening_hours"), panel: hours.element },
       ],
       { label: t.t("restaurant.sections"), initial: 0 },
     ),
@@ -128,16 +125,56 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
  * says whether the obstacle is the permission or an order still pointing at the
  * restaurant, and that is more useful than the button silently not being there.
  */
-function restaurantControls(app: App, data: DataSection, blocking: boolean): HTMLElement {
+function restaurantControls(
+  app: App,
+  data: DataSection,
+  hours: HoursSection,
+  blocking: boolean,
+): HTMLElement {
   const { t } = app;
+
+  // One Save for the restaurant, covering its own fields and its opening hours.
+  //
+  // The hours had a Save of their own inside the tab. Two buttons called Save on
+  // one page, each covering a different part of it, is a question nobody should
+  // have to answer -- and the one in the heading was already the one that looks
+  // like it means "save this restaurant". It writes whichever of the two has
+  // actually changed, so pressing it never sends a request that changes
+  // nothing.
+  let dataDirty = false;
+  let hoursDirty = false;
 
   const save = button({ label: t.t("action.save"), variant: "primary" });
   save.disabled = true;
   save.addEventListener("click", () => {
-    void data.save();
+    void (async (): Promise<void> => {
+      save.disabled = true;
+      try {
+        if (dataDirty) {
+          await data.save();
+        }
+        if (hoursDirty) {
+          await hours.save();
+        }
+      } catch {
+        // Each section reports its own failure in its own status line, which is
+        // in the tab the failure belongs to. Re-enabling the button is all that
+        // is left to do here.
+        save.disabled = false;
+      }
+    })();
   });
+
+  const update = (): void => {
+    save.disabled = !dataDirty && !hoursDirty;
+  };
   data.onDirtyChange((dirty) => {
-    save.disabled = !dirty;
+    dataDirty = dirty;
+    update();
+  });
+  hours.onDirtyChange((dirty) => {
+    hoursDirty = dirty;
+    update();
   });
 
   const why = !app.session.isAdmin
@@ -543,6 +580,7 @@ function contactsSection(
 
     const save = button({
       label: t.t("action.save"),
+      variant: "primary",
       onclick: () => {
         void store();
       },
@@ -616,6 +654,7 @@ function contactsSection(
 
     const add = button({
       label: t.t("restaurant.contact.add"),
+      variant: "primary",
       onclick: () => {
         void create();
       },
@@ -673,7 +712,14 @@ function contactsSection(
  * matches how a person edits them: a lunch break is two rows that only make
  * sense together.
  */
-function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
+interface HoursSection {
+  element: HTMLElement;
+  /** Writes the whole set. Rejects so the caller can leave Save enabled. */
+  save(): Promise<void>;
+  onDirtyChange(listen: (dirty: boolean) => void): void;
+}
+
+function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
   const { t } = app;
   const status = statusLine();
   const list = el("div", { class: "rows" });
@@ -733,6 +779,8 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
               if (index >= 0) {
                 rows.splice(index, 1);
                 row.element.remove();
+                // Removing a row is a change: the whole set goes in one PUT.
+                touched();
               }
             },
           }),
@@ -751,43 +799,69 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
     list.appendChild(el("p", { class: "muted", text: t.t("restaurant.hours.none") }));
   }
 
-  const submit = button({ label: t.t("action.save"), variant: "primary" });
-  submit.addEventListener("click", () => {
-    void save();
-  });
+  // What the rows say, as the API wants it. Also the comparison this section
+  // uses to decide whether anything has changed.
+  const current = (): string =>
+    JSON.stringify(
+      rows.map((row) => ({
+        day_of_week: Number.parseInt(row.day.value, 10),
+        start: row.start.value,
+        end: row.end.value,
+      })),
+    );
+
+  let saved = current();
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const touched = (): void => {
+    const dirty = current() !== saved;
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+  // One listener on the list rather than one per control, so rows added later
+  // are covered without anything remembering to wire them up.
+  list.addEventListener("input", touched);
+  list.addEventListener("change", touched);
 
   async function save(): Promise<void> {
     status.clear();
-    submit.disabled = true;
     try {
       await api.put(`/restaurants/${restaurant.id}/opening-hours`, {
-        opening_hours: rows.map((row) => ({
-          day_of_week: Number.parseInt(row.day.value, 10),
-          start: row.start.value,
-          end: row.end.value,
-        })),
+        opening_hours: JSON.parse(current()) as unknown,
       });
       status.say(t.t("state.saved"));
+      saved = current();
+      touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
+      throw error;
     }
   }
 
-  return card(
+  const element = card(
     list,
     actions(
       button({
         label: t.t("restaurant.hours.add"),
+        variant: "primary",
         onclick: () => {
           // The "none" message is not a row and must go when one appears.
           list.querySelector(".muted")?.remove();
           addRow();
+          // Adding an empty row is a change in itself: the whole set is written
+          // in one PUT, so a row nobody has typed into still has to be saved.
+          touched();
         },
       }),
-      submit,
     ),
     status.element,
   );
+
+  return {
+    element,
+    save,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+  };
 }
