@@ -1,0 +1,15 @@
+# Everything the image does not need. The build stage copies the whole tree, so
+# what is excluded here is what does not travel into the build context at all.
+.git
+.github
+dist
+doenerstag
+doenerstag.exe
+*-coverage.out
+*-coverage.html
+frontend/node_modules
+frontend/test-results
+frontend/playwright-report
+node_modules
+docs
+contrib
