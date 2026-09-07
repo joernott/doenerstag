@@ -1,0 +1,6 @@
+# The nightly retention run. Scheduling this is not optional housekeeping: an
+# installation where cleanup never runs keeps every order forever, which breaks
+# the retention period promised in the privacy notice (docs/13).
+#
+# Safe while the server is running and safe to run twice.
+17 3 * * *  doenerstag  /usr/bin/doenerstag cleanup -c /etc/doenerstag/doenerstag.yaml

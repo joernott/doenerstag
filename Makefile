@@ -172,3 +172,73 @@ clean: ## Remove build and test artefacts
 .PHONY: version
 version: ## Print the version this build would stamp in
 	@echo "$(VERSION) ($(COMMIT)) $(BUILD_DATE)"
+
+# --- release artefacts -------------------------------------------------------
+#
+# Everything below builds from the same source with the same version stamp, so
+# a release is one binary in five wrappers rather than five things that happen
+# to share a number.
+
+# The architectures the packages and the image are built for.
+PKG_ARCHES  := amd64 arm64
+IMAGE       ?= docker.io/joernott/doenerstag
+
+.PHONY: dist-linux
+dist-linux: frontend ## Cross-compile the Linux release binaries
+	@mkdir -p $(DIST)
+	@for arch in $(PKG_ARCHES); do \
+		echo "building linux/$$arch"; \
+		CGO_ENABLED=0 GOOS=linux GOARCH=$$arch $(GO) build $(GOFLAGS) \
+			-tags embedstatic -ldflags "-s -w $(LDFLAGS)" \
+			-o $(DIST)/$(BINARY)-linux-$$arch $(CMD) || exit 1; \
+	done
+
+.PHONY: dist-windows
+dist-windows: frontend ## Cross-compile the Windows release binary
+	@mkdir -p $(DIST)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) \
+		-tags embedstatic -ldflags "-s -w $(LDFLAGS)" \
+		-o $(DIST)/$(BINARY).exe $(CMD)
+
+.PHONY: packages
+packages: dist-linux licenses ## Build the .deb and .rpm for every architecture
+	@command -v nfpm >/dev/null 2>&1 || { \
+		echo "nfpm is not installed: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest"; \
+		exit 1; }
+	@# The binary is staged at a fixed path for each architecture in turn: nfpm
+	@# expands environment variables in its scalar fields but not inside a
+	@# content glob, so the architecture cannot be named in nfpm.yaml.
+	@# The directory is recreated per architecture rather than the file being
+	@# overwritten: on a shared folder, overwriting left nfpm reading a stale
+	@# size and failing with "archive/tar: write too long".
+	@for arch in $(PKG_ARCHES); do \
+		rm -rf $(DIST)/staged && mkdir -p $(DIST)/staged; \
+		cp $(DIST)/$(BINARY)-linux-$$arch $(DIST)/staged/$(BINARY); \
+		for format in deb rpm; do \
+			echo "packaging $$format/$$arch"; \
+			PKG_ARCH=$$arch PKG_VERSION=$(VERSION) \
+				nfpm package -f packaging/nfpm.yaml -p $$format -t $(DIST)/ || exit 1; \
+		done; \
+	done
+	@rm -rf $(DIST)/staged
+
+.PHONY: archives
+archives: dist-linux dist-windows ## Wrap the binaries as the release carries them
+	@mkdir -p $(DIST)
+	@# The Linux binary as a tar.gz and the Windows one as a zip, each named
+	@# for what is inside it rather than for the archive.
+	tar -czf $(DIST)/$(BINARY)-$(VERSION)-linux-amd64.tar.gz \
+		-C $(DIST) $(BINARY)-linux-amd64
+	cd $(DIST) && zip -q $(BINARY)-$(VERSION)-windows-amd64.zip $(BINARY).exe
+
+.PHONY: image
+image: ## Build the container image for this machine's architecture
+	docker build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
+		-t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
+
+.PHONY: licenses
+licenses: ## Regenerate THIRD_PARTY_LICENSES
+	./scripts/licenses.sh

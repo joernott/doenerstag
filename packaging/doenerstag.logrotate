@@ -1,0 +1,17 @@
+# Rotation for a package or plain-binary install. In a container the logs go to
+# stdout and none of this applies.
+#
+# Never copytruncate: the application reopens its log on SIGHUP, which is the
+# supported mechanism and loses no lines.
+/var/log/doenerstag/doenerstag.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 doenerstag doenerstag
+    postrotate
+        systemctl reload doenerstag > /dev/null 2>&1 || true
+    endscript
+}

@@ -1,0 +1,117 @@
+# One description, two packages.
+#
+# nfpm builds the .deb and the .rpm from this single file, which is the whole
+# point: two hand-maintained spec files drift, and the drift is only found when
+# somebody installs the one that was not tested.
+#
+# Everything here is documented in docs/10_operations.md. If the two disagree,
+# this file is what an operator actually gets.
+
+name: doenerstag
+arch: "${PKG_ARCH}"
+platform: linux
+version: "${PKG_VERSION}"
+release: "1"
+section: web
+priority: optional
+maintainer: "Joern Ott <joern.ott@ott-consult.de>"
+description: |
+  Coordinate food orders for a group.
+  One person opens an order for a restaurant and a pickup time, everyone else
+  adds what they want, and a summary says what to order and who owes what.
+  It does not take payments and does not place orders with restaurants.
+vendor: "Joern Ott"
+homepage: "https://github.com/joernott/doenerstag"
+license: "BSD-3-Clause"
+
+# psql on the host is a convenience for the operator, not a runtime need. The
+# database server itself is deliberately not a dependency: it usually lives on
+# another machine, and requiring it here would force an unwanted local install.
+depends:
+  - postgresql-client
+
+contents:
+  # Staged at a fixed path by `make packages` before nfpm runs: nfpm expands
+  # environment variables in its scalar fields but not inside a content glob,
+  # so the architecture cannot be named here.
+  - src: ./dist/staged/doenerstag
+    dst: /usr/bin/doenerstag
+    file_info:
+      mode: 0755
+
+  # Marked as a config file, so an upgrade never overwrites one the installer
+  # has already written. This is the placeholder; `doenerstag install` replaces
+  # it with the real thing.
+  - src: ./packaging/doenerstag.yaml.template
+    dst: /etc/doenerstag/doenerstag.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0640
+      owner: root
+      group: doenerstag
+
+  - src: ./packaging/doenerstag.service
+    dst: /usr/lib/systemd/system/doenerstag.service
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/doenerstag.logrotate
+    dst: /etc/logrotate.d/doenerstag
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/doenerstag.cron
+    dst: /etc/cron.d/doenerstag
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  # Modes stated explicitly: built on a shared folder the sources are 0770,
+  # and a package should not carry the build machine's filesystem quirks.
+  - src: ./README.md
+    dst: /usr/share/doc/doenerstag/README.md
+    file_info: { mode: 0644 }
+  - src: ./LICENSE
+    dst: /usr/share/doc/doenerstag/LICENSE
+    file_info: { mode: 0644 }
+  - src: ./THIRD_PARTY_LICENSES
+    dst: /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+    file_info: { mode: 0644 }
+  - src: ./packaging/doc/imprint.sample.html
+    dst: /usr/share/doc/doenerstag/imprint.sample.html
+    file_info: { mode: 0644 }
+  - src: ./packaging/doc/legal-notes.sample.html
+    dst: /usr/share/doc/doenerstag/legal-notes.sample.html
+    file_info: { mode: 0644 }
+
+  # Owned by the service account in postinstall: nfpm creates the directory,
+  # but the account does not exist until preinstall has run.
+  - dst: /var/log/doenerstag
+    type: dir
+    file_info:
+      mode: 0750
+
+  # Left behind on removal. The configuration file holds a database password
+  # the operator chose and the log directory holds evidence; a package
+  # operation destroys neither. docs/10_operations.md says so explicitly.
+  - dst: /etc/doenerstag
+    type: dir
+    file_info:
+      mode: 0750
+      owner: root
+      group: doenerstag
+
+scripts:
+  preinstall: ./packaging/preinstall.sh
+  postinstall: ./packaging/postinstall.sh
+  preremove: ./packaging/preremove.sh
+
+rpm:
+  group: Applications/Internet
+  # Nothing is signed here. Signing belongs to whoever publishes the packages
+  # and needs a key that is not in this repository.
+
+deb:
+  fields:
+    Bugs: "https://github.com/joernott/doenerstag/issues"

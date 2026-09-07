@@ -1,0 +1,21 @@
+# doenerstag configuration — placeholder.
+#
+# This file is a placeholder. `doenerstag install` replaces it with a real
+# configuration file containing the database connection, the runtime database
+# password and the JWT secret, written with mode 0600.
+#
+#   cd /etc/doenerstag
+#   DOENER_DATABASE_ROOT_PASSWORD='...' doenerstag install -o /etc/doenerstag/doenerstag.yaml
+#
+# It is marked as a configuration file in both packages, so an upgrade will not
+# overwrite what the installer wrote here, and removing the package leaves it
+# alone. Deleting it is a deliberate act, not something a package does.
+#
+# Every setting has a documented default, a command-line flag and an
+# environment variable; see docs/09_configuration.md. The database password and
+# the JWT secret may not be passed on the command line — attempting it is a
+# fatal error — which is why they live in this file and nowhere else.
+#
+# Starting the service before the installer has run will fail: there is no
+# database to connect to yet. That is why the packages neither start nor enable
+# the unit.
