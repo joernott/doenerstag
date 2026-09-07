@@ -1365,7 +1365,12 @@ paths:
         terms it was placed under, and a later price change does not rewrite
         history.
 
-        The deadline must be strictly before the fulfilment time (error 1003).
+        The deadline must be strictly before the fulfilment time (error 1003)
+        and must not already have passed (error 1014). An order created with a
+        deadline in the past is born closed: an expired order is read-only, so
+        nobody could add an item to it and its creator could not edit it back
+        into life. Moving an existing order's deadline into the past through
+        PATCH is still allowed, and is how an order is closed early.
       requestBody:
         required: true
         content:

@@ -131,6 +131,28 @@ func (o *orderFixture) addOrderItem(cookies []*http.Cookie, fields map[string]an
 	return body
 }
 
+// createExpiredOrder makes an order that has already closed.
+//
+// Creating one with a deadline in the past is refused (error 1014), so this
+// does what a person does: opens the order, then moves its deadline back.
+// Closing an order early is deliberately still allowed, and this is the only
+// way an expired order comes into existence through the API.
+func (o *orderFixture) createExpiredOrder(cookies []*http.Cookie) orderResponse {
+	o.t.Helper()
+
+	created := o.createOrder(cookies, time.Hour)
+	rec := o.patch("/orders/"+created.ID, map[string]any{
+		"deadline_at": o.now.Add(-time.Hour).UTC().Format(time.RFC3339),
+	}, cookies...)
+	if rec.Code != http.StatusOK {
+		o.t.Fatalf("closing the order early: %d %s", rec.Code, rec.Body.String())
+	}
+
+	var body orderResponse
+	decode(o.t, rec, &body)
+	return body
+}
+
 func (o *orderFixture) readOrder(cookies ...*http.Cookie) orderResponse {
 	o.t.Helper()
 
@@ -229,6 +251,49 @@ func TestTheDeadlineMustPrecedeFulfilment(t *testing.T) {
 			"fulfilment_at": at, "deadline_at": deadline,
 		}, m.cookies...)
 		expectError(t, rec, http.StatusBadRequest, api.CodeDeadlineAfterFulfil)
+	}
+}
+
+// An order created with a deadline that has already passed is born closed:
+// F6.6 makes an expired order read-only, so nobody could add an item to it and
+// its creator could not edit it back into life. The only thing left to do with
+// one is delete it, so it is refused instead.
+func TestTheDeadlineMustBeInTheFuture(t *testing.T) {
+	m := newMenuFixture(t)
+
+	for name, deadline := range map[string]time.Time{
+		"an hour ago": m.now.Add(-time.Hour),
+		"right now":   m.now,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := m.post("/orders", map[string]any{
+				"restaurant_id": m.restaurant,
+				"fulfilment":    "pickup",
+				// Comfortably after the deadline, so the only thing wrong with
+				// the request is the deadline itself.
+				"fulfilment_at": m.now.Add(6 * time.Hour).UTC().Format(time.RFC3339),
+				"deadline_at":   deadline.UTC().Format(time.RFC3339),
+			}, m.cookies...)
+			expectError(t, rec, http.StatusBadRequest, api.CodeDeadlineInThePast)
+		})
+	}
+}
+
+// Moving an existing order's deadline into the past stays allowed: that is how
+// a creator closes one early, and it is a different act from creating an order
+// that never had a life.
+func TestAnExistingOrderMayBeClosedEarly(t *testing.T) {
+	o := newOrderFixture(t)
+
+	rec := o.patch("/orders/"+o.order.ID, map[string]any{
+		"deadline_at": o.now.Add(-time.Minute).UTC().Format(time.RFC3339),
+	}, o.cookies...)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("closing an order early: %d %s", rec.Code, rec.Body.String())
+	}
+
+	if status := o.readOrder(o.cookies...).Status; status != "expired" {
+		t.Errorf("the order is %q after its deadline was moved into the past", status)
 	}
 }
 
@@ -492,7 +557,7 @@ func TestTheOrderListIsActiveFirst(t *testing.T) {
 
 	// A second order, further out, and a third that has already expired.
 	later := o.createOrder(o.cookies, 5*time.Hour)
-	past := o.createOrder(o.cookies, -time.Hour)
+	past := o.createExpiredOrder(o.cookies)
 
 	rec := o.get("/orders")
 	var list struct {

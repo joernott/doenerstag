@@ -697,3 +697,34 @@ recorded on the branch of the sprint it belongs to.
 > - Add the background image similar to the overview pages and create a tile
 >   around the version information
 > Open the api documentation in a separate tab
+
+---
+
+### Prompt 40
+
+> On the order page:
+> - After adding my own order item, the Summary button is still locked. Make
+>   sure, it is unlocked when I place an order and make sure, it is locked again,
+>   when I remove my last order item
+> - I just created a new order. There should be an "Edit" button to the right of
+>   the "Summary" button and the "Delete order" button should be to the right of
+>   that one
+> - Also, creating an order where the deadline is before the creation date should
+>   be blocked with an error message. My newly created order
+>   https://192.168.178.183:8443/orders/01a07d8b-ff37-7ccd-8dc1-bd23c5824b6e has
+>   a deadline 11 hours ago
+
+---
+
+### Prompt 41
+
+> On the Summary page:
+> - Increase the distance between the Total line and the "Below the minimum
+>   order" box similarly to what you've done on the order page itself.
+
+---
+
+### Prompt 42
+
+> Also, when creating a new order, the default value for deadline should be 1
+> hour in the future and the pickup/delivery time 2 hours in the future

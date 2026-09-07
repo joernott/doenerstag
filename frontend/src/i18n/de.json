@@ -145,6 +145,7 @@
   "error.1011": "Das Bild ist größer, als der Server annimmt.",
   "error.1012": "Diese Datei ist kein JPEG-, PNG- oder GIF-Bild.",
   "error.1013": "Diese Währung ist unbekannt.",
+  "error.1014": "Die Frist liegt bereits in der Vergangenheit. Bitte einen Zeitpunkt in der Zukunft wählen.",
   "error.2000": "Dafür ist eine Anmeldung nötig.",
   "error.2001": "Benutzername und Passwort passen nicht zusammen.",
   "error.2002": "Die Sitzung ist abgelaufen. Bitte neu anmelden.",

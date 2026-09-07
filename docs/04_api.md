@@ -108,6 +108,7 @@ falls back to `message` when no translation exists.
 | 1011 | 413  | Uploaded image exceeds the configured maximum size.             |
 | 1012 | 415  | Unsupported image media type.                                   |
 | 1013 | 400  | Unknown currency code.                                          |
+| 1014 | 400  | The deadline is already in the past.                            |
 | 2000 | 401  | Not authenticated.                                              |
 | 2001 | 401  | Invalid user name or password.                                  |
 | 2002 | 401  | Session expired (idle or absolute timeout).                     |

@@ -288,7 +288,10 @@ function totalsCard(
     list,
     summary.below_minimum
       ? el("p", {
-          class: "notice notice-warning",
+          // Spaced off the total above it, for the same reason as on the order
+          // page: with less room above the box than inside it, the total reads
+          // as part of the warning rather than as the thing it is about.
+          class: "notice notice-warning notice-spaced",
           role: "status",
           text:
             summary.min_order_value_cents === null

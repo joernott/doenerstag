@@ -89,6 +89,14 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 - **F5.3** The deadline must lie strictly before the fulfilment time. The
   frontend validates this before submitting; the backend enforces it as well,
   because the API is also used by third parties.
+- **F5.3a** A new order's deadline must also lie in the future (error 1014).
+  One created with a deadline that has already passed is born closed: F6.6
+  makes an expired order read-only, so nobody can add an item to it and its
+  creator cannot edit it back into life. The only thing left to do with such an
+  order is delete it.
+
+  This applies to creation only. Moving an existing order's deadline into the
+  past stays allowed — that is how a creator closes an order early.
 - **F5.4** The frontend warns when the fulfilment time falls outside the
   restaurant's opening hours. This is a warning, not a hard error — restaurants
   do accept pre-orders.

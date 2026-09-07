@@ -503,6 +503,12 @@ order, others can join it, and the creator can read the summary down the phone.
 | ✅ 14.11.8 | The login and register tabs use the shared component. That page built its own strip with the same classes, a hand-written selection handler and arrow keys that moved without roving the tabindex; it was the older and weaker of the two implementations, and the one flagged as a loose end when the component was written | S | [06](06_ui_ux.md) |
 | ✅ 14.11.9 | The version page has the mark behind it and its facts in a card | S | [06](06_ui_ux.md) |
 | ✅ 14.11.10 | The API documentation opens in a new tab: it is Swagger UI rather than a page of this application, and following it in place loses whatever the reader was doing | S | [06](06_ui_ux.md) |
+| ✅ 14.12 | The order page's controls, and the deadline that could be created in the past | M | [02](02_features.md) |
+| ✅ 14.12.1 | The summary stayed locked however many items you added: the heading was built once, so participation was decided once, at load. It is rebuilt on every refresh -- which already runs on every item change and every event -- so adding your first item unlocks it and removing your last locks it again. Reported from the running application | S | [06](06_ui_ux.md) |
+| ✅ 14.12.2 | Edit and Delete joined the summary on the title's line. All three act on the order as a whole, and they were the only reason the first card had a row of buttons | S | [06](06_ui_ux.md) |
+| ✅ 14.12.3 | An order could be created with a deadline that had already passed, which makes it useless the moment it exists: F6.6 makes an expired order read-only, so nobody can add an item to it and its creator cannot edit it back into life. Refused with the new error 1014, on creation only -- moving an existing order's deadline into the past is how a creator closes one early and stays allowed. Reported with a real order whose deadline was eleven hours gone | M | [02](02_features.md) |
+| ✅ 14.12.4 | That order came from the form's own defaults: today at 11:00 and 12:00, a lunch order on the assumption of a morning. Opened at ten in the evening it offered a deadline eleven hours in the past. An hour and two hours from now is right whatever the time is | S | [06](06_ui_ux.md) |
+| ✅ 14.12.5 | The summary page's "below the minimum" box got the same spacing as the order page's | S | [06](06_ui_ux.md) |
 
 **Exit criteria:** no serious or critical axe violations. The application is
 fully operable by keyboard. The coverage targets are met, in particular 90% on

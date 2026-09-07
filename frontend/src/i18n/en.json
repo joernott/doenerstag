@@ -145,6 +145,7 @@
   "error.1011": "The image is larger than the server accepts.",
   "error.1012": "That file is not a JPEG, PNG or GIF image.",
   "error.1013": "That currency is not known.",
+  "error.1014": "The deadline has already passed. Pick a time in the future.",
   "error.2000": "Please log in to do that.",
   "error.2001": "That user name and password do not match.",
   "error.2002": "Your session has expired. Please log in again.",

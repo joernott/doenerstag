@@ -288,6 +288,48 @@ describe("creating an order", () => {
     expect(calls.some((call) => call.method === "POST")).toBe(false);
   });
 
+  it("opens on an hour and two hours from now, and refuses a deadline already past", async () => {
+    const { calls } = stubServer({
+      ...referenceStubs,
+      "GET /restaurants": { restaurants: [restaurant] },
+      "GET /restaurants/r1": restaurant,
+      "POST /orders": { id: "o9" },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await createOrderPage(app);
+    await settle();
+
+    const fulfilment = rendered.querySelector<HTMLInputElement>("input[name='fulfilment_at']");
+    const deadline = rendered.querySelector<HTMLInputElement>("input[name='deadline_at']");
+    if (!fulfilment || !deadline) {
+      throw new Error("the form is missing its times");
+    }
+
+    // Within a minute of an hour and two hours out. The form used to open on
+    // today at 11:00 and 12:00, which after lunch is a deadline in the past --
+    // and an order created with one is closed before it exists.
+    const hour = 60 * 60 * 1000;
+    const minute = 60 * 1000;
+    expect(new Date(deadline.value).getTime() - Date.now()).toBeGreaterThan(hour - minute);
+    expect(new Date(deadline.value).getTime() - Date.now()).toBeLessThan(hour + minute);
+    expect(new Date(fulfilment.value).getTime() - Date.now()).toBeGreaterThan(2 * hour - minute);
+    expect(new Date(fulfilment.value).getTime() - Date.now()).toBeLessThan(2 * hour + minute);
+
+    // And the form says so before the request when the deadline has passed,
+    // rather than letting the server answer 1014.
+    fulfilment.value = "2020-01-01T12:00";
+    deadline.value = "2020-01-01T11:00";
+    deadline.dispatchEvent(new Event("input"));
+
+    expect(rendered.textContent).toContain(app.t.t("error.1014"));
+
+    rendered.querySelector("form")?.dispatchEvent(new Event("submit"));
+    await settle();
+    expect(calls.some((call) => call.method === "POST")).toBe(false);
+  });
+
   it("warns, but does not refuse, when the restaurant is closed then", async () => {
     stubServer({
       ...referenceStubs,

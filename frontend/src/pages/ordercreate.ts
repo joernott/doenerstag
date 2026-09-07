@@ -1,10 +1,13 @@
 // Creating an order.
 //
 // F5.1: a restaurant, a fulfilment type, a time the food arrives and a deadline
-// for joining. Two checks happen here before anything is sent: the deadline
-// must be strictly before the fulfilment time (F5.3), which is an error, and
-// the food should arrive while the restaurant is open (F5.4), which is only a
-// warning -- restaurants do accept pre-orders.
+// for joining. Three checks happen here before anything is sent: the deadline
+// must be strictly before the fulfilment time (F5.3) and must not already have
+// passed (F5.3a), both of which are errors, and the food should arrive while the
+// restaurant is open (F5.4), which is only a warning -- restaurants do accept
+// pre-orders.
+//
+// The form opens on an hour and two hours from now.
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
@@ -28,11 +31,18 @@ export function localInputValue(date: Date): string {
   );
 }
 
-/** Today at a given hour, which is what the form starts from. */
-function todayAt(hours: number, minutes = 0): Date {
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+/**
+ * A moment a given number of hours from now, which is what the form starts
+ * from.
+ *
+ * The form used to default to today at 11:00 and 12:00 -- a lunch order, on the
+ * assumption that it is being opened in the morning. Opened at ten in the
+ * evening it offered a deadline eleven hours in the past, and the order created
+ * from it was closed before it existed. An hour and two hours from now is right
+ * whatever the time is.
+ */
+function inHours(hours: number): Date {
+  return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
 export async function createOrderPage(app: App): Promise<HTMLElement> {
@@ -73,13 +83,13 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
   const fulfilmentAt = input({
     type: "datetime-local",
     name: "fulfilment_at",
-    value: localInputValue(todayAt(12)),
+    value: localInputValue(inHours(2)),
     required: true,
   });
   const deadlineAt = input({
     type: "datetime-local",
     name: "deadline_at",
-    value: localInputValue(todayAt(11)),
+    value: localInputValue(inHours(1)),
     required: true,
   });
   const moneyCollector = input({ name: "money_collector" });
@@ -105,15 +115,25 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
     const closes = new Date(deadlineAt.value);
     const known = !Number.isNaN(fulfils.getTime()) && !Number.isNaN(closes.getTime());
 
-    // F5.3, and the only hard rule on this form.
+    // Two hard rules. F5.3: the deadline is strictly before the fulfilment
+    // time. And it has not already passed -- an order created closed is one
+    // nobody can add anything to, because F6.6 makes an expired order read-only
+    // for its creator too. The server refuses both; these say so before the
+    // request rather than after it.
     const ordered = known && closes.getTime() < fulfils.getTime();
-    deadlineProblem.textContent = ordered ? "" : t.t("order.deadline_before_fulfilment");
+    const future = known && closes.getTime() > Date.now();
+
+    deadlineProblem.textContent = !ordered
+      ? t.t("order.deadline_before_fulfilment")
+      : future
+        ? ""
+        : t.t("error.1014");
 
     // F5.4: a warning, never a refusal.
     hoursWarning.textContent =
       known && hours.length > 0 && !isOpen(hours, fulfils) ? t.t("order.outside_hours") : "";
 
-    return ordered;
+    return ordered && future;
   }
 
   for (const control of [fulfilmentAt, deadlineAt]) {

@@ -362,6 +362,20 @@ func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// And it must not already have passed. An order created with a deadline in
+	// the past is born closed: F6.6 makes an expired order read-only, so nobody
+	// can add an item to it, its creator cannot edit it back into life, and the
+	// only thing left to do with it is delete it. Refusing is the only useful
+	// answer.
+	//
+	// Only on creation. Moving an existing order's deadline into the past is a
+	// different thing -- it is how a creator closes one early -- and it stays
+	// allowed.
+	if !deadlineAt.After(h.now()) {
+		WriteError(w, r, &Error{Code: CodeDeadlineInThePast, Field: "deadline_at"})
+		return
+	}
+
 	if err := validateFreeText(body.MoneyCollector, "money_collector", MaxMoneyCollectorLength); err != nil {
 		WriteError(w, r, err)
 		return

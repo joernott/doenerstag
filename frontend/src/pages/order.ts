@@ -87,6 +87,7 @@ export async function orderPage(
   const left = el("div", { class: "order-column" });
   const right = el("div", { class: "order-column" });
   const banner = el("div");
+  const heading = el("div", { class: "page-heading-actions" });
 
   let menuItems = menu;
   let categoryList = categories;
@@ -146,6 +147,8 @@ export async function orderPage(
   // --- the left column ----------------------------------------------------
 
   function renderLeft(): void {
+    renderHeading();
+
     const own = detail();
     const parts: Child[] = [orderCard()];
 
@@ -211,7 +214,24 @@ export async function orderPage(
       list.appendChild(dd);
     }
 
-    const controls: Child[] = [];
+    // Editing and deleting the order live on the title's line with the summary,
+    // not in this card: all three act on the order as a whole rather than on
+    // anything inside the card, and they were the only reason it had a row of
+    // buttons at all.
+    return section(order.title, list, status.element);
+  }
+
+  /**
+   * The controls on the title's line: summary, edit, delete.
+   *
+   * Rebuilt on every refresh rather than built once, because whether they apply
+   * changes while the page is open. Adding the first item of your own makes you
+   * a participant and unlocks the summary; removing your last one locks it
+   * again; the deadline passing takes the edit away. Built once, the summary
+   * stayed locked for the rest of the visit however many items you added.
+   */
+  function renderHeading(): void {
+    const controls: Child[] = [summaryLink(app, id, isParticipant())];
 
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
@@ -238,12 +258,7 @@ export async function orderPage(
       );
     }
 
-    return section(
-      order.title,
-      list,
-      controls.length > 0 ? actions(...controls) : null,
-      status.element,
-    );
+    heading.replaceChildren(...controls.filter((part): part is Node => part instanceof Node));
   }
 
   /** The restaurant, with its contacts as the links they are meant to be. */
@@ -1019,24 +1034,6 @@ export async function orderPage(
 
   renderLeft();
   renderMenu();
-
-  // The summary sits on the title's line rather than among the order's own
-  // controls: it is a different page, not another thing to do to this one, and
-  // it is the one control here somebody arrives wanting.
-  //
-  // It is for participants: the creator, anybody with an item, and the
-  // administrator (F1.3). The summary page refuses anyone else, so this only
-  // decides whether to offer the link -- and offering it to somebody who would
-  // be refused is exactly what docs/06_ui_ux.md says not to do.
-  // Always there, and disabled with the reason when this visitor is not one of
-  // the people the summary is for. A control that vanishes leaves somebody
-  // wondering whether the feature exists; one that is visibly unavailable and
-  // says why answers the question.
-  const heading = el(
-    "div",
-    { class: "page-heading-actions" },
-    summaryLink(app, id, isParticipant()),
-  );
 
   return pageWithActions(
     order.title,
