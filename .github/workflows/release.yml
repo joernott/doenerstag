@@ -238,8 +238,11 @@ jobs:
 
       - name: Collect what the release carries
         run: |
-          # The Dockerfile travels with the release so that somebody can build
-          # the image themselves without cloning the repository.
+          # The Dockerfile travels with the release so that the recipe for the
+          # published image is readable, and buildable, without hunting through
+          # the repository for the revision that produced it. It COPYs the
+          # source tree, so building it needs a checkout of this tag -- it is
+          # not a standalone recipe, and the release notes say so.
           cp Dockerfile dist/Dockerfile
           ls -la dist/
 
@@ -263,7 +266,12 @@ jobs:
             - Container: `docker pull docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}`
 
             Then run `doenerstag install` and start the service. See
-            `docs/10_operations.md`.
+            `docs/10_operations.md`, which also carries a `docker compose` stack
+            that this release was tested with.
+
+            `Dockerfile` is here so the recipe for the published image is
+            readable alongside it. It builds from a checkout of this tag rather
+            than on its own.
           files: |
             dist/*.tar.gz
             dist/*.zip
