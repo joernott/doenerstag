@@ -1,0 +1,250 @@
+name: Release
+
+# A tag is the trigger, and the tag is the version. Nothing here reads a
+# version from a file: `make` derives it from `git describe`, so the binary,
+# the packages, the image and the release name cannot disagree with each other
+# or with the tag that produced them.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, for re-running a release"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.6"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The artefacts an operator installs: two archives, four packages, and the
+  # licence file that has to travel with them.
+  artefacts:
+    name: Build the artefacts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `git describe` needs the tags, and a shallow clone has none.
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the frontend toolchain
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install nfpm and go-licenses
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          go install github.com/google/go-licenses@latest
+
+      - name: The version this tag builds
+        id: version
+        run: |
+          version=$(make version | awk '{print $1}')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building $version"
+
+      - name: The licence file is current
+        run: ./scripts/licenses.sh --check
+
+      - name: Archives
+        run: make archives
+
+      - name: Packages
+        run: make packages
+
+      - name: What was built
+        run: ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artefacts
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+          retention-days: 7
+
+  # Installing the package is the only test that answers the question an
+  # operator asks. A container per format, from a clean image each time.
+  packages:
+    name: Install the packages
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:13
+            format: deb
+          - image: fedora:41
+            format: rpm
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Install, upgrade and remove
+        run: |
+          docker run --rm -v "$PWD/dist:/dist" ${{ matrix.image }} sh -eux -c '
+            if [ "${{ matrix.format }}" = "deb" ]; then
+              apt-get update -qq
+              # The package depends on postgresql-client, so a real install has
+              # to resolve it: `dpkg -i` alone would not.
+              apt-get install -y -qq /dist/doenerstag_*_amd64.deb
+            else
+              dnf install -y -q /dist/doenerstag-*.x86_64.rpm
+            fi
+
+            # Everything the package promised is where it said it would be.
+            test -x /usr/bin/doenerstag
+            test -f /etc/doenerstag/doenerstag.yaml
+            test -f /etc/logrotate.d/doenerstag
+            test -f /etc/cron.d/doenerstag
+            test -f /usr/lib/systemd/system/doenerstag.service
+            test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+            test -d /var/log/doenerstag
+            getent passwd doenerstag >/dev/null
+
+            # The binary runs, and reports the version the tag asked for.
+            /usr/bin/doenerstag --version
+
+            # A modified configuration file survives reinstalling over the top,
+            # which is what marking it as a config file is for.
+            echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+            if [ "${{ matrix.format }}" = "deb" ]; then
+              apt-get install -y -qq --reinstall /dist/doenerstag_*_amd64.deb
+            else
+              dnf reinstall -y -q /dist/doenerstag-*.x86_64.rpm
+            fi
+            grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+            # And removal leaves the configuration and the logs alone.
+            if [ "${{ matrix.format }}" = "deb" ]; then
+              apt-get remove -y -qq doenerstag
+            else
+              dnf remove -y -q doenerstag
+            fi
+            test ! -e /usr/bin/doenerstag
+            test -f /etc/doenerstag/doenerstag.yaml
+            test -d /var/log/doenerstag
+          '
+
+  # The image, for both architectures. Pushed only for a real tag: a
+  # workflow_dispatch rehearsal builds it and throws it away.
+  image:
+    name: Build and publish the image
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        # Secrets, never a literal. Add them under Settings → Secrets and
+        # variables → Actions: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}
+            docker.io/joernott/doenerstag:latest
+          build-args: |
+            VERSION=${{ needs.artefacts.outputs.version }}
+            COMMIT=${{ github.sha }}
+          provenance: false
+
+      - name: The image runs
+        run: |
+          docker run --rm --pull=always \
+            docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }} --version
+
+  # The release itself, last: it is the thing that announces all of the above,
+  # so it waits until every one of them has passed.
+  release:
+    name: Publish the release
+    runs-on: ubuntu-latest
+    needs: [artefacts, packages, image]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Collect what the release carries
+        run: |
+          # The Dockerfile travels with the release so that somebody can build
+          # the image themselves without cloning the repository.
+          cp Dockerfile dist/Dockerfile
+          ls -la dist/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: doenerstag ${{ needs.artefacts.outputs.version }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            The first iteration. It provides the minimal functionality described
+            in the documentation and has had barely any use, which is why this
+            is 0.1.0 and marked as a pre-release rather than 1.0.0.
+
+            **Install**
+
+            - Debian and Ubuntu: `apt install ./doenerstag_${{ needs.artefacts.outputs.version }}_amd64.deb`
+            - RHEL and Fedora: `dnf install ./doenerstag-${{ needs.artefacts.outputs.version }}-1.x86_64.rpm`
+            - Anything else: the `.tar.gz` or the `.zip`
+            - Container: `docker pull docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}`
+
+            Then run `doenerstag install` and start the service. See
+            `docs/10_operations.md`.
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/Dockerfile
