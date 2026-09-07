@@ -522,70 +522,29 @@ fully operable by keyboard. The coverage targets are met, in particular 90% on
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
-| 15.1 | `nfpm` configuration producing the `.deb` and the `.rpm` from one description               | L | [10](10_operations.md) |
-| 15.2 | Package contents: unit file, logrotate rule, cron entry, docs, service user, config marking  | M | [10](10_operations.md) |
-| 15.3 | Package install, upgrade and remove tests in throwaway containers                             | M | [12](12_testing.md) |
-| 15.4 | Two-stage `Dockerfile` ending in `scratch`, for amd64 and arm64                               | M | [10](10_operations.md) |
-| 15.5 | `docker compose` example, verified against the documented first-run sequence                   | M | [10](10_operations.md) |
-| 15.6 | `make licenses`, `THIRD_PARTY_LICENSES`, the `go-licenses check` allow-list, the font licence   | M | [08](08_technologies.md) |
-| 15.7 | Release CI: a tag builds all four artefacts and runs the package and image checks                | M | [12](12_testing.md) |
-| 15.8 | Documentation review against what was actually built; correct every drift                        | M | — |
+| ✅ 15.1 | `nfpm` configuration producing the `.deb` and the `.rpm` from one description               | L | [10](10_operations.md) |
+| ✅ 15.2 | Package contents: unit file, logrotate rule, cron entry, docs, service user, config marking  | M | [10](10_operations.md) |
+| ✅ 15.3 | Package install, upgrade and remove tests in throwaway containers                             | M | [12](12_testing.md) |
+| ✅ 15.3.1 | The `.rpm` could not be installed at all. `depends: postgresql-client` is a Debian package name and nothing on an RPM distribution provides it, so `dnf install` refused the package outright. The dependency is now declared per format. Found in sprint 15, by running the test that had been written and never executed | S | [10](10_operations.md) |
+| ✅ 15.3.2 | The test asserted a removal behaviour neither format has: `dpkg` removes `/var/log/doenerstag` when it is empty, and `rpm` renames a modified configuration file to `.rpmsave` on erase. Both are correct behaviour, and one assertion covering both would be either wrong or too weak to be worth running. Found in sprint 15 | S | [12](12_testing.md) |
+| ✅ 15.4 | Three-stage `Dockerfile` ending in `scratch`, for amd64 and arm64                               | M | [10](10_operations.md) |
+| ✅ 15.5 | `docker compose` example, verified against the documented first-run sequence                   | M | [10](10_operations.md) |
+| ✅ 15.5.1 | The documented compose stack could not start. It preset `POSTGRES_DB` and `POSTGRES_USER`, handing `install` a database and a role it exists to create, and mounted the volume at `/var/lib/postgresql/data`, which the PostgreSQL 18 image refuses because it keeps the cluster in a version-named subdirectory. It is now `packaging/docker-compose.yml`, a file the release is tested with rather than a listing in a document. Found in sprint 15, by running it | S | [10](10_operations.md) |
+| ✅ 15.5.2 | `install` wrote `tls_cert: ""` over the declared default `server.crt`, so the server refused to start immediately after an install that had just printed the command to start it. Not a container problem: the package flow had it too. Any setting whose default was non-empty was written empty. Found in sprint 15 | S | [09](09_configuration.md) |
+| ✅ 15.5.3 | `update` refused every version below 1.0.0, a rule written when the first release was assumed to be 1.0.0. With 0.1.0 that is the whole 0.x line, and the message told the operator to run `install` instead, on a database whose roles `install` would then try to create a second time. The gate is now "this binary reports 0.0.0". Found in sprint 15 | S | [09](09_configuration.md) |
+| ✅ 15.5.4 | `update` runs under the install scope, and configuration was resolved per scope, so the file it rewrote carried the declared default for every setting the verb had no flags for. A tuned port and timeouts reverted silently and `session.jwt_secret` was written empty, leaving a configuration the server refuses to start from at all. Scope now decides which flags exist, not which settings are resolved -- which also makes `install`'s "keep the existing secret so a re-run does not log everyone out" branch reachable for the first time. Found in sprint 15 | M | [09](09_configuration.md) |
+| ✅ 15.6 | `make licenses`, `THIRD_PARTY_LICENSES`, the `go-licenses check` allow-list, the font licence   | M | [08](08_technologies.md) |
+| ✅ 15.7 | Release CI: a tag builds all four artefacts and runs the package and image checks                | M | [12](12_testing.md) |
+| ✅ 15.7.1 | The image build passed `VERSION` and the commit but not `BUILD_DATE`, so the container would have reported "built unknown" while the packages from the same tag carried a real timestamp. All three stamps now come from `make version`. Found in sprint 15 | S | [12](12_testing.md) |
+| ✅ 15.8 | Documentation review against what was actually built; correct every drift                        | M | — |
+| ✅ 15.8.1 | `10_operations.md` showed the systemd unit with `ExecStart=/usr/local/bin/doenerstag` while claiming the packages install exactly that file; they install `/usr/bin/doenerstag`. Found in sprint 15 | S | [10](10_operations.md) |
+| ✅ 15.8.2 | `README.md` said "Specification only. No code yet." -- the first thing anyone reaching the release would read, describing a repository that stopped existing thirteen sprints earlier. Found in sprint 15 | S | — |
+| ✅ 15.8.3 | `08_technologies.md` documented a `make migrate` that does not exist, described `make packages` and `make image` as doing things they do not, and called the image a two-stage build. Found in sprint 15 | S | [08](08_technologies.md) |
+| ✅ 15.8.4 | `12_testing.md` promised a `go-licenses` check on every push. There was none: the check existed only in the release workflow, so a dependency added without its licence would have been caught after the artefacts were built. It is now a CI job. Found in sprint 15 | S | [12](12_testing.md) |
+| ✅ 15.8.5 | `make archives` produced a `.tar.gz` whose single file was named `doenerstag-linux-amd64`. Extracting a release should give you the command you are about to run. Found in sprint 15 | S | [10](10_operations.md) |
 | 15.9 | Tag 0.1.0. Not 1.0.0: this is the first iteration, it provides the minimal functionality and has had barely any use | S | — |
 | 15.10 | Publish the container image to `docker.io/joernott/doenerstag`, as `0.1.0` and `latest`. The credentials are repository secrets; nothing about them is committed | M | [10](10_operations.md) |
 | 15.11 | A GitHub release for 0.1.0 carrying the Windows executable in a `.zip`, the Linux executable in a `.tar.gz`, the `.deb`, the `.rpm` and the `Dockerfile` | M | [10](10_operations.md) |
-
-
-Discovered while running the compose stack for 15.5. Every one of these broke a
-sequence the documentation prescribes, and none of them could be found by
-reading the code:
-
-- **15.5.1** ✅ The documented compose example could not start: it preset
-  `POSTGRES_DB` and `POSTGRES_USER`, handing `install` a database it exists to
-  create, and mounted the volume at `/var/lib/postgresql/data`, which PostgreSQL
-  18 refuses. `packaging/docker-compose.yml` is now a real file the release is
-  tested with rather than a listing in a document.
-- **15.5.2** ✅ `install` wrote `tls_cert: ""` over the declared default
-  `server.crt`, so the server refused to start immediately after a documented
-  install — for the packages too, not only the container. Any setting whose
-  default is non-empty was written empty; the file now keeps the declared
-  default.
-- **15.5.3** ✅ `update` refused every version below 1.0.0. With 0.1.0 as the
-  first release that is the whole 0.x line, and the message told the operator to
-  run `install` instead, on a database whose roles `install` would try to create
-  a second time. The gate is now "this binary reports 0.0.0", which is what an
-  untagged development build carries.
-- **15.5.4** ✅ `update` rewrote the configuration file with the declared default
-  for every setting outside its own scope: a tuned port and timeouts reverted
-  silently, and `session.jwt_secret` was written empty, leaving a file the server
-  refuses to start from. Configuration is now resolved for every section
-  whatever the verb, which also makes `install`'s "keep the existing secret so a
-  re-run does not log everyone out" branch reachable for the first time.
-- **15.3.1** ✅ The `.rpm` was uninstallable. `depends: postgresql-client` is a
-  Debian package name and nothing on an RPM distribution provides it, so
-  `dnf install` failed with "nothing provides postgresql-client". The dependency
-  is now per format: `postgresql` for the RPM.
-- **15.3.2** ✅ The package test asserted a removal behaviour neither format
-  has. `dpkg` removes `/var/log/doenerstag` when it is empty, and `rpm` renames
-  a modified configuration file to `.rpmsave` on erase rather than leaving it in
-  place. Both are correct behaviour; the test and
-  [10_operations.md](10_operations.md) now describe it per format, and what they
-  assert is that removal never destroys a log file or a password the operator
-  chose.
-- **15.8.1** ✅ `docs/10_operations.md` showed the systemd unit with
-  `ExecStart=/usr/local/bin/doenerstag` while claiming the packages install
-  exactly that file; the packages install `/usr/bin/doenerstag`.
-- **15.8.2** ✅ `README.md` said "Specification only. No code yet." — the first
-  thing anyone reaching the release would read. It now states what 0.1.0 is and
-  how to install it.
-- **15.8.3** ✅ `08_technologies.md` documented a `make migrate` that does not
-  exist, described `make packages` and `make image` as doing things they do not,
-  and called the image a two-stage build. The target table is now the Makefile's.
-- **15.8.4** ✅ `12_testing.md` promised a CI licence check that was never
-  written. It exists now, as a job on every push, which is what sprint 15's exit
-  criteria require; the rest of the CI section is now the jobs that actually run.
-- **15.8.5** ✅ `make archives` produced a `.tar.gz` whose single file was named
-  `doenerstag-linux-amd64`. Extracting a release should give you the command you
-  are about to run.
 
 **Exit criteria:** installing the `.deb` on Ubuntu, running `doenerstag install`
 and starting the service produces a working application. The container image runs
