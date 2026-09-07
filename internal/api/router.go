@@ -159,11 +159,29 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // This is the router's NotFound handler rather than a catch-all route because
 // httprouter panics on a catch-all that shares a prefix with anything else.
 func (r *Router) handleNotFound(w http.ResponseWriter, req *http.Request) {
-	if isAPIPath(req.URL.Path) || r.opts.Index == nil {
+	if isAPIPath(req.URL.Path) || looksLikeAFile(req.URL.Path) || r.opts.Index == nil {
 		WriteError(w, req, &Error{Code: CodeNotFound})
 		return
 	}
 	r.opts.Index.ServeHTTP(w, req)
+}
+
+// looksLikeAFile reports whether a path is asking for a file rather than for a
+// page of the application.
+//
+// The fallback exists so that reloading a deep link works: /orders/{id} has to
+// answer with the shell rather than a 404. Nothing the router serves as a page
+// has a file extension, and nothing that asks for one wants HTML.
+//
+// This is not tidiness. Firefox asks every page for /favicon.ico, the fallback
+// answered with the application shell -- a 200 with text/html where an icon was
+// expected -- and Firefox then held the document's load event open until it
+// timed out. Roughly half of all navigations in the browser tests, and a
+// spinner that never stops for a real visitor. A 404 is both the correct answer
+// and the one that does not hang.
+func looksLikeAFile(path string) bool {
+	slash := strings.LastIndexByte(path, '/')
+	return strings.Contains(path[slash+1:], ".")
 }
 
 func (r *Router) handleMethodNotAllowed(w http.ResponseWriter, req *http.Request) {
