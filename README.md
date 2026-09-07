@@ -13,12 +13,45 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-Specification only. No code yet. The build order is planned in
-[docs/14_implementation_plan.md](docs/14_implementation_plan.md).
+**0.1.0** — the first release. Everything the specification describes is built:
+accounts and sessions, restaurants with menus and opening hours, orders with a
+deadline and a pickup or delivery time, per-person items, a summary page for
+whoever is calling the restaurant, live updates over SSE, German and English,
+and an administration surface. It has had barely any use by real people, which
+is why it is 0.1.0 and marked as a pre-release rather than 1.0.0.
+
+## Install
+
+Four ways, all from the same source with the same version stamp:
+
+```sh
+# Debian and Ubuntu
+apt install ./doenerstag_0.1.0-1_amd64.deb
+
+# RHEL, Fedora, Rocky, Alma, openSUSE
+dnf install ./doenerstag-0.1.0-1.x86_64.rpm
+
+# Container
+docker pull docker.io/joernott/doenerstag:0.1.0
+
+# Anything else: the .tar.gz or the .zip from the release page
+```
+
+Then provision the database and write a configuration file:
+
+```sh
+cd /etc/doenerstag
+DOENER_DATABASE_ROOT_PASSWORD='…' doenerstag install -o /etc/doenerstag/doenerstag.yaml
+systemctl enable --now doenerstag
+```
+
+You need a PostgreSQL 18 server and a TLS certificate and key. The full
+procedure, a working `docker compose` stack, backup, log rotation and
+troubleshooting are in [docs/10_operations.md](docs/10_operations.md).
 
 ## Documentation
 
-The specification lives in [docs/](docs/). Start with
+The documentation lives in [docs/](docs/). Start with
 [docs/01_overview.md](docs/01_overview.md), which carries a map of the rest.
 
 | Document | Contents |

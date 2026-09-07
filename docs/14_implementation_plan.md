@@ -574,6 +574,19 @@ reading the code:
 - **15.8.1** ✅ `docs/10_operations.md` showed the systemd unit with
   `ExecStart=/usr/local/bin/doenerstag` while claiming the packages install
   exactly that file; the packages install `/usr/bin/doenerstag`.
+- **15.8.2** ✅ `README.md` said "Specification only. No code yet." — the first
+  thing anyone reaching the release would read. It now states what 0.1.0 is and
+  how to install it.
+- **15.8.3** ✅ `08_technologies.md` documented a `make migrate` that does not
+  exist, described `make packages` and `make image` as doing things they do not,
+  and called the image a two-stage build. The target table is now the Makefile's.
+- **15.8.4** ✅ `12_testing.md` promised a CI licence check that was never
+  written. It exists now, as a job on every push, which is what sprint 15's exit
+  criteria require; the rest of the CI section is now the jobs that actually run.
+- **15.8.5** ✅ `make archives` produced a `.tar.gz` whose single file was named
+  `doenerstag-linux-amd64`. Extracting a release should give you the command you
+  are about to run.
+
 **Exit criteria:** installing the `.deb` on Ubuntu, running `doenerstag install`
 and starting the service produces a working application. The container image runs
 the same way. `THIRD_PARTY_LICENSES` is complete and CI fails if a dependency is

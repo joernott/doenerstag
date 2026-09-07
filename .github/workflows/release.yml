@@ -247,7 +247,7 @@ jobs:
 
             **Install**
 
-            - Debian and Ubuntu: `apt install ./doenerstag_${{ needs.artefacts.outputs.version }}_amd64.deb`
+            - Debian and Ubuntu: `apt install ./doenerstag_${{ needs.artefacts.outputs.version }}-1_amd64.deb`
             - RHEL and Fedora: `dnf install ./doenerstag-${{ needs.artefacts.outputs.version }}-1.x86_64.rpm`
             - Anything else: the `.tar.gz` or the `.zip`
             - Container: `docker pull docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}`

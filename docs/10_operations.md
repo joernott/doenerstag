@@ -29,7 +29,7 @@ container. Step 2 is the same in every case.
 ### Step 1a — Debian and Ubuntu package (preferred)
 
 ```sh
-apt install ./doenerstag_0.1.0_amd64.deb
+apt install ./doenerstag_0.1.0-1_amd64.deb
 ```
 
 ### Step 1b — RHEL, Fedora, Rocky, Alma and openSUSE package (preferred)

@@ -80,6 +80,38 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
+  # A dependency added without its licence fails here, on the pull request that
+  # adds it, rather than at release time when the artefacts are already being
+  # built. docs/12_testing.md promises this; it did not exist until the release
+  # workflow needed the same check.
+  licences:
+    name: Licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The script reads the licence files of the frontend packages whose own
+      # files ship, so the toolchain has to be installed for it to see them.
+      - name: Install the frontend toolchain
+        run: npm ci
+        working-directory: frontend
+
+      - name: THIRD_PARTY_LICENSES is current
+        run: |
+          go install github.com/google/go-licenses@latest
+          ./scripts/licenses.sh --check
+
   test:
     name: Test
     runs-on: ubuntu-latest

@@ -222,15 +222,19 @@ packages: dist-linux licenses ## Build the .deb and .rpm for every architecture
 	done
 	@rm -rf $(DIST)/staged
 
+
 .PHONY: archives
 archives: dist-linux dist-windows ## Wrap the binaries as the release carries them
 	@mkdir -p $(DIST)
-	@# The Linux binary as a tar.gz and the Windows one as a zip, each named
-	@# for what is inside it rather than for the archive.
+	@# The archive is named for the platform; the file inside it is named
+	@# doenerstag. Extracting a release should give you the command you are
+	@# about to run, not a build artefact you have to rename first.
+	@rm -rf $(DIST)/staged && mkdir -p $(DIST)/staged
+	cp $(DIST)/$(BINARY)-linux-amd64 $(DIST)/staged/$(BINARY)
 	tar -czf $(DIST)/$(BINARY)-$(VERSION)-linux-amd64.tar.gz \
-		-C $(DIST) $(BINARY)-linux-amd64
+		-C $(DIST)/staged $(BINARY)
 	cd $(DIST) && zip -q $(BINARY)-$(VERSION)-windows-amd64.zip $(BINARY).exe
-
+	@rm -rf $(DIST)/staged
 .PHONY: image
 image: ## Build the container image for this machine's architecture
 	docker build \

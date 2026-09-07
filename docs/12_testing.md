@@ -342,27 +342,24 @@ that they exercise validation on the way in.
 
 ## Continuous integration
 
-Every push and pull request runs, in this order, failing fast:
+Every push and pull request runs these jobs, in parallel except where one needs
+another's output:
 
-1. `make lint` — `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.
-2. `govulncheck ./...`.
-3. `go-licenses check` against the allow-list in
-   [08_technologies.md](08_technologies.md#licensing), plus a check that
-   `THIRD_PARTY_LICENSES` is up to date. A dependency added without its licence
-   fails here rather than at release time.
-4. `make test` — Go unit and integration tests with a PostgreSQL 18 service
-   container, plus Vitest.
-5. `make release` — proves the embedded build compiles.
-6. Playwright against the release binary with a seeded database.
+| Job              | Does                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| Lint             | `gofmt -l`, `go vet`, `go mod tidy` leaves no diff, `golangci-lint`.       |
+| govulncheck      | `govulncheck ./...`.                                                      |
+| Licences         | `scripts/licenses.sh --check`: `THIRD_PARTY_LICENSES` matches a fresh run. A dependency added without its licence fails on the pull request that adds it. |
+| Test             | Go unit and integration tests under the race detector, with a PostgreSQL 18 service container, plus coverage. |
+| Test (Windows)   | The same suite on `windows-latest`. Coverage is kept per platform, because Windows skips the configuration permission check and has no `SIGHUP` log reopen. |
+| Frontend         | `tsc --noEmit`, `eslint`, Vitest, the esbuild build, and a check that the committed `static/` matches its sources. |
+| End-to-end       | The release binary against a provisioned database, driven by Playwright in Chromium and Firefox, with the axe accessibility scans. |
+| Build            | The development and the embedded builds, then a smoke test: `--version`, a secret on the command line is refused, a world-readable configuration file is refused. |
 
-A merge is blocked on all six. Coverage is reported but does not block.
+A merge is blocked on all of them. Coverage is reported but does not block.
 
-On a release tag, two further steps run and must also pass:
-
-7. `make packages` — builds the `.deb` and `.rpm`, then installs each in a
-   throwaway container and asserts that the unit file, the `logrotate` rule and
-   the cron entry landed where [10_operations.md](10_operations.md) says they do,
-   that the config file is mode `0600`, and that `doenerstag --version` reports
-   the tag.
-8. `make image` — builds the container image for both architectures and runs
-   `doenerstag --version` inside it.
+A release tag runs [`release.yml`](../.github/workflows/release.yml) instead,
+which is described in [10_operations.md](10_operations.md). It builds the
+archives and the four packages, installs each package in a throwaway
+`debian:13` and `fedora:41` container and checks what removal leaves behind,
+builds and pushes the two-architecture image, and publishes the release.
