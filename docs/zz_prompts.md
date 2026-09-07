@@ -728,3 +728,29 @@ recorded on the branch of the sprint it belongs to.
 
 > Also, when creating a new order, the default value for deadline should be 1
 > hour in the future and the pickup/delivery time 2 hours in the future
+
+---
+
+### Prompt 43
+
+> I just added to items to the order
+> https://192.168.178.183:8443/orders/01a07d13-d904-7719-8b00-de83c0aac359. This
+> did not unlock the summary button on that page.
+
+---
+
+## Sprint 15
+
+### Prompt 44
+
+> Please start with sprint 15 but don't tag that version as 1.0.0 but rather
+> 0.1.0 as this is the first iteration providing the minimal functionality and
+> has barely any user testing done. Add a final task to that sprint that creates
+> a github release for version 0.1.0. That release should contain the following
+> additional artifacts: the Windows executable in a .zip file, the Linux
+> executable inside a tar.gz, the .rpm and .deb file as well as the Dockerfile.
+> Add another task to push the docker image to docker.io/joernott/doenerstag,
+> using the username joernott and the access token "[REDACTED — see the note in
+> docs/10_operations.md; the value was supplied in chat and is not stored in
+> this repository]" I created for you. Please censor the token when you store
+> the prompt in the document zz_prompts.md

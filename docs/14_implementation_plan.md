@@ -49,7 +49,7 @@ artefacts it corrects.
 | Sprint 5  | Register, log in, manage accounts and tokens through the API.                |
 | Sprint 9  | Run a complete food order end to end **through the API**. The backend is feature-complete. |
 | Sprint 13 | Run a complete food order end to end in a browser. The product works.        |
-| Sprint 15 | Install version 1.0.0 from a `.deb`, an `.rpm` or a container image.         |
+| Sprint 15 | Install version 0.1.0 from a `.deb`, an `.rpm` or a container image.         |
 
 ## A note on the sequencing
 
@@ -518,7 +518,7 @@ fully operable by keyboard. The coverage targets are met, in particular 90% on
 
 ## Sprint 15 — Packaging and release
 
-**Goal:** version 1.0.0, installable four ways.
+**Goal:** version 0.1.0, installable four ways.
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
@@ -530,12 +530,44 @@ fully operable by keyboard. The coverage targets are met, in particular 90% on
 | 15.6 | `make licenses`, `THIRD_PARTY_LICENSES`, the `go-licenses check` allow-list, the font licence   | M | [08](08_technologies.md) |
 | 15.7 | Release CI: a tag builds all four artefacts and runs the package and image checks                | M | [12](12_testing.md) |
 | 15.8 | Documentation review against what was actually built; correct every drift                        | M | — |
-| 15.9 | Tag 1.0.0                                                                                        | S | — |
+| 15.9 | Tag 0.1.0. Not 1.0.0: this is the first iteration, it provides the minimal functionality and has had barely any use | S | — |
+| 15.10 | Publish the container image to `docker.io/joernott/doenerstag`, as `0.1.0` and `latest`. The credentials are repository secrets; nothing about them is committed | M | [10](10_operations.md) |
+| 15.11 | A GitHub release for 0.1.0 carrying the Windows executable in a `.zip`, the Linux executable in a `.tar.gz`, the `.deb`, the `.rpm` and the `Dockerfile` | M | [10](10_operations.md) |
 
+
+Discovered while running the compose stack for 15.5. Every one of these broke a
+sequence the documentation prescribes, and none of them could be found by
+reading the code:
+
+- **15.5.1** ✅ The documented compose example could not start: it preset
+  `POSTGRES_DB` and `POSTGRES_USER`, handing `install` a database it exists to
+  create, and mounted the volume at `/var/lib/postgresql/data`, which PostgreSQL
+  18 refuses. `packaging/docker-compose.yml` is now a real file the release is
+  tested with rather than a listing in a document.
+- **15.5.2** ✅ `install` wrote `tls_cert: ""` over the declared default
+  `server.crt`, so the server refused to start immediately after a documented
+  install — for the packages too, not only the container. Any setting whose
+  default is non-empty was written empty; the file now keeps the declared
+  default.
+- **15.5.3** ✅ `update` refused every version below 1.0.0. With 0.1.0 as the
+  first release that is the whole 0.x line, and the message told the operator to
+  run `install` instead, on a database whose roles `install` would try to create
+  a second time. The gate is now "this binary reports 0.0.0", which is what an
+  untagged development build carries.
+- **15.5.4** ✅ `update` rewrote the configuration file with the declared default
+  for every setting outside its own scope: a tuned port and timeouts reverted
+  silently, and `session.jwt_secret` was written empty, leaving a file the server
+  refuses to start from. Configuration is now resolved for every section
+  whatever the verb, which also makes `install`'s "keep the existing secret so a
+  re-run does not log everyone out" branch reachable for the first time.
+- **15.8.1** ✅ `docs/10_operations.md` showed the systemd unit with
+  `ExecStart=/usr/local/bin/doenerstag` while claiming the packages install
+  exactly that file; the packages install `/usr/bin/doenerstag`.
 **Exit criteria:** installing the `.deb` on Ubuntu, running `doenerstag install`
 and starting the service produces a working application. The container image runs
 the same way. `THIRD_PARTY_LICENSES` is complete and CI fails if a dependency is
-added without its licence.
+added without its licence. Tag 0.1.0 exists, the GitHub release carries all five
+artefacts, and `docker.io/joernott/doenerstag:0.1.0` can be pulled.
 
 ---
 
