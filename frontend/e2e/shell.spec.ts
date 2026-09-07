@@ -74,8 +74,14 @@ test.describe("the shell", () => {
 
     await expect(page).toHaveURL(/\/restaurants\/[0-9a-f-]{36}$/);
 
-    await page.getByLabel("Category").first().fill("Kebap");
+    // Adding a category is a dialog now: one field and a button is a dialog's
+    // worth of interface, and the form that used to sit at the bottom of the
+    // menu was below however many items the restaurant had.
     await page.getByRole("button", { name: "Add a category" }).click();
+    const categoryDialog = page.getByRole("dialog");
+    await categoryDialog.getByLabel("Category").fill("Kebap");
+    await categoryDialog.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Move up" })).toBeVisible();
 
     await page.getByRole("button", { name: "Add an item" }).first().click();

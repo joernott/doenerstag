@@ -50,6 +50,19 @@ async function scan(page: Page, where: string): Promise<void> {
 }
 
 test.describe("every page passes axe in both themes", () => {
+  // A long timeout, because an axe scan is proportional to the size of the
+  // document and these pages have no fixed size: the order overview draws a
+  // tile per order, and a development database that has been used for a while
+  // has hundreds. CI starts from an empty one and finishes each scan in a
+  // couple of seconds; the same test against a well-used database took over a
+  // minute and failed on the clock rather than on a violation.
+  //
+  // The number is deliberately far above what any of this needs. This test
+  // looks for accessibility violations and has no business also being a
+  // performance assertion -- that is what the checks in internal/api measure,
+  // against a known amount of data.
+  test.describe.configure({ timeout: 180_000 });
+
   test("the public pages", async ({ page }) => {
     for (const path of ["/", "/restaurants", "/version", "/imprint", "/legal-notes", "/account"]) {
       await page.goto(path);

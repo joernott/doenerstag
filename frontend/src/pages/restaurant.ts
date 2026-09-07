@@ -6,16 +6,17 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
-import { el } from "../dom";
+import { el, icon } from "../dom";
 import { formatWeekday, moneyInputValue, parseMoney } from "../format";
 import { button, field, form, input, select, textarea } from "../components/forms";
 import { confirmDialog } from "../components/modal";
 import { imageField } from "../components/images";
+import { contactIcon, contactTarget, type Linkable } from "../contacts";
 import { referenceName } from "../i18n";
 import { minorUnitOf, referenceData, type ReferenceData } from "../reference";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, page, pageWithActions, section, statusLine } from "./page";
+import { actions, card, page, pageWithActions, section, setPageTitle, statusLine } from "./page";
 
 /** A restaurant as the API sends it. */
 export interface Restaurant {
@@ -84,7 +85,7 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
   const data = dataSection(app, reference, restaurant);
   const header = restaurantControls(app, data, blocking);
 
-  return pageWithActions(
+  const article = pageWithActions(
     restaurant.name,
     header,
     // The menu first: it is what somebody opening a restaurant almost always
@@ -108,6 +109,9 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
       { label: t.t("restaurant.sections"), initial: 0 },
     ),
   );
+
+  data.onRename((next) => setPageTitle(article, next));
+  return article;
 }
 
 /**
@@ -238,6 +242,8 @@ interface DataSection {
   save(): Promise<void>;
   remove(): Promise<void>;
   onDirtyChange(listen: (dirty: boolean) => void): void;
+  /** Called with the new name after a save that changed it. */
+  onRename(listen: (name: string) => void): void;
 }
 
 function dataSection(
@@ -299,6 +305,12 @@ function dataSection(
 
   let saved = snapshot();
   const listeners: ((dirty: boolean) => void)[] = [];
+  const renameListeners: ((name: string) => void)[] = [];
+  const renamed = (next: string): void => {
+    for (const listen of renameListeners) {
+      listen(next);
+    }
+  };
   const touched = (): void => {
     const dirty = snapshot() !== saved;
     for (const listen of listeners) {
@@ -335,7 +347,10 @@ function dataSection(
         notes: notes.value.trim(),
       });
       status.say(t.t("state.saved"));
-      document.title = `${name.value.trim()} — doenerstag`;
+      // The heading above the form as well as the browser tab. Setting only the
+      // tab left the page still displaying the old name until it was reloaded,
+      // which reads as a save that did not take.
+      renamed(name.value.trim());
       // What was just written becomes the new baseline, so Save goes quiet
       // again until something else changes.
       saved = snapshot();
@@ -365,8 +380,7 @@ function dataSection(
     }
   }
 
-  const element = section(
-    t.t("restaurant.data"),
+  const element = card(
     // Still a form, so Enter in a field saves: the button that submits it is on
     // the page heading rather than in here, which a form is perfectly happy
     // with.
@@ -403,6 +417,9 @@ function dataSection(
     onDirtyChange(listen: (dirty: boolean) => void): void {
       listeners.push(listen);
     },
+    onRename(listen: (name: string) => void): void {
+      renameListeners.push(listen);
+    },
   };
 }
 
@@ -428,6 +445,71 @@ function contactTypeSelect(
 }
 
 // --- contacts ----------------------------------------------------------------
+
+/** The code of a contact type, by its id. */
+function codeOf(reference: ReferenceData, id: string): string {
+  return reference.contactTypes.find((type) => type.id === id)?.code ?? "";
+}
+
+/** How a contact type wants to be rendered, by its id. */
+function renderAsOf(reference: ReferenceData, id: string): string {
+  return reference.contactTypes.find((type) => type.id === id)?.render_as ?? "text";
+}
+
+/**
+ * The button behind a contact's value.
+ *
+ * It opens the thing the contact is: a telephone number dials, an address opens
+ * a map, a website opens in a new tab. The icon says which before it is
+ * pressed, so a row of contacts can be scanned rather than read.
+ *
+ * "Other" is a free string with no sensible target, so it gets no button -- but
+ * it keeps the column, so a list of contacts stays a column of fields rather
+ * than a ragged edge. That is why this always returns an element and swaps its
+ * contents, rather than returning null.
+ */
+function contactButton(
+  app: App,
+  read: () => Linkable,
+): { element: HTMLElement; refresh: () => void } {
+  const element = el("span", { class: "contact-open" });
+
+  const refresh = (): void => {
+    const contact = read();
+    const target = contactTarget(contact);
+    const name = contactIcon(contact);
+
+    if (!target || !name) {
+      element.replaceChildren();
+      element.classList.add("contact-open-empty");
+      return;
+    }
+
+    element.classList.remove("contact-open-empty");
+    const label = app.t.t("restaurant.contact.open", {
+      type: referenceName(app.t, "contact_type", contact.contact_type_code),
+    });
+    element.replaceChildren(
+      el(
+        "a",
+        {
+          class: "button button-icon",
+          href: target.href,
+          "aria-label": label,
+          title: label,
+          // A new tab for the two that leave the application, and never
+          // without `noreferrer`: a map query carries the restaurant's address
+          // and there is no reason to tell Google where the reader came from.
+          ...(target.external ? { target: "_blank", rel: "noreferrer" } : {}),
+        },
+        icon(name),
+      ),
+    );
+  };
+
+  refresh();
+  return { element, refresh };
+}
 
 /**
  * The contacts editor.
@@ -501,11 +583,23 @@ function contactsSection(
       }
     }
 
+    // The button behind the value: what this contact opens. It follows the
+    // type dropdown live, so switching a number from "phone" to "website"
+    // changes what pressing it does without a save in between.
+    const open = contactButton(app, () => ({
+      contact_type_code: codeOf(reference, type.value),
+      render_as: renderAsOf(reference, type.value),
+      value: value.value,
+    }));
+    type.addEventListener("change", open.refresh);
+    value.addEventListener("input", open.refresh);
+
     return el(
       "div",
-      { class: "row" },
+      { class: "row contact-row" },
       field({ label: t.t("restaurant.contact.type"), control: type }),
       field({ label: t.t("restaurant.contact.value"), control: value }),
+      open.element,
       field({
         label: t.t("restaurant.contact.label"),
         control: label,
@@ -547,11 +641,16 @@ function contactsSection(
       }
     }
 
+    // The same grid as an existing row, including the column the open button
+    // sits in. It is empty here -- there is nothing to open until the contact
+    // exists -- and reserving it is what keeps the new row's fields the same
+    // width as the ones above it rather than spreading into the gap.
     return el(
       "div",
-      { class: "row row-new" },
+      { class: "row row-new contact-row" },
       field({ label: t.t("restaurant.contact.type"), control: type }),
       field({ label: t.t("restaurant.contact.value"), control: value }),
+      el("span", { class: "contact-open contact-open-empty", "aria-hidden": "true" }),
       field({
         label: t.t("restaurant.contact.label"),
         control: label,
@@ -562,7 +661,7 @@ function contactsSection(
   }
 
   render();
-  return section(t.t("restaurant.contacts"), list, status.element);
+  return card(list, status.element);
 }
 
 // --- opening hours -----------------------------------------------------------
@@ -676,8 +775,7 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
     }
   }
 
-  return section(
-    t.t("restaurant.opening_hours"),
+  return card(
     list,
     actions(
       button({

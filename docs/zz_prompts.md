@@ -622,3 +622,36 @@ recorded on the branch of the sprint it belongs to.
 >   midnight" note to achieve a more uniform design.
 > - The remove button for tjhe opening hours should be red like the other remove
 >   buttons
+
+---
+
+### Prompt 38
+
+> On the order page:
+> - Move the Summary button outside the first tile, on nthe same level as the
+>   title, align it to the right and make it orange
+> On the restaurant page:
+> - The title of every tab is mirrored as heading in the tab. That is redundant
+>   and should be removed
+> - The dropdown and input fields for a new contact should have the same size as
+>   the ones for the existing contact entries. The dropdown should also be not
+>   too much longer than the longest entry.
+> - Add a button with an icon behind the value field of a contact, the icon
+>   should match the type of contact. The link should open in a new tab where it
+>   makes sense. For example, any phone type entry (telephone,. mobile) should
+>   use a tel: URL using the value, Use a similar logic to fax, email and
+>   website. Address should open google maps at the given address. If the type is
+>   "Other" don't show the button but still reserve the link
+> - Move the remove button on the "opening hours" tab right behind the "past
+>   midnight" block.
+> - I changed the name of the
+>   https://192.168.178.183:8443/restaurants/01a0765f-517b-748a-bdb0-c4495513ae94
+>   restaurant and saved it. The title did not change immediately, only after a
+>   reload. That change should trigger immediately.
+> - On the "Menu" tab, move the "Add item" button to the top and make it orange,
+>   Add a "Add category" button next to it and move the "Add Category"
+>   functionality at the bottom of the tab to a modal dialog
+> - In tzhe menu tap, the category shoul be rendered as a heading instead of an
+>   input field. There should be an icon left to it that shows a down or sideways
+>   arrow to show and hide the elements in that category. Replace the "Save"
+>   button with an orange "Edit" button

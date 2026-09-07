@@ -27,7 +27,7 @@ import { minorUnitOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
 import { isActive, type OrderDetail, type OrderHeader, type OrderItem } from "./orders";
-import { actions, page, section, statusLine } from "./page";
+import { actions, page, pageWithActions, section, statusLine } from "./page";
 import type { Contact, Restaurant } from "./restaurant";
 
 interface RestaurantDetail extends Restaurant {
@@ -206,20 +206,6 @@ export async function orderPage(
     }
 
     const controls: Child[] = [];
-
-    // The summary is for participants: the creator, anybody with an item, and
-    // the administrator (F1.3). The page itself refuses anyone else, so this
-    // only decides whether to offer the link -- and offering it to somebody
-    // who would be refused is exactly what docs/06_ui_ux.md says not to do.
-    if (isParticipant()) {
-      controls.push(
-        el("a", {
-          class: "button",
-          href: `/orders/${id}/summary`,
-          text: t.t("order.summary"),
-        }),
-      );
-    }
 
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
@@ -1021,7 +1007,31 @@ export async function orderPage(
   renderLeft();
   renderMenu();
 
-  return page(order.title, banner, el("div", { class: "order-layout" }, left, right));
+  // The summary sits on the title's line rather than among the order's own
+  // controls: it is a different page, not another thing to do to this one, and
+  // it is the one control here somebody arrives wanting.
+  //
+  // It is for participants: the creator, anybody with an item, and the
+  // administrator (F1.3). The summary page refuses anyone else, so this only
+  // decides whether to offer the link -- and offering it to somebody who would
+  // be refused is exactly what docs/06_ui_ux.md says not to do.
+  const heading = el("div", { class: "page-heading-actions" });
+  if (isParticipant()) {
+    heading.appendChild(
+      el("a", {
+        class: "button button-primary",
+        href: `/orders/${id}/summary`,
+        text: t.t("order.summary"),
+      }),
+    );
+  }
+
+  return pageWithActions(
+    order.title,
+    heading,
+    banner,
+    el("div", { class: "order-layout" }, left, right),
+  );
 }
 
 /** An API timestamp as a `datetime-local` value in the viewer's time zone. */

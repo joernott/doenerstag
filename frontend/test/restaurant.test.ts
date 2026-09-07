@@ -149,7 +149,10 @@ describe("the restaurant page", () => {
     const panels = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")];
     expect(panels.length).toBe(4);
     expect(panels.map((panel) => panel.hidden)).toEqual([false, true, true, true]);
-    expect(panels[0]?.textContent).toContain(app.t.t("menu.items"));
+    // The panel is named by its tab, so it carries no heading repeating that
+    // name. What identifies it is what it holds.
+    expect(panels[0]?.textContent).toContain(app.t.t("item.add"));
+    expect(panels[0]?.textContent).toContain(app.t.t("menu.category.add"));
   });
 
   it("shows the money in the restaurant's own currency", async () => {
@@ -232,9 +235,10 @@ describe("the restaurant page", () => {
     const rendered = await restaurantPage(app, "r1");
     await settle();
 
-    const edit = [...rendered.querySelectorAll("button")].find(
-      (control) => control.textContent === app.t.t("action.edit"),
-    );
+    // Scoped to the item row: every category has an Edit button of its own
+    // now, and an unscoped search for the word finds the first category.
+    const edit = rendered.querySelector<HTMLButtonElement>(".menu-item button");
+    expect(edit?.textContent).toBe(app.t.t("action.edit"));
     edit?.click();
     await settle();
 

@@ -43,24 +43,50 @@ export function pageWithActions(
   controls: HTMLElement,
   ...content: Child[]
 ): HTMLElement {
+  const heading = el("h1", { class: "page-title", text: title });
   const article = el(
     "article",
     { class: "page-body" },
-    el(
-      "div",
-      { class: "page-heading" },
-      el("h1", { class: "page-title", text: title }),
-      controls,
-    ),
+    el("div", { class: "page-heading" }, heading, controls),
   );
   append(article, ...content);
-  document.title = `${title} — doenerstag`;
+  setPageTitle(article, title);
   return article;
 }
 
-/** A titled card. The restaurant page is four of these stacked. */
+/**
+ * Renames a page after it has been built.
+ *
+ * Renaming a restaurant used to change the browser tab and leave the heading
+ * above the form saying the old name until the page was reloaded, which reads
+ * as a save that did not take. The heading is found rather than passed back to
+ * the caller so that any page gains this without changing its shape.
+ */
+export function setPageTitle(root: HTMLElement, title: string): void {
+  const heading = root.querySelector(".page-title");
+  if (heading) {
+    heading.textContent = title;
+  }
+  document.title = `${title} — doenerstag`;
+}
+
+/** A titled card. */
 export function section(title: string, ...content: Child[]): HTMLElement {
   const element = el("section", { class: "card" }, el("h2", { class: "card-title", text: title }));
+  append(element, ...content);
+  return element;
+}
+
+/**
+ * A card with no heading of its own.
+ *
+ * What a tab panel wants: the tab already names it, and repeating that name as
+ * a heading inside says the same word twice for no gain. The element is still a
+ * `section`, and the tabs component labels it from its tab, so it keeps its
+ * place in the document outline.
+ */
+export function card(...content: Child[]): HTMLElement {
+  const element = el("section", { class: "card" });
   append(element, ...content);
   return element;
 }

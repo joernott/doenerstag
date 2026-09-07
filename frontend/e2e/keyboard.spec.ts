@@ -148,14 +148,20 @@ test.describe("the keyboard alone", () => {
     await loginThroughTheForm(page, account);
     await page.goto(`/restaurants/${fixture.restaurantID}`);
 
-    // A second category, so there is something to reorder.
-    await page.getByLabel("Category").last().fill("Getränke");
+    // A second category, so there is something to reorder. Through the dialog,
+    // which is where adding one lives now.
     await page.getByRole("button", { name: "Add a category" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Category").fill("Getränke");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Move up" }).nth(1)).toBeEnabled();
 
-    const before = await page.getByLabel("Category").evaluateAll((inputs) =>
-      inputs.map((entry) => (entry as HTMLInputElement).value),
-    );
+    // The names are headings rather than text boxes now, so this reads them
+    // rather than reading input values.
+    const names = (): Promise<string[]> => page.locator(".menu-group-title").allTextContents();
+    const before = await names();
+    expect(before.length).toBeGreaterThan(1);
 
     // The reordering control is a button, not a drag handle, so it is operable
     // by keyboard by construction (docs/06_ui_ux.md).
@@ -163,12 +169,6 @@ test.describe("the keyboard alone", () => {
     await moveUp.focus();
     await page.keyboard.press("Enter");
 
-    await expect
-      .poll(async () =>
-        page.getByLabel("Category").evaluateAll((inputs) =>
-          inputs.map((entry) => (entry as HTMLInputElement).value),
-        ),
-      )
-      .not.toEqual(before);
+    await expect.poll(names).not.toEqual(before);
   });
 });

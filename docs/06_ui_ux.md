@@ -111,7 +111,7 @@ administrator.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
-- A **Summary** button, shown only to participants (F1.3).
+
 - A **Delete order** button for the creator and the administrator.
 - The list of order items, grouped by person, each showing quantity, item name,
   the selected modifications, the free-text note and the line total. A visitor's
@@ -120,6 +120,11 @@ administrator.
   the minimum order value.
 - When the deadline has passed, a prominent banner states the order is closed
   and all editing controls disappear.
+
+The **Summary** button is not in this column. It sits on the page title's line,
+right-aligned and primary: it opens a different page rather than doing something
+to this one, and it is the control somebody arrives wanting. It is shown only to
+participants (F1.3).
 
 #### The anonymous view of an order
 
@@ -250,6 +255,15 @@ references the restaurant.
 2. **Contacts** — a repeatable row of *type / value / label*, with the type
    coming from the seeded contact-type list. At least one row is required; the
    delete button on the last remaining row is disabled.
+
+   Every row is the same grid, the row that adds a new contact included, so the
+   fields line up down the tab. A button behind the value opens what the contact
+   is, with an icon saying which kind before it is pressed: `tel:` for a
+   telephone, a mobile or a fax, `mailto:` for an e-mail address, the site
+   itself for a website, and a Google Maps query for an address. The two that
+   leave the application open in a new tab with `rel="noreferrer"`. "Other" is a
+   free string with nothing sensible to open, so it has no button — but it keeps
+   the column, because a missing button should not shift the row.
 3. **Opening hours** — a row per entry: weekday, start time, end time. Multiple
    entries per weekday are allowed and rendered grouped by day. An entry whose
    end time precedes its start time is shown with a "crosses midnight" hint
@@ -259,11 +273,29 @@ references the restaurant.
    row, and the "crosses midnight" hint keeps its column whether or not it has
    anything to say — otherwise the hint appearing as somebody types the times
    shifts the remove button sideways, and a week of opening hours never settles
-   into a shape. The remove button is red, like every other remove.
+   into a shape. The remove button sits directly after that column, not at the
+   far end of the row, and it is red like every other remove.
 4. **Menu** — categories with their items. Categories can be added, renamed and
    reordered with move-up and move-down controls. Items are added and edited in
    a dialog, including their tags, allergens, additives and predefined
    modifications.
+
+   **"Add an item" and "Add a category" are at the top of the tab**, both
+   primary. They are what somebody comes to this tab meaning to do, and a
+   control below two hundred menu items is a control nobody finds. Adding a
+   category is a dialog rather than a permanent row: one field and a button is a
+   dialog's worth of interface.
+
+   **A category is a heading, not a text box.** A page of input fields reads as
+   a form waiting to be filled in; a menu is a menu. A disclosure in front of
+   the name folds the category's items away, and which categories are folded
+   survives the reloads that a rename or a reorder triggers. The name is changed
+   through an Edit button that opens the same dialog adding one uses.
+
+   That leaves an "Edit" on every category and on every item, so the visible
+   word is no longer an accessible name on its own: the category's button names
+   the category in its `aria-label`. A dozen controls all called "Edit" is
+   ambiguous under a screen reader and unusable by voice.
 
    Reordering is by button rather than by dragging. The accessibility rule below
    requires a keyboard equivalent for any drag, and once the buttons exist for a
