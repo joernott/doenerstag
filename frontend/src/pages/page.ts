@@ -4,10 +4,55 @@
 // importing the module that imports it.
 
 import { append, el, type Child } from "../dom";
+import { logoMark } from "../logo";
 
 /** A page: a heading and whatever follows it. Also sets the document title. */
 export function page(title: string, ...content: Child[]): HTMLElement {
   const article = el("article", { class: "page-body" }, el("h1", { class: "page-title", text: title }));
+  append(article, ...content);
+  document.title = `${title} — doenerstag`;
+  return article;
+}
+
+/**
+ * An overview page: a page with the mark behind it.
+ *
+ * The two grids -- orders and restaurants -- are the pages somebody lands on,
+ * and a grid of cards on an empty background is a lot of nothing. The mark sits
+ * centred behind them at a few percent opacity, scaled to most of the page's
+ * height, and is `aria-hidden` and untouchable by the pointer: it is wallpaper,
+ * not content, and nothing about the page changes if it fails to draw.
+ */
+export function overviewPage(title: string, ...content: Child[]): HTMLElement {
+  const article = page(title, ...content);
+  article.classList.add("page-watermarked");
+  article.insertBefore(logoMark({ class: "page-watermark" }), article.firstChild);
+  return article;
+}
+
+/**
+ * A page whose heading carries controls.
+ *
+ * The restaurant page puts Save and Delete on the title's own line, aligned
+ * with the right edge of the card below, so the two things that act on the
+ * whole restaurant sit with its name rather than inside whichever tab happens
+ * to be open.
+ */
+export function pageWithActions(
+  title: string,
+  controls: HTMLElement,
+  ...content: Child[]
+): HTMLElement {
+  const article = el(
+    "article",
+    { class: "page-body" },
+    el(
+      "div",
+      { class: "page-heading" },
+      el("h1", { class: "page-title", text: title }),
+      controls,
+    ),
+  );
   append(article, ...content);
   document.title = `${title} — doenerstag`;
   return article;
@@ -35,12 +80,14 @@ export function actions(...content: Child[]): HTMLElement {
  * announces it without stealing focus, which is right for "Saved." and right
  * for an error the person is about to see anyway in the field it belongs to.
  */
-export function statusLine(): {
+export interface StatusLine {
   element: HTMLElement;
   say(message: string): void;
   fail(message: string): void;
   clear(): void;
-} {
+}
+
+export function statusLine(): StatusLine {
   const element = el("p", { class: "status", role: "status" });
   return {
     element,

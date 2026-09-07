@@ -3,10 +3,11 @@
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { el } from "../dom";
+import { logoMark } from "../logo";
 import { thumbnailURL } from "../components/images";
 import { addTile, tile, tileGrid } from "../components/tiles";
 import { isOpen } from "../openinghours";
-import { page } from "./page";
+import { overviewPage, page } from "./page";
 import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
 
 interface RestaurantDetail extends Restaurant {
@@ -47,7 +48,7 @@ export async function restaurantsPage(app: App): Promise<HTMLElement> {
 
   const create = app.session.isAuthenticated ? "/restaurants/new" : "/account";
 
-  return page(
+  return overviewPage(
     t.t("nav.restaurants"),
     tileGrid(addTile(create, t.t("restaurant.new")), ...tiles.map((data) => render(app, data))),
   );
@@ -71,9 +72,11 @@ function render(app: App, data: TileData): HTMLElement {
   const { t } = app;
 
   return tile(
-    { href: `/restaurants/${data.restaurant.id}` },
-    logo(data.restaurant, t.t("image.current")),
-    el("strong", { class: "tile-title", text: data.restaurant.name }),
+    {
+      href: `/restaurants/${data.restaurant.id}`,
+      title: data.restaurant.name,
+      media: logo(app, data.restaurant),
+    },
     el("span", { class: "muted", text: data.contact?.value ?? t.t("restaurant.no_contact") }),
     el("span", {
       class: "muted",
@@ -88,15 +91,25 @@ function render(app: App, data: TileData): HTMLElement {
   );
 }
 
-/** The logo, or a neutral placeholder. */
-function logo(restaurant: Restaurant, alt: string): HTMLElement {
+/**
+ * The restaurant's logo, or ours.
+ *
+ * A restaurant nobody has given a picture to used to get an empty dashed box,
+ * which read as a missing image rather than as a restaurant. The doenerstag
+ * mark says the same thing and looks deliberate.
+ */
+function logo(app: App, restaurant: Restaurant): HTMLElement {
   if (!restaurant.logo_image_id) {
-    return el("div", { class: "tile-logo tile-logo-empty", "aria-hidden": "true" });
+    return el(
+      "div",
+      { class: "tile-logo tile-logo-fallback" },
+      logoMark({ label: app.t.t("app.name") }),
+    );
   }
   return el("img", {
     class: "tile-logo",
     src: thumbnailURL(restaurant.logo_image_id),
-    alt,
+    alt: app.t.t("image.current"),
     loading: "lazy",
   });
 }

@@ -52,6 +52,11 @@ async function buildScripts() {
     // TypeScript sources to every visitor.
     sourcemap: watch ? "inline" : false,
     minify: !watch,
+    // The logo is imported as text and parsed into the DOM at runtime, which is
+    // what lets one file serve both themes: `currentColor` needs the mark to be
+    // part of the page, and an <img> is a separate document that inherits no
+    // colour from it. See src/logo.ts.
+    loader: { ".svg": "text" },
     logLevel: "info",
   };
 

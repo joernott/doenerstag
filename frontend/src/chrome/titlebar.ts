@@ -5,6 +5,7 @@
 
 import type { App } from "../app";
 import { el, icon } from "../dom";
+import { logoMark } from "../logo";
 import { languages } from "../i18n";
 
 /** Builds the title bar. */
@@ -35,29 +36,13 @@ export function renderTitleBar(app: App): HTMLElement {
 /**
  * The logo.
  *
- * A drawn mark rather than an image file: it has to work in both themes and at
- * the size of a favicon, and `currentColor` does that without shipping two
- * assets. It is a doner in the abstract -- a spit and a wrap -- and nobody
- * needs to recognise it for the application to work.
+ * The real mark now, from assets/doenerstag.svg, in place of the four strokes
+ * that stood in for it. It is inlined rather than referenced, so the frame and
+ * the calendar text follow the title bar's own colour and one file serves both
+ * themes -- see src/logo.ts. The `.logo` class keeps the size it had.
  */
-function logo(): SVGSVGElement {
-  const ns = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("class", "logo");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "1.75");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-
-  for (const data of ["M12 3v18", "M7 6a5 9 0 0 1 10 0", "M6 12h12", "M7 18a5 9 0 0 0 10 0"]) {
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", data);
-    svg.appendChild(path);
-  }
-  return svg;
+function logo(): Element {
+  return logoMark({ class: "logo" });
 }
 
 /**

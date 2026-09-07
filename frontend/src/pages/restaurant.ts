@@ -5,16 +5,17 @@
 // administrator's, and only the administrator is offered it.
 
 import type { App } from "../app";
-import { api, errorMessage } from "../api";
-import { el, type Child } from "../dom";
+import { api, errorMessage, getList } from "../api";
+import { el } from "../dom";
 import { formatWeekday, moneyInputValue, parseMoney } from "../format";
 import { button, field, form, input, select, textarea } from "../components/forms";
 import { confirmDialog } from "../components/modal";
 import { imageField } from "../components/images";
 import { referenceName } from "../i18n";
 import { minorUnitOf, referenceData, type ReferenceData } from "../reference";
+import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, page, section, statusLine } from "./page";
+import { actions, page, pageWithActions, section, statusLine } from "./page";
 
 /** A restaurant as the API sends it. */
 export interface Restaurant {
@@ -72,13 +73,86 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
     return page(t.t("nav.restaurants"), el("p", { class: "field-error", text: errorMessage(t, error) }));
   }
 
-  return page(
+  // Whether anything still points at this restaurant. Deleting one that an
+  // order references is refused with 4003, and finding that out by pressing the
+  // button and reading an error is a worse answer than a button that says so
+  // before it is pressed. The list is small (ADR-0006) and this is one request.
+  const blocking = await getList<{ restaurant_id: string }>("/orders", "orders")
+    .then((orders) => orders.some((order) => order.restaurant_id === restaurant.id))
+    .catch(() => false);
+
+  const data = dataSection(app, reference, restaurant);
+  const header = restaurantControls(app, data, blocking);
+
+  return pageWithActions(
     restaurant.name,
-    dataSection(app, reference, restaurant),
-    contactsSection(app, reference, restaurant),
-    hoursSection(app, restaurant),
-    menuSection(app, reference, restaurant),
+    header,
+    // The menu first: it is what somebody opening a restaurant almost always
+    // came for, and it used to be the section they had to scroll past three
+    // others to reach.
+    tabs(
+      [
+        { id: "menu", label: t.t("restaurant.menu"), panel: menuSection(app, reference, restaurant) },
+        { id: "data", label: t.t("restaurant.data"), panel: data.element },
+        {
+          id: "contacts",
+          label: t.t("restaurant.contacts"),
+          panel: contactsSection(app, reference, restaurant),
+        },
+        {
+          id: "hours",
+          label: t.t("restaurant.opening_hours"),
+          panel: hoursSection(app, restaurant),
+        },
+      ],
+      { label: t.t("restaurant.sections"), initial: 0 },
+    ),
   );
+}
+
+/**
+ * Save and Delete, on the title's line.
+ *
+ * Save belongs to the restaurant, not to the tab that happens to hold its
+ * fields, so it sits with the name and stays reachable from any tab. It is
+ * faded until something has actually changed: a Save that is always available
+ * says nothing about whether there is anything to save.
+ *
+ * Delete is faded rather than hidden when it cannot be used, which is a
+ * departure from the rule in docs/06_ui_ux.md about not showing controls that
+ * would be refused. The difference is that this one explains itself: its title
+ * says whether the obstacle is the permission or an order still pointing at the
+ * restaurant, and that is more useful than the button silently not being there.
+ */
+function restaurantControls(app: App, data: DataSection, blocking: boolean): HTMLElement {
+  const { t } = app;
+
+  const save = button({ label: t.t("action.save"), variant: "primary" });
+  save.disabled = true;
+  save.addEventListener("click", () => {
+    void data.save();
+  });
+  data.onDirtyChange((dirty) => {
+    save.disabled = !dirty;
+  });
+
+  const why = !app.session.isAdmin
+    ? t.t("restaurant.delete.admin_only")
+    : blocking
+      ? t.t("restaurant.delete.in_use")
+      : "";
+
+  const remove = button({
+    label: t.t("restaurant.delete"),
+    variant: "danger",
+    ...(why ? { title: why } : {}),
+    onclick: () => {
+      void data.remove();
+    },
+  });
+  remove.disabled = why !== "";
+
+  return el("div", { class: "page-heading-actions" }, save, remove);
 }
 
 // --- creating ----------------------------------------------------------------
@@ -150,11 +224,27 @@ function createPage(app: App, reference: ReferenceData): HTMLElement {
 
 // --- the restaurant itself ---------------------------------------------------
 
+/**
+ * The restaurant's own fields, and the two operations that act on the whole of
+ * it.
+ *
+ * Save and Delete are handed back rather than rendered here: they live on the
+ * page heading now, so that they are reachable whichever tab is open. What the
+ * section keeps is the knowledge of *when* saving is worth offering, which is
+ * why it reports its dirty state rather than exposing its inputs.
+ */
+interface DataSection {
+  element: HTMLElement;
+  save(): Promise<void>;
+  remove(): Promise<void>;
+  onDirtyChange(listen: (dirty: boolean) => void): void;
+}
+
 function dataSection(
   app: App,
   reference: ReferenceData,
   restaurant: RestaurantDetail,
-): HTMLElement {
+): DataSection {
   const { t } = app;
   const status = statusLine();
   let minorUnit = minorUnitOf(reference.currencies, restaurant.currency_code);
@@ -188,8 +278,38 @@ function dataSection(
     limits: app.version,
     onChange: (id) => {
       logoImageId = id;
+      touched();
     },
   });
+
+  // --- has anything changed? ---------------------------------------------
+  //
+  // Compared against a snapshot rather than tracked with a flag, so typing a
+  // character and deleting it again leaves Save disabled: "dirty" should mean
+  // the form differs from what was loaded, not that somebody touched a key.
+  const snapshot = (): string =>
+    JSON.stringify([
+      name.value.trim(),
+      currency.value,
+      minimum.value.trim(),
+      fee.value.trim(),
+      notes.value.trim(),
+      logoImageId,
+    ]);
+
+  let saved = snapshot();
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const touched = (): void => {
+    const dirty = snapshot() !== saved;
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+
+  for (const control of [name, currency, minimum, fee, notes]) {
+    control.addEventListener("input", touched);
+    control.addEventListener("change", touched);
+  }
 
   // Changing the currency changes what the two money fields mean, so they are
   // re-rendered in the new currency's minor unit rather than silently keeping
@@ -203,11 +323,8 @@ function dataSection(
     minorUnit = next;
   });
 
-  const submit = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
   async function save(): Promise<void> {
     status.clear();
-    submit.disabled = true;
     try {
       await api.patch(`/restaurants/${restaurant.id}`, {
         name: name.value.trim(),
@@ -219,10 +336,12 @@ function dataSection(
       });
       status.say(t.t("state.saved"));
       document.title = `${name.value.trim()} — doenerstag`;
+      // What was just written becomes the new baseline, so Save goes quiet
+      // again until something else changes.
+      saved = snapshot();
+      touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
     }
   }
 
@@ -246,21 +365,11 @@ function dataSection(
     }
   }
 
-  const controls: Child[] = [submit];
-  if (app.session.isAdmin) {
-    controls.push(
-      button({
-        label: t.t("restaurant.delete"),
-        variant: "danger",
-        onclick: () => {
-          void remove();
-        },
-      }),
-    );
-  }
-
-  return section(
+  const element = section(
     t.t("restaurant.data"),
+    // Still a form, so Enter in a field saves: the button that submits it is on
+    // the page heading rather than in here, which a form is perfectly happy
+    // with.
     form(
       () => {
         void save();
@@ -283,10 +392,18 @@ function dataSection(
         control: notes,
         optionalLabel: t.t("auth.optional"),
       }),
-      actions(...controls),
       status.element,
     ),
   );
+
+  return {
+    element,
+    save,
+    remove,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+  };
 }
 
 /** A currency selector, showing each currency's translated name and symbol. */
@@ -482,7 +599,11 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
 
     // "Crosses midnight" is a hint, not an error: a kebab shop that closes at
     // 02:00 is the normal case, not a mistake (F3.3).
-    const hint = el("span", { class: "hint-inline" });
+    //
+    // Its column is always there, empty or not. The note appearing and
+    // disappearing used to push the row's controls sideways as the times were
+    // typed, so a list of opening hours never settled into a shape.
+    const hint = el("span", { class: "hint-inline hours-hint" });
     const updateHint = (): void => {
       hint.textContent = end.value < start.value ? t.t("restaurant.crosses_midnight") : "";
     };
@@ -496,15 +617,18 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
       end,
       element: el(
         "div",
-        { class: "row" },
+        { class: "row hours-row" },
         field({ label: t.t("restaurant.hours.day"), control: day }),
         field({ label: t.t("restaurant.hours.from"), control: start }),
         field({ label: t.t("restaurant.hours.to"), control: end }),
         hint,
         actions(
           button({
+            // Red, like every other remove in the application. It was the one
+            // that was not, which made it read as the odd one out rather than
+            // as the same action.
             label: t.t("action.remove"),
-            variant: "quiet",
+            variant: "danger",
             onclick: () => {
               const index = rows.indexOf(row);
               if (index >= 0) {

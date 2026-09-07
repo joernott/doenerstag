@@ -105,6 +105,14 @@ const iconPaths: Record<string, string[]> = {
   logout: ["M9 20H5V4h4", "M15 16l4-4-4-4", "M19 12H9"],
   plus: ["M12 5v14", "M5 12h14"],
   user: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21a8 8 0 0 1 16 0"],
+  pencil: ["M12 20h9", "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"],
+  trash: [
+    "M3 6h18",
+    "M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",
+    "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+    "M10 11v6",
+    "M14 11v6",
+  ],
 };
 
 /** The name of every icon, so a test can assert none is missing. */

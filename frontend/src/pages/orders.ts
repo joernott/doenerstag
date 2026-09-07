@@ -6,12 +6,13 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
-import { el, type Child } from "../dom";
-import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
+import { el, icon, type Child } from "../dom";
+import { formatDateTime, formatRelativeTime } from "../format";
+import { logoMark } from "../logo";
 import { thumbnailURL } from "../components/images";
-import { addTile, tile, tileGrid } from "../components/tiles";
-import { minorUnitOf, referenceData } from "../reference";
-import { page } from "./page";
+import { confirmDialog } from "../components/modal";
+import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
+import { overviewPage, page, statusLine, type StatusLine } from "./page";
 
 /** The order header, which every caller receives. */
 export interface OrderHeader {
@@ -77,12 +78,12 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
     return page(t.t("nav.orders"), el("p", { class: "field-error", text: errorMessage(t, error) }));
   }
 
-  // The tile shows a participant count and a total for a logged-in visitor, and
-  // the list carries neither -- it carries no item data for anybody
-  // (ADR-0011). They are fetched per order, in parallel, and only when there is
-  // somebody entitled to see them. The alternative would be a second, aggregate
-  // total computed in SQL, which could then disagree with the one on the order
-  // page; one arithmetic is worth several requests at this scale.
+  // Whether this visitor takes part in each order, which decides whether the
+  // tile offers its summary. The list carries no item data for anybody
+  // (ADR-0011), so it cannot answer that, and the order itself is fetched per
+  // entry and in parallel to find out. Affordable at the scale ADR-0006
+  // assumes; the tiles no longer show a participant count or a total, so this
+  // is the only thing the extra request still buys.
   const details = app.session.isAuthenticated
     ? await Promise.all(
         orders.map((order) =>
@@ -91,31 +92,43 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
       )
     : orders.map(() => null);
 
-  const currencies = await referenceData()
-    .then((reference) => reference.currencies)
-    .catch(() => []);
+  // One status line for the page rather than one per tile: the only thing that
+  // reports here is a failed deletion, and a message under the heading is where
+  // somebody will look for it.
+  const status = statusLine();
 
   const create = app.session.isAuthenticated ? "/orders/new" : "/account";
   const tiles = orders.map((order, index) =>
-    orderTile(app, order, details[index] ?? null, minorUnitOf(currencies, order.currency_code)),
+    orderTile(app, order, details[index] ?? null, status),
   );
 
-  return page(t.t("nav.orders"), tileGrid(addTile(create, t.t("order.new")), ...tiles));
+  return overviewPage(
+    t.t("nav.orders"),
+    status.element,
+    tileGrid(addTile(create, t.t("order.new")), ...tiles),
+  );
 }
 
+/**
+ * One order tile.
+ *
+ * What it shows is deliberately thin: the restaurant, when the food arrives and
+ * when the order closes. The item count, the participant count, the running
+ * total and who opened it all used to be here and are not any more -- they are
+ * on the order itself, which is one click away, and a grid of tiles is a place
+ * to choose from rather than a place to read from.
+ */
 function orderTile(
   app: App,
   order: OrderListEntry,
   detail: OrderDetail | null,
-  minorUnit: number,
+  status: StatusLine,
 ): HTMLElement {
   const { t } = app;
   const active = isActive(order);
   const parts: Child[] = [];
 
   parts.push(
-    logo(order),
-    el("strong", { class: "tile-title", text: order.title }),
     el("span", {
       class: "muted",
       text: `${t.t(
@@ -138,34 +151,16 @@ function orderTile(
     ),
   );
 
-  // The item count is shown to everyone; it is not item data (F1.2).
-  parts.push(el("span", { text: t.t("order.items", { count: order.item_count }) }));
-
-  if (detail) {
-    const participants = new Set(detail.items.map((item) => item.user_id));
-    parts.push(
-      el("span", { class: "muted", text: t.t("order.participants", { count: participants.size }) }),
-      el("span", {
-        text: formatMoney(app.language, detail.grand_total_cents, order.currency_code, minorUnit),
-      }),
-    );
-  }
-
-  if (order.creator_name) {
-    parts.push(
-      el("span", { class: "muted", text: `${t.t("order.creator")}: ${order.creator_name}` }),
-    );
-  }
-
   // Faded expired orders also say so in words: opacity is not information.
   if (!active) {
     parts.push(el("span", { class: "badge", text: t.t("order.status.expired") }));
   }
 
-  // The summary, for participants only (F1.3), and outside the tile's link
-  // rather than inside it: a link within a link is not a thing a browser can
-  // make sense of. Expired orders keep it -- the summary is what somebody
-  // settling up afterwards actually wants.
+  // The summary is for participants (F1.3): the creator, anybody holding an
+  // item, and the administrator. Offering it to somebody the summary page would
+  // refuse is exactly what docs/06_ui_ux.md says not to do, and participation is
+  // the one thing the list endpoint cannot tell us -- it carries no item data
+  // for anybody (ADR-0011) -- so the detail fetched above decides it.
   const me = app.session.user?.id;
   const participant =
     detail !== null &&
@@ -174,31 +169,122 @@ function orderTile(
       detail.creator_id === me ||
       detail.items.some((item) => item.user_id === me));
 
+  const controls: Child[] = [];
+  if (participant) {
+    controls.push(
+      el("a", {
+        class: "button button-quiet",
+        href: `/orders/${order.id}/summary`,
+        text: t.t("order.summary"),
+      }),
+    );
+  }
+
+  // The creator's own controls, as icons: a grid of tiles has no room for three
+  // words per tile, and a pencil and a bin are the two icons everybody already
+  // knows. Each still carries a name for a screen reader and a tooltip for a
+  // pointer. Editing is offered only while the order is open, because F6.6
+  // makes an expired order read-only for everybody including its creator, and a
+  // control that cannot be used is not shown at all.
+  const mine = me !== undefined && order.creator_id === me;
+  if (mine && active) {
+    controls.push(
+      iconLink(`/orders/${order.id}`, "pencil", t.t("order.edit")),
+      iconButton("trash", t.t("order.delete"), "button-danger", () => {
+        void removeOrder(app, order, detail, status);
+      }),
+    );
+  }
+
   return tile(
     {
       href: `/orders/${order.id}`,
+      title: order.title,
       faded: !active,
-      ...(participant
-        ? {
-            footer: el(
-              "div",
-              { class: "tile-footer" },
-              el("a", {
-                class: "button button-quiet",
-                href: `/orders/${order.id}/summary`,
-                text: t.t("order.summary"),
-              }),
-            ),
-          }
-        : {}),
+      media: logo(order, t),
+      ...(controls.length > 0 ? { actions: tileActions(...controls) } : {}),
     },
     ...parts,
   );
 }
 
-function logo(order: OrderHeader): HTMLElement {
+/** A square icon control that leads somewhere. */
+function iconLink(href: string, name: string, label: string): HTMLElement {
+  return el("a", { class: "button button-icon", href, "aria-label": label, title: label }, icon(name));
+}
+
+/** A square icon control that does something. */
+function iconButton(
+  name: string,
+  label: string,
+  variant: string,
+  onclick: () => void,
+): HTMLElement {
+  return el(
+    "button",
+    { type: "button", class: `button button-icon ${variant}`, "aria-label": label, title: label, onclick },
+    icon(name),
+  );
+}
+
+/**
+ * Deleting an order from its tile.
+ *
+ * Asks first, and reloads rather than removing the tile by hand: the page is
+ * cheap to rebuild and a tile spliced out of a grid that the server has since
+ * reordered is a page that disagrees with itself.
+ */
+async function removeOrder(
+  app: App,
+  order: OrderListEntry,
+  detail: OrderDetail | null,
+  status: StatusLine,
+): Promise<void> {
+  const { t } = app;
+
+  // The same warning the order page gives: deleting an order takes everybody
+  // else's items with it, and the number of other people affected is the fact
+  // that decides whether somebody goes through with it.
+  const others = new Set(
+    (detail?.items ?? [])
+      .filter((item) => item.user_id !== app.session.user?.id)
+      .map((item) => item.user_id),
+  );
+
+  const agreed = await confirmDialog({
+    t,
+    message: t.t("confirm.delete_order"),
+    ...(others.size > 0
+      ? { detail: t.t("confirm.delete_order.participants", { count: others.size }) }
+      : {}),
+    confirmLabel: t.t("action.delete"),
+  });
+  if (!agreed) {
+    return;
+  }
+
+  try {
+    await api.delete(`/orders/${order.id}`);
+    app.router.refresh();
+  } catch (error) {
+    status.fail(errorMessage(t, error));
+  }
+}
+
+/**
+ * The restaurant's logo, or ours.
+ *
+ * A restaurant nobody has given a picture to used to get an empty dashed box,
+ * which read as a missing image rather than as a restaurant. The doenerstag
+ * mark says the same thing and looks deliberate.
+ */
+function logo(order: OrderHeader, t: App["t"]): HTMLElement {
   if (!order.restaurant_logo_image_id) {
-    return el("div", { class: "tile-logo tile-logo-empty", "aria-hidden": "true" });
+    return el(
+      "div",
+      { class: "tile-logo tile-logo-fallback" },
+      logoMark({ label: t.t("app.name") }),
+    );
   }
   return el("img", {
     class: "tile-logo",

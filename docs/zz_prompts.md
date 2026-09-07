@@ -580,3 +580,45 @@ recorded on the branch of the sprint it belongs to.
 > makes the light gray text almost unreadable. When hovering, the text should
 > turn orange (the same color as the button itself held before). That way we
 > still have enough contrast.
+
+---
+
+### Prompt 37
+
+> More modifications:
+> Global:
+> - I placed two SVG graphics (doenerstag_dark and doenerstag_bright) into
+>   contrib. Please use them as logo in the title bar. You can move them to the
+>   appropriate place. As they only differ in the color of the border and text,
+>   you might be able to use only one of them if you can make the color
+>   customizable. The size of the logo should not change too much
+> - In the tile used to add new orders and new restaurants, make the + sign
+>   approximately 75% the size of the tile
+> - If possible, show a very faded version of the doenerstag logo centered and
+>   scaled up to 80% of the height on the background of the overview pages
+> On the order overview page:
+> - there is a summary button, partially hidden behind the tiles. It points to
+>   the ordeer Pinar_mtq94gr8338 where I added one entry myself. That button
+>   should only be visible when showing the order but on that page, it is not
+>   visible at all.
+> - remvove the number of positions and participants as well as the total amount
+>   from the tiles on the overview page as well as the creator
+> - Add a "Summary" button inside each tile and if the creator is the currently
+>   logged in user, also show an edit button (only using a pencil) and a delete
+>   button, only using a trashcan icon
+> - If a restaurant has no logo, show the doenerstag logo instead
+> On the restaurant overview page:
+> - If a restaurant has no logo, show the doenerstag logo instead
+> On the restaurant page:
+> - Use a tabbed design instead of showing tiles in a long scroll list. The tab
+>   "Menu" should be the first tab when showing an already existing restaurant.
+> - Add a red delete button on the same height as the title. but aligned to the
+>   right border of the tile containing the tabs. If a restaurant can't be
+>   deleted, fade it.
+> - Move the save button to the same height as the restaurant title, left of the
+>   delete button Fade it as long as there are no changes to the restaurant data
+> - Use a more compact design for the opening hours: The dropdowns should be max
+>   10% larger than the largest text. Always reserve space for the "past
+>   midnight" note to achieve a more uniform design.
+> - The remove button for tjhe opening hours should be red like the other remove
+>   buttons
