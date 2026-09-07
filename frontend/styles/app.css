@@ -490,6 +490,32 @@ a {
   color: var(--danger-text);
 }
 
+/* A coloured button inverts on hover; it does not merely lose its background.
+ *
+ * `.button:hover` above swaps the background for the sunken surface, and it
+ * outranks `.button-primary` -- three selectors against one -- so it applied to
+ * these two as well and took the background away while leaving the text set to
+ * `--accent-text` or `--danger-text`. Those are chosen to sit on the accent, so
+ * the result was near-black on near-black in the dark theme and white on light
+ * grey in the light one: the label vanished exactly while the pointer was on
+ * it.
+ *
+ * Turning the text the colour the button just was keeps the pair legible and
+ * makes the hovered state read as the outlined version of the same button --
+ * the border is already accent-coloured and untouched by the hover rule. The
+ * four combinations measure 9.2:1 and 4.9:1 for the accent, 6.9:1 and 5.5:1
+ * for the danger colour, dark and light respectively, so all of them clear AA.
+ *
+ * axe could not have caught this: it scans a page at rest, and nothing is
+ * hovered in a page at rest. */
+.button-primary:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.button-danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
 .button-quiet {
   border-color: var(--border);
   background: transparent;

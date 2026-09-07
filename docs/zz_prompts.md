@@ -562,3 +562,21 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 34
 
 > please continue
+
+---
+
+### Prompt 35
+
+> I have mounted the doenerstag folder into the VM as /home/doener/doenerstag,
+> so you don't need to copy any content of the folder to the VM. Please start
+> the application in the VM using the static folder and not the embedded one.
+
+---
+
+### Prompt 36
+
+> Using the dark schema, the orange buttons turn black when hovering over them.
+> That makes the black text unreadable. In light mode, they turn white. That
+> makes the light gray text almost unreadable. When hovering, the text should
+> turn orange (the same color as the button itself held before). That way we
+> still have enough contrast.

@@ -119,3 +119,73 @@ test.describe("every page passes axe in both themes", () => {
     await scan(page, "the menu item editor");
   });
 });
+
+/**
+ * The WCAG 2.1 contrast ratio between two colours, each as the browser reports
+ * a computed style: `rgb(r, g, b)`.
+ */
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (colour: string): number => {
+    const parts = colour.match(/\d+(\.\d+)?/g);
+    if (!parts || parts.length < 3) {
+      throw new Error(`cannot read the colour ${colour}`);
+    }
+    const channels = parts.slice(0, 3).map((value) => {
+      const srgb = Number(value) / 255;
+      return srgb <= 0.03928 ? srgb / 12.92 : Math.pow((srgb + 0.055) / 1.055, 2.4);
+    }) as [number, number, number];
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+
+  const a = luminance(foreground);
+  const b = luminance(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+/** What the browser actually paints for an element right now. */
+async function paintedColours(page: Page, selector: string): Promise<[string, string]> {
+  return page.evaluate((sel) => {
+    const element = document.querySelector(sel);
+    if (!element) {
+      throw new Error(`no ${sel} on the page`);
+    }
+    const style = getComputedStyle(element);
+    return [style.color, style.backgroundColor] as [string, string];
+  }, selector);
+}
+
+// A button has to stay readable while the pointer is on it.
+//
+// axe cannot answer this: it scans a page at rest, and nothing is hovered in a
+// page at rest. The generic `.button:hover` rule takes the background away, and
+// it outranks `.button-primary`, so for fourteen sprints hovering a primary
+// button left its label set to a colour chosen to sit on the accent -- against
+// the sunken surface instead. Near-black on near-black in the dark theme, white
+// on light grey in the light one. Reported by the user looking at the running
+// application, which is the only way it was ever going to be found.
+test.describe("a coloured button stays readable under the pointer", () => {
+  for (const theme of THEMES) {
+    test(`the primary button in the ${theme} theme`, async ({ page }) => {
+      await page.goto("/account");
+      await useTheme(page, theme);
+
+      const selector = "button.button-primary";
+      const target = page.locator(selector).first();
+      await expect(target).toBeVisible();
+
+      const [restText, restBackground] = await paintedColours(page, selector);
+      expect(
+        contrastRatio(restText, restBackground),
+        `at rest the label is ${restText} on ${restBackground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+
+      await target.hover();
+
+      const [hoverText, hoverBackground] = await paintedColours(page, selector);
+      expect(
+        contrastRatio(hoverText, hoverBackground),
+        `hovered the label is ${hoverText} on ${hoverBackground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
