@@ -31,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+      build_date: ${{ steps.version.outputs.build_date }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,12 +60,19 @@ jobs:
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           go install github.com/google/go-licenses@latest
 
+      # One source for all three stamps. `make version` prints them in the same
+      # form the Makefile hands to -ldflags, so the image, the packages and the
+      # archives cannot disagree about what they are.
       - name: The version this tag builds
         id: version
         run: |
-          version=$(make version | awk '{print $1}')
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "building $version"
+          read -r version commit build_date <<<"$(make version | tr -d '()')"
+          {
+            echo "version=$version"
+            echo "commit=$commit"
+            echo "build_date=$build_date"
+          } >> "$GITHUB_OUTPUT"
+          echo "building $version ($commit) $build_date"
 
       - name: The licence file is current
         run: ./scripts/licenses.sh --check
@@ -200,7 +209,8 @@ jobs:
             docker.io/joernott/doenerstag:latest
           build-args: |
             VERSION=${{ needs.artefacts.outputs.version }}
-            COMMIT=${{ github.sha }}
+            COMMIT=${{ needs.artefacts.outputs.commit }}
+            BUILD_DATE=${{ needs.artefacts.outputs.build_date }}
           provenance: false
 
       - name: The image runs
