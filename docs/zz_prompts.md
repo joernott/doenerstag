@@ -404,3 +404,62 @@ recorded on the branch of the sprint it belongs to.
 > add the prompts belonging to sprint 1 to the sprint-1 branch, merge that into
 > sprint-2 and then add the prompts belonging to sprint 2 there as well. I'd like
 > to keep a history of all prompts in that file to document the process.
+
+### Prompt 13
+
+> The windows test fails, reporting the error
+>
+> ```
+> # .out
+> no required module provides package .out; to add it:
+>         go get .out
+> FAIL    .out [setup failed]
+> ```
+>
+> when running `go test -coverprofile=windows-coverage.out ./...`
+
+### Prompt 14
+
+> The CI task ran successfully:
+> https://github.com/joernott/doenerstag/actions/runs/34016806972
+
+---
+
+## Sprint 3
+
+### Prompt 15
+
+> Please continue with sprint 3
+
+### Prompt 16
+
+> Please continue
+
+### Prompt 17
+
+> please push sprint-3 and check, if the CI runs successfully. If that is the
+> case, please continue with the remaining tasks. If a CI run breaks, you can
+> always ask me to point you to the web page containing the logs.
+
+### Prompt 18
+
+> Please continue with the remaining steps
+
+---
+
+## Sprint 4
+
+### Prompt 19
+
+> Please update the documentation to state that there are now five
+> forbidden-on-the-command-line settings. Then continue with the implementation
+> of sprint 4.
+
+### Prompt 20
+
+> yes, please continue with the remaining steps
+
+### Prompt 21
+
+> Please build and run the application on the VM. I want to access is myself
+> using my browser

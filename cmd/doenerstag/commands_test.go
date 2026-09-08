@@ -11,7 +11,7 @@ import (
 
 // Every documented verb.
 var expectedVerbs = map[string]string{
-	"server":  "4.8",
+	"server":  "",
 	"install": "",
 	"update":  "14.4",
 	"cleanup": "9.7",
@@ -19,9 +19,9 @@ var expectedVerbs = map[string]string{
 }
 
 // stubTasks names the verbs still waiting on a later sprint, and the task that
-// will deliver each. install and version are implemented, so they are absent.
+// will deliver each. server, install and version are implemented, so they are
+// absent.
 var stubTasks = map[string]string{
-	"server":  "4.8",
 	"update":  "14.4",
 	"cleanup": "9.7",
 }
@@ -87,7 +87,7 @@ func TestEveryStubFailsCleanlyWithItsTaskNumber(t *testing.T) {
 // install and version are implemented. Without a database they must still fail
 // cleanly and say something, rather than crashing or claiming to be a stub.
 func TestImplementedVerbsFailCleanlyWithoutADatabase(t *testing.T) {
-	for _, verb := range []string{"install", "version"} {
+	for _, verb := range []string{"server", "install", "version"} {
 		stdout := &bytes.Buffer{}
 		stderr := &bytes.Buffer{}
 

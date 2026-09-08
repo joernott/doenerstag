@@ -1,8 +1,9 @@
 # doenerstag build entry point.
 #
-# Targets that need the Node toolchain are stubbed until sprint 4 (task 4.7).
-# See docs/08_technologies.md for the full target list and docs/14_implementation_plan.md
-# for what is implemented so far.
+# The frontend targets shell out to npm in frontend/, so `make release` needs
+# the Node toolchain installed; `make build` does not, because a development
+# binary serves its assets from --static-dir rather than carrying them.
+# See docs/08_technologies.md for the full target list.
 
 SHELL := /bin/sh
 
@@ -11,8 +12,14 @@ CMD         := ./cmd/doenerstag
 DIST        := dist
 
 # Version reported by `doenerstag --version` and stamped into the binary.
-# Derived from git; falls back to 0.0.0-dev outside a repository.
-VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
+#
+# It must be major.minor.patch, because install records it in app_version and
+# update compares against it. --always is deliberately absent: in a repository
+# with no tags it returns the bare commit hash, which built a binary whose
+# install verb failed after it had already created the database. Falling back
+# to 0.0.0-dev is right for an untagged build, and the hash is not lost -- it
+# is stamped separately as COMMIT.
+VERSION     ?= $(shell v=$$(git describe --tags --match 'v[0-9]*' --dirty 2>/dev/null | sed 's/^v//'); echo $${v:-0.0.0-dev})
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -47,8 +54,8 @@ deps: ## Download Go and frontend dependencies
 	@$(MAKE) --no-print-directory deps-frontend
 
 .PHONY: deps-frontend
-deps-frontend:
-	@echo "deps-frontend: not implemented until task 4.7 (npm ci in frontend/)"
+deps-frontend: ## Install the frontend toolchain
+	cd frontend && npm ci
 
 # --- build -------------------------------------------------------------------
 
@@ -62,11 +69,11 @@ release: frontend ## Build a release binary with the frontend embedded
 
 .PHONY: frontend
 frontend: ## Build the frontend into static/
-	@echo "frontend: not implemented until task 4.7 (esbuild + Tailwind into static/)"
+	cd frontend && npm run build
 
 .PHONY: dev
-dev: ## Frontend watch mode plus a development binary
-	@echo "dev: not implemented until task 4.7"
+dev: build ## Frontend watch mode plus a development binary
+	cd frontend && npm run watch
 
 # --- quality -----------------------------------------------------------------
 
