@@ -340,6 +340,59 @@ tests see the same world.
 Fixtures are built through the API where possible, not by direct `INSERT`, so
 that they exercise validation on the way in.
 
+## The development mail and directory server
+
+`contrib/setup_dev_pipeline.sh` installs [mokapi](https://mokapi.io) and runs it
+as a service. It is an SMTP and IMAP server that accepts everything and delivers
+nothing, plus an LDAP server, and it exists so that the mail this application
+sends can be watched arriving rather than reasoned about.
+
+| Service   | Address              | Credentials                                    |
+| --------- | -------------------- | ---------------------------------------------- |
+| SMTP      | `localhost:2525`     | `doenerstag` / `doenerstag-development-only`   |
+| IMAP      | `localhost:1143`     | `probe` / `probe-development-only`             |
+| LDAP      | `localhost:3389`     | `uid=probe,ou=people,dc=doener,dc=test`        |
+| Dashboard | `http://localhost:8080` | none                                        |
+
+Every password there is in this repository and in the script that writes them,
+which is the point: they are development credentials for a server that reaches
+nothing. Nothing about mokapi belongs in a production configuration.
+
+To point a development server at it:
+
+```yaml
+mail:
+  host: "localhost"
+  port: 2525
+  username: "doenerstag"
+  password: "doenerstag-development-only"
+  from: "doenerstag@doener.test"
+  encryption: "none"
+```
+
+`encryption: none` because mokapi offers STARTTLS with a certificate from its
+own self-signed authority, which nothing on the machine trusts. That is
+acceptable on loopback to a mock and nowhere else.
+
+**No test requires it.** The Go tests for `internal/mail` speak SMTP to an
+in-process fake, because a test that needs a service running is a test that does
+not run on a laptop during `make test`. mokapi is for the end-to-end check of the
+reset flow, and for looking at what a message actually says.
+
+Three things about mokapi are worth knowing before editing
+`/etc/mokapi/conf.d/`, because its own documentation says otherwise and the
+files the script writes depend on being right:
+
+- The reject-response field is `message`. The documented `text` is the legacy
+  `smtp: 1.0` schema and is silently ignored by `mail: '1.0'`.
+- `allowUnknownSenders` is case-sensitive. The documented `AllowUnknownSenders`
+  is dropped by the YAML parser without a word.
+- `maxInboxMails` defaults to unlimited, not to the documented 100: the 100 is
+  used only when the settings block is absent altogether.
+
+An LDAP entry with no `userPassword` binds successfully with **any** password,
+so every entry in `doener.ldif` has one.
+
 ## Continuous integration
 
 Every push and pull request runs these jobs, in parallel except where one needs
