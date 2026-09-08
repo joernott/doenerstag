@@ -111,6 +111,7 @@ falls back to `message` when no translation exists.
 | 3002 | 403  | Only the owner may change this order item.                      |
 | 3003 | 403  | The deleted-user placeholder cannot be modified.                |
 | 3004 | 403  | Only participants of this order may see its summary.            |
+| 3005 | 403  | Only the owner of this resource may act on it.                   |
 | 4000 | 404  | Resource not found.                                             |
 | 4001 | 409  | Order deadline has passed; the order is read-only.              |
 | 4002 | 409  | The restaurant cannot be changed once the order has items.      |

@@ -56,6 +56,7 @@ const (
 	CodeNotItemOwner        Code = 3002
 	CodePlaceholderReadOnly Code = 3003
 	CodeNotParticipant      Code = 3004
+	CodeNotOwner            Code = 3005
 
 	// Resource state.
 	CodeNotFound         Code = 4000
@@ -112,6 +113,7 @@ var registry = map[Code]definition{
 	CodeNotItemOwner:        {http.StatusForbidden, "only the owner may change this order item"},
 	CodePlaceholderReadOnly: {http.StatusForbidden, "the deleted-user placeholder cannot be modified"},
 	CodeNotParticipant:      {http.StatusForbidden, "only participants of this order may see its summary"},
+	CodeNotOwner:            {http.StatusForbidden, "only the owner of this resource may act on it"},
 
 	CodeNotFound:         {http.StatusNotFound, "resource not found"},
 	CodeOrderClosed:      {http.StatusConflict, "order deadline has passed; the order is read-only"},

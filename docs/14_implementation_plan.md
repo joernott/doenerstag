@@ -234,17 +234,21 @@ exercised in CI.
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
-| 5.1  | `POST /auth/register` with the complexity rules from 3.5                                    | M | [05](05_auth_and_permissions.md) |
-| 5.2  | `POST /auth/login`: session row, JWT issue, single-session replacement, both cookies          | L | [adr/0004](adr/0004-jwt-with-server-side-sessions.md) |
-| 5.3  | Session validation middleware: signature, `exp`, session row, idle and absolute timeouts, `last_seen_at` throttle | L | [05](05_auth_and_permissions.md) |
-| 5.4  | `POST /auth/logout` and `GET /auth/session`                                                  | S | [04](04_api.md) |
-| 5.5  | CSRF double-submit enforcement with constant-time comparison                                  | M | [05](05_auth_and_permissions.md) |
-| 5.6  | Login rate limiting per user name and per client address                                      | M | [05](05_auth_and_permissions.md) |
-| 5.7  | API tokens: create, list, revoke, Bearer authentication, CSRF exemption                        | M | [05](05_auth_and_permissions.md) |
-| 5.8  | Authorization helpers: authenticated, owner, creator, participant, admin                       | M | [05](05_auth_and_permissions.md) |
-| 5.9  | `GET`/`PATCH /users/{id}` and the admin user list                                              | M | [04](04_api.md) |
-| 5.10 | Account deletion and `GET /users/{id}/deletion-impact` with the remap and delete rules          | L | [02](02_features.md) |
-| 5.11 | Permission matrix test suite, one case per cell                                                | L | [12](12_testing.md) |
+| ✅ 5.1.1 | `internal/model` domain types, the user/session/token queries in `internal/db`, JWT signing and API token generation in `internal/auth` | L | [03](03_data_model.md) |
+| ✅ 5.1 | `POST /auth/register` with the complexity rules from 3.5                                    | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.2 | `POST /auth/login`: session row, JWT issue, single-session replacement, both cookies          | L | [adr/0004](adr/0004-jwt-with-server-side-sessions.md) |
+| ✅ 5.3 | Session validation middleware: signature, `exp`, session row, idle and absolute timeouts, `last_seen_at` throttle | L | [05](05_auth_and_permissions.md) |
+| ✅ 5.3.1 | Make the request log line see the acting user. `WithUserName` returned a context the outer logging middleware never saw, so the user field would have read `-` on every authenticated request | S | [08](08_technologies.md) |
+| ✅ 5.3.2 | Give session and token timestamps one clock. `last_seen_at` was written by the database and judged against the application clock | S | [05](05_auth_and_permissions.md) |
+| ✅ 5.4 | `POST /auth/logout` and `GET /auth/session`                                                  | S | [04](04_api.md) |
+| ✅ 5.5 | CSRF double-submit enforcement with constant-time comparison                                  | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.6 | Login rate limiting per user name and per client address                                      | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.7 | API tokens: create, list, revoke, Bearer authentication, CSRF exemption                        | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.8 | Authorization helpers: authenticated, owner, creator, participant, admin                       | M | [05](05_auth_and_permissions.md) |
+| ✅ 5.9 | `GET`/`PATCH /users/{id}` and the admin user list                                              | M | [04](04_api.md) |
+| ✅ 5.9.1 | Document error code 3005, a general "not the owner". A profile request was being refused with 3002, "only the owner may change this order item" | S | [04](04_api.md) |
+| ✅ 5.10 | Account deletion and `GET /users/{id}/deletion-impact` with the remap and delete rules          | L | [02](02_features.md) |
+| ✅ 5.11 | Permission matrix test suite, one case per cell                                                | L | [12](12_testing.md) |
 
 **Exit criteria:** the full account lifecycle works through the API. Logging in
 twice invalidates the first session. A cookie-authenticated write without the
