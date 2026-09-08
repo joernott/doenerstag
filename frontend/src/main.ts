@@ -5,8 +5,10 @@
 // routing. Everything else lives in the modules this pulls together.
 
 import { api, type VersionInfo } from "./api";
-import { createApp } from "./app";
+import { createApp, type App } from "./app";
+import { openModal } from "./components/modal";
 import { LANGUAGE_COOKIE, readCookie } from "./cookies";
+import { el } from "./dom";
 import { notFoundPage, routes } from "./pages";
 import { storedTheme } from "./theme";
 
@@ -41,6 +43,60 @@ async function main(): Promise<void> {
   app.version = version;
   app.render();
   app.router.refresh();
+
+  // After the render, so the dialog opens over the application rather than over
+  // an empty shell.
+  announceSessionEnded(app);
 }
 
 void main();
+/**
+ * Says so, when the server reports that the session ended.
+ *
+ * Somebody who left a tab open overnight arrives at a logged-out page they did
+ * not ask for. Before this, the server refused every request that carried the
+ * dead cookie, so they got a JSON error envelope instead of the application and
+ * no way out of it short of clearing cookies by hand. Now they get the
+ * application, anonymous, and one dialog explaining why.
+ *
+ * The message is the translation of the error code, so "your session expired"
+ * and "you were logged in somewhere else" stay distinct -- they call for
+ * different reactions, and the second is worth noticing.
+ */
+function announceSessionEnded(app: App): void {
+  const ended = app.session.takeEndedNotice();
+  if (!ended) {
+    return;
+  }
+
+  const { t } = app;
+  const reason = t.has(`error.${ended.code}`)
+    ? t.t(`error.${ended.code}`)
+    : t.t("session.ended.generic");
+
+  const login = el("button", {
+    type: "button",
+    class: "button button-primary",
+    text: t.t("auth.login"),
+  });
+
+  const dismiss = el("button", {
+    type: "button",
+    class: "button",
+    text: t.t("session.ended.stay"),
+  });
+
+  const handle = openModal({
+    title: t.t("session.ended.title"),
+    body: el("p", { text: reason }),
+    actions: [login, dismiss],
+    closeLabel: t.t("action.close"),
+  });
+
+  login.addEventListener("click", () => {
+    handle.close();
+    app.router.navigate("/account");
+  });
+  dismiss.addEventListener("click", () => handle.close());
+  login.focus();
+}

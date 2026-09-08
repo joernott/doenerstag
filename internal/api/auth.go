@@ -119,12 +119,28 @@ func publicUser(u model.User) userBody {
 	}
 }
 
+// endedBody says why a session stopped working.
+//
+// It is only ever set alongside a null user: the browser held a cookie the
+// server would not accept, and somebody is about to be shown a logged-out
+// page they did not ask for. The code is the one from docs/04_api.md, so the
+// frontend translates it the same way it translates any other.
+type endedBody struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 // sessionBody is what register, login and GET /auth/session return.
 type sessionBody struct {
 	User *userBody `json:"user"`
 	// ExpiresAt is the session's absolute expiry, so the frontend can warn
 	// before it lapses rather than discovering it on the next click.
 	ExpiresAt string `json:"expires_at,omitempty"`
+
+	// Ended is present when the request arrived with a session cookie that no
+	// longer works. The frontend uses it to say so once, rather than leaving
+	// somebody wondering why they are suddenly anonymous.
+	Ended *endedBody `json:"ended,omitempty"`
 }
 
 // register creates an account and logs it straight in.
@@ -392,10 +408,36 @@ func (h *AuthHandlers) logout(w http.ResponseWriter, r *http.Request) {
 // It is the endpoint the frontend calls on load to find out which of the two
 // interfaces to draw, and a 401 there would make "not logged in" an error
 // condition on every first page view.
+//
+// It is also where a session that ended is reported. The authenticate
+// middleware treats a cookie it cannot use as anonymity, because refusing the
+// request would make one stale cookie brick the whole application; it leaves
+// the reason behind, and this is the endpoint that turns it into something the
+// frontend can put in front of a person.
 func (h *AuthHandlers) session(w http.ResponseWriter, r *http.Request) {
 	principal := PrincipalFrom(r.Context())
 	if principal == nil {
-		_ = WriteJSON(w, http.StatusOK, sessionBody{User: nil})
+		body := sessionBody{User: nil}
+		// Two ways to learn of it. The cookie was refused on this very request
+		// -- the frontend was already open and asked again -- or it was refused
+		// on an earlier one, most often the page navigation that loaded the
+		// frontend in the first place, and left a note behind.
+		var (
+			code  Code
+			found bool
+		)
+		if ended := SessionEndedFrom(r.Context()); ended != nil {
+			code, found = ended.Code, true
+		} else {
+			code, found = sessionEndedFromCookie(r)
+		}
+		if found {
+			// Cleared, so the news is delivered exactly once and the next page
+			// view is plain anonymity.
+			clearSessionEndedCookie(w, h.Secure)
+			body.Ended = &endedBody{Code: int(code), Message: code.Message()}
+		}
+		_ = WriteJSON(w, http.StatusOK, body)
 		return
 	}
 

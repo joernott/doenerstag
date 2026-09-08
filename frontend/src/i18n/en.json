@@ -235,6 +235,9 @@
   "auth.email_hint": "Only used to tell accounts apart. No mail is ever sent.",
   "auth.new_password": "New password",
   "auth.session_replaced": "Logging in here ends your session in any other browser.",
+  "session.ended.title": "You have been logged out",
+  "session.ended.stay": "Continue as a guest",
+  "session.ended.generic": "Your session has ended. Please log in again.",
 
   "account.profile": "Profile",
   "account.password": "Password",

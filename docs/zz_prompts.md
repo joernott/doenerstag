@@ -784,3 +784,18 @@ recorded on the branch of the sprint it belongs to.
 > workflow.
 > After that, you can squash-merge the sprint-15 baranch into main as well and
 > tag the version v0.1.0 there
+
+---
+
+## Sprint 16
+
+### Prompt 46
+
+> Start a branch for sprint 16 from main. This sprint will be used mainly for
+> bug-fixing and minor improvements.
+> The first task in that is related to a bug: Yesterday, I did not log out from
+> the web UI on the server. Now, I am getting a json response with error 2003,
+> wzhenever I try to access https://192.168.178.183:8443/ from that browser. The
+> expected behaviour would be to either show an error page that allows a relogin
+> or show the main page as anonymous user with a modal dialog that I have been
+> logged out.

@@ -150,6 +150,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Pool:        opts.Pool,
 		Signer:      signer,
 		IdleTimeout: cfg.Session.IdleTimeout,
+		Secure:      secure,
 	}
 
 	// The request ID is outermost because every line inside carries it. Recovery

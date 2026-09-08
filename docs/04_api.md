@@ -170,7 +170,7 @@ Legend for the *Access* column:
 | `POST`   | `/auth/register`           | public | Create an account. Returns the new user and starts a session.     |
 | `POST`   | `/auth/login`              | public | Log in. Replaces any existing session for that user.              |
 | `POST`   | `/auth/logout`             | user   | End the current session.                                          |
-| `GET`    | `/auth/session`            | public | Current session info, or `{"user": null}` when anonymous.         |
+| `GET`    | `/auth/session`            | public | Current session info, or `{"user": null}` when anonymous. Adds `ended` when the caller arrived with a dead session cookie. |
 | `GET`    | `/users`                   | admin  | List all users.                                                   |
 | `GET`    | `/users/{id}`              | public | Public profile: id, name, display name.                           |
 | `PATCH`  | `/users/{id}`              | owner  | Change name, display name, e-mail or password.                    |
@@ -179,6 +179,18 @@ Legend for the *Access* column:
 | `GET`    | `/users/{id}/tokens`       | owner  | List API tokens. Never returns the token value.                   |
 | `POST`   | `/users/{id}/tokens`       | owner  | Create a token. Returns the value **once**.                       |
 | `DELETE` | `/users/{id}/tokens/{tid}` | owner  | Revoke a token.                                                   |
+
+The `ended` object on `/auth/session` is how a browser learns that the
+session it thought it had is gone:
+
+```json
+{ "user": null, "ended": { "code": 2003, "message": "session superseded by a newer login" } }
+```
+
+It appears only alongside a null user, and only once -- reading it clears
+the note, so the next page view is plain anonymity. A cookie that no longer
+works never fails a request; see
+[05_auth_and_permissions.md](05_auth_and_permissions.md) for why.
 
 ### Restaurants
 

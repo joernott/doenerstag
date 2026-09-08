@@ -201,6 +201,7 @@ func newAPIFixtureWithUploadLimit(t *testing.T, maxImageBytes int64) *apiFixture
 		Pool:        pool,
 		Signer:      signer,
 		IdleTimeout: fixtureIdleTimeout,
+		Secure:      true,
 		Now:         clock,
 	}
 
@@ -573,4 +574,128 @@ func mustParseUUID(t *testing.T, s string) uuid.UUID {
 		t.Fatalf("parsing %q: %v", s, err)
 	}
 	return id
+}
+
+// sessionEndedBody is the "ended" object GET /auth/session adds when the
+// browser arrived holding a session cookie the server would not accept.
+type sessionEndedBody struct {
+	User *struct {
+		Name string `json:"name"`
+	} `json:"user"`
+	Ended *struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"ended"`
+}
+
+// applySetCookie is what a browser does with a response.
+//
+// Tests that check a session ending have to make two requests -- the page, then
+// the /auth/session call the frontend makes once it has loaded -- and the
+// second one only behaves like a browser if it carries what the first one was
+// handed. Without this the second request re-sends the dead session cookie that
+// the first response expired, which is not something a browser would ever do.
+func applySetCookie(jar []*http.Cookie, rec *httptest.ResponseRecorder) []*http.Cookie {
+	next := make([]*http.Cookie, 0, len(jar))
+	replaced := map[string]bool{}
+	for _, set := range rec.Result().Cookies() {
+		replaced[set.Name] = true
+	}
+	for _, held := range jar {
+		if !replaced[held.Name] {
+			next = append(next, held)
+		}
+	}
+	for _, set := range rec.Result().Cookies() {
+		if set.MaxAge < 0 {
+			continue // expired: the browser drops it
+		}
+		next = append(next, &http.Cookie{Name: set.Name, Value: set.Value})
+	}
+	return next
+}
+
+// endedReason asks /auth/session what became of a session.
+//
+// A cookie that does not work is anonymity rather than a rejected request, so
+// this endpoint is where the reason is observable, and therefore where the
+// rules in docs/05_auth_and_permissions.md are asserted.
+func (f *apiFixture) endedReason(cookies ...*http.Cookie) (sessionEndedBody, *httptest.ResponseRecorder) {
+	f.t.Helper()
+
+	rec := f.do(request{method: http.MethodGet, path: "/auth/session", cookies: cookies})
+	if rec.Code != http.StatusOK {
+		f.t.Fatalf("/auth/session answered %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var body sessionEndedBody
+	decode(f.t, rec, &body)
+	return body, rec
+}
+
+// expectEnded walks the sequence a browser actually performs when it arrives
+// holding a session the server has forgotten: it loads a page, and then the
+// frontend asks who it is.
+//
+// The page must load. That is the whole bug: it used to answer 401 with a JSON
+// error envelope, for the page and for every asset and public endpoint besides,
+// leaving raw JSON on screen and no way out but clearing cookies by hand.
+func (f *apiFixture) expectEnded(code api.Code, cookies ...*http.Cookie) {
+	f.t.Helper()
+
+	// 1. The navigation. It succeeds, and it is anonymous.
+	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
+	if rec.Code != http.StatusOK {
+		f.t.Fatalf("a page load with a refused cookie answered %d, want 200: %s",
+			rec.Code, rec.Body.String())
+	}
+	var who probeResponse
+	decode(f.t, rec, &who)
+	if who.Authenticated {
+		f.t.Fatalf("a refused cookie authenticated as %q", who.Name)
+	}
+
+	// The dead cookie is expired by that response, so the browser stops sending
+	// it. Leaving it in place would mean re-deciding the reason on every
+	// request for as long as the browser lived.
+	cleared := false
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == api.SessionCookieName && c.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		f.t.Error("the refused session cookie was not cleared")
+	}
+
+	// 2. What the frontend asks next, carrying what the browser now holds.
+	jar := applySetCookie(cookies, rec)
+	body, second := f.endedReason(jar...)
+	if body.User != nil {
+		f.t.Fatalf("/auth/session reported a user for a refused cookie")
+	}
+	if body.Ended == nil {
+		f.t.Fatalf("/auth/session did not say why the session ended")
+	}
+	if body.Ended.Code != int(code) {
+		f.t.Errorf("the session ended with code %d, want %d", body.Ended.Code, code)
+	}
+
+	// 3. Told once. A second page view is plain anonymity, not a repeat of the
+	//    news, or the frontend would announce the logout on every navigation.
+	again, _ := f.endedReason(applySetCookie(jar, second)...)
+	if again.Ended != nil {
+		f.t.Errorf("the session ending was reported twice: %+v", again.Ended)
+	}
+}
+
+// signer builds a signer on the fixture's secret, for a test that needs to read
+// the session id out of a cookie.
+func (f *apiFixture) signer() *auth.Signer {
+	f.t.Helper()
+
+	signer, err := auth.NewSigner(fixtureSecret)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return signer
 }

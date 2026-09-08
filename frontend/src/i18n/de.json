@@ -235,6 +235,9 @@
   "auth.email_hint": "Dient nur dazu, Konten auseinanderzuhalten. Es wird nie eine Mail verschickt.",
   "auth.new_password": "Neues Passwort",
   "auth.session_replaced": "Eine Anmeldung hier beendet Ihre Sitzung in jedem anderen Browser.",
+  "session.ended.title": "Sie wurden abgemeldet",
+  "session.ended.stay": "Als Gast fortfahren",
+  "session.ended.generic": "Ihre Sitzung ist beendet. Bitte melden Sie sich erneut an.",
 
   "account.profile": "Profil",
   "account.password": "Passwort",

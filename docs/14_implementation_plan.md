@@ -560,6 +560,22 @@ artefacts, and `docker.io/joernott/doenerstag:0.1.0` can be pulled.
 
 ---
 
+## Sprint 16 — Bug fixes and minor improvements
+
+**Goal:** fix what real use finds. The first release shipped with barely any of
+that, so this sprint is driven by what breaks in front of somebody rather than
+by a plan written in advance.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 16.1 | A stale session cookie makes the whole application unreachable: every request, including the page itself and every public endpoint, answers 401 with a JSON error envelope. The browser shows raw JSON and there is no way out of it short of clearing cookies by hand. Reported by the user after leaving a session open overnight | M | [05](05_auth_and_permissions.md) |
+
+**Exit criteria:** a browser holding a session the server no longer knows about
+loads the application, is told once that it was logged out, and can log in
+again without clearing anything by hand.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
