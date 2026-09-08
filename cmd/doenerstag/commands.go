@@ -64,10 +64,10 @@ It does not take payments and does not place orders with restaurants.`,
 
 	root.AddCommand(
 		newServerCommand(),
-		newInstallCommand(),
+		newInstallCommand(app),
 		newUpdateCommand(),
 		newCleanupCommand(),
-		newVersionCommand(),
+		newVersionCommand(app),
 	)
 
 	// Resolve configuration and start logging before any verb runs. The root
@@ -103,7 +103,7 @@ deployments behind a TLS-terminating reverse proxy.`,
 	return cmd
 }
 
-func newInstallCommand() *cobra.Command {
+func newInstallCommand(app *appContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Set up the database and write a configuration file",
@@ -118,7 +118,9 @@ stored.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE:          notImplemented("install", "3.1"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runInstall(app, cmd)
+		},
 	}
 	config.RegisterScopeFlags(cmd.Flags(), config.ScopeInstall)
 	return cmd
@@ -161,7 +163,7 @@ to run twice. Use --dry-run to see what a run would remove.`,
 	return cmd
 }
 
-func newVersionCommand() *cobra.Command {
+func newVersionCommand(app *appContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Show the installed application and schema version",
@@ -173,6 +175,8 @@ the binary itself is, without touching the database.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE:          notImplemented("version", "3.12"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runVersion(app, cmd)
+		},
 	}
 }

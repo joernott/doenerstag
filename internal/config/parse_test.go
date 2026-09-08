@@ -77,20 +77,56 @@ func TestParseDurationErrorQuotesTheOriginalInput(t *testing.T) {
 	}
 }
 
-func TestFormatDurationPrefersTheLargestWholeUnit(t *testing.T) {
+// The output has to read like something a person would type into the
+// configuration file. Weeks are parsed but never produced: a retention period
+// is thought about in days, so "14d" is useful and "2w" is a riddle.
+func TestFormatDurationWritesTheNaturalUnit(t *testing.T) {
 	cases := map[time.Duration]string{
-		7 * 24 * time.Hour:  "1w",
-		14 * 24 * time.Hour: "2w",
+		7 * 24 * time.Hour:  "7d",
+		14 * 24 * time.Hour: "14d",
 		24 * time.Hour:      "1d",
 		3 * 24 * time.Hour:  "3d",
-		6 * time.Hour:       "6h0m0s",
-		15 * time.Minute:    "15m0s",
+		6 * time.Hour:       "6h",
+		15 * time.Minute:    "15m",
+		30 * time.Second:    "30s",
+		120 * time.Second:   "2m",
 		0:                   "0s",
 		-24 * time.Hour:     "-1d",
+		90 * time.Minute:    "90m",
+		time.Hour + 30*time.Minute + 15*time.Second: "5415s",
+		1500 * time.Millisecond:                     "1.5s",
 	}
 	for input, want := range cases {
 		if got := FormatDuration(input); got != want {
 			t.Errorf("FormatDuration(%v) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+// Formatting is lossless even where it does not reproduce the exact input
+// string: "60s" comes back as "1m", which is the same duration. The generated
+// configuration file keeps the declared spelling for untouched settings, which
+// is asserted in writer_test.go.
+func TestFormatDurationIsLossless(t *testing.T) {
+	for _, setting := range Settings {
+		if setting.Kind != KindDuration {
+			continue
+		}
+		declared, _ := setting.Default.(string)
+
+		parsed, err := ParseDuration(declared)
+		if err != nil {
+			t.Errorf("%s: default %q does not parse: %v", setting.Flag, declared, err)
+			continue
+		}
+		reparsed, err := ParseDuration(FormatDuration(parsed))
+		if err != nil {
+			t.Errorf("%s: %q formatted to something unparseable: %v", setting.Flag, declared, err)
+			continue
+		}
+		if reparsed != parsed {
+			t.Errorf("%s: default %q became %v after a round trip, want %v",
+				setting.Flag, declared, reparsed, parsed)
 		}
 	}
 }

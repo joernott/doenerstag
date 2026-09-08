@@ -297,6 +297,15 @@ var Settings = []Setting{
 		Scopes: ScopeInstall,
 	},
 	{
+		// The doenerstag root account, not a database role. The database
+		// identities all carry a "database-" prefix; this one is the
+		// application's own administrator.
+		Flag: "root-password",
+		Kind: KindString, Default: "", Secret: true,
+		Usage:  "password for the doenerstag root administrator (environment or prompt only)",
+		Scopes: ScopeInstall,
+	},
+	{
 		Flag: "imprint-file",
 		Kind: KindString, Default: "",
 		Usage:  "HTML snippet loaded into the imprint page",

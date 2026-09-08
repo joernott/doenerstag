@@ -79,11 +79,17 @@ type CleanupConfig struct {
 // InstallConfig holds the install and update settings. None of these is written
 // to the generated configuration file.
 type InstallConfig struct {
-	Output         string
-	RootUser       string
-	RootPassword   string `log:"-"`
-	AdminUser      string
-	AdminPassword  string `log:"-"`
+	Output        string
+	RootUser      string
+	RootPassword  string `log:"-"`
+	AdminUser     string
+	AdminPassword string `log:"-"`
+
+	// RootAccountPassword is the doenerstag root administrator password, not a
+	// database one. It has no configuration key: like the privileged database
+	// passwords, it is used once and never stored.
+	RootAccountPassword string `log:"-"`
+
 	ImprintFile    string
 	LegalNotesFile string
 	NonInteractive bool
@@ -343,14 +349,15 @@ func installConfig(flags *pflag.FlagSet, getenv func(string) (string, bool)) Ins
 	}
 
 	return InstallConfig{
-		Output:         value("output"),
-		RootUser:       value("database-root-user"),
-		RootPassword:   value("database-root-password"),
-		AdminUser:      value("database-admin-user"),
-		AdminPassword:  value("database-admin-password"),
-		ImprintFile:    value("imprint-file"),
-		LegalNotesFile: value("legal-notes-file"),
-		NonInteractive: flagBool(flags, "non-interactive"),
+		Output:              value("output"),
+		RootUser:            value("database-root-user"),
+		RootPassword:        value("database-root-password"),
+		AdminUser:           value("database-admin-user"),
+		AdminPassword:       value("database-admin-password"),
+		RootAccountPassword: value("root-password"),
+		ImprintFile:         value("imprint-file"),
+		LegalNotesFile:      value("legal-notes-file"),
+		NonInteractive:      flagBool(flags, "non-interactive"),
 	}
 }
 
@@ -366,4 +373,19 @@ func flagBool(flags *pflag.FlagSet, name string) bool {
 		return flag.Value.String() == "true"
 	}
 	return false
+}
+
+// PageFile returns the snippet path supplied for a content page, if any.
+//
+// It exists so the installer can offer the previous answer back without
+// knowing which struct field belongs to which page key.
+func (c InstallConfig) PageFile(key string) string {
+	switch key {
+	case "imprint":
+		return c.ImprintFile
+	case "legal_notes":
+		return c.LegalNotesFile
+	default:
+		return ""
+	}
 }
