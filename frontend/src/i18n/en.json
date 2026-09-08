@@ -326,5 +326,24 @@
   "order.join": "Log in to join this order",
   "order.add_missing_item": "Add a dish that is missing from the menu",
   "order.deleted": "This order has been deleted.",
-  "order.live.changed": "The order has changed."
+  "order.live.changed": "The order has changed.",
+
+  "summary.what_to_order": "What to order",
+  "summary.who_owes_what": "Who owes what",
+  "summary.actions": "Copy and print",
+  "summary.copy": "Copy as text",
+  "summary.copy_failed": "The clipboard is not available. The text is below, ready to select.",
+  "summary.plain_text": "The summary as plain text",
+  "summary.print": "Print",
+  "summary.participants_only": "This summary is visible to the people taking part in the order.",
+  "summary.back": "Back to the order",
+
+  "admin.last_login": "Last login",
+  "admin.never_logged_in": "never",
+  "admin.delete_user": "Delete this account",
+  "admin.confirm_name": "Type the user name to confirm.",
+  "admin.name_mismatch": "That is not this account's user name.",
+  "admin.replace_content": "Replace the content",
+  "admin.snippet": "HTML",
+  "admin.snippet_hint": "Headings, paragraphs, lists, links and tables. Anything else is removed when it is saved."
 }

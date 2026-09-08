@@ -1,8 +1,8 @@
 // The route table, and the pages that exist so far.
 //
-// Sprint 11 filled in the account, the restaurants and the menus. Orders are
-// sprint 12, and their routes still resolve to a page that says so rather than
-// to a 404: the URL is right, the screen is not built.
+// Every route now leads to a screen. The table is the one place that knows
+// which path shows what, so a page can be replaced without anything else
+// having to be told.
 
 import type { App } from "../app";
 import { api, type VersionInfo } from "../api";
@@ -10,9 +10,11 @@ import { el } from "../dom";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
 import { accountPage } from "./account";
+import { contentPage, usersPage } from "./admin";
 import { createOrderPage } from "./ordercreate";
 import { orderPage } from "./order";
 import { ordersPage } from "./orders";
+import { summaryPage } from "./summary";
 import { page } from "./page";
 import { restaurantPage } from "./restaurant";
 import { restaurantsPage } from "./restaurants";
@@ -28,20 +30,18 @@ export function routes(app: App): Route[] {
       pattern: "/orders/:id",
       render: (context) => orderPage(app, context.params["id"] ?? "", { cleanup: context }),
     },
-    { pattern: "/orders/:id/summary", render: () => placeholder(app, app.t.t("order.summary")) },
+    {
+      pattern: "/orders/:id/summary",
+      render: (context) => summaryPage(app, context.params["id"] ?? ""),
+    },
     { pattern: "/restaurants", render: () => restaurantsPage(app) },
     { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },
     { pattern: "/account", render: () => accountPage(app) },
-    { pattern: "/admin/users", render: () => placeholder(app, app.t.t("nav.users")) },
+    { pattern: "/admin/users", render: () => usersPage(app) },
     { pattern: "/version", render: () => versionPage(app) },
-    { pattern: "/imprint", render: () => placeholder(app, app.t.t("nav.imprint")) },
-    { pattern: "/legal-notes", render: () => placeholder(app, app.t.t("nav.legal_notes")) },
+    { pattern: "/imprint", render: () => contentPage(app, "imprint") },
+    { pattern: "/legal-notes", render: () => contentPage(app, "legal_notes") },
   ];
-}
-
-/** A screen a later sprint fills in. */
-function placeholder(app: App, title: string): HTMLElement {
-  return page(title, el("p", { class: "muted", text: app.t.t("state.not_yet") }));
 }
 
 /**

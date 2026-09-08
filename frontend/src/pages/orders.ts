@@ -162,7 +162,38 @@ function orderTile(
     parts.push(el("span", { class: "badge", text: t.t("order.status.expired") }));
   }
 
-  return tile({ href: `/orders/${order.id}`, faded: !active }, ...parts);
+  // The summary, for participants only (F1.3), and outside the tile's link
+  // rather than inside it: a link within a link is not a thing a browser can
+  // make sense of. Expired orders keep it -- the summary is what somebody
+  // settling up afterwards actually wants.
+  const me = app.session.user?.id;
+  const participant =
+    detail !== null &&
+    me !== undefined &&
+    (app.session.isAdmin ||
+      detail.creator_id === me ||
+      detail.items.some((item) => item.user_id === me));
+
+  return tile(
+    {
+      href: `/orders/${order.id}`,
+      faded: !active,
+      ...(participant
+        ? {
+            footer: el(
+              "div",
+              { class: "tile-footer" },
+              el("a", {
+                class: "button button-quiet",
+                href: `/orders/${order.id}/summary`,
+                text: t.t("order.summary"),
+              }),
+            ),
+          }
+        : {}),
+    },
+    ...parts,
+  );
 }
 
 function logo(order: OrderHeader): HTMLElement {

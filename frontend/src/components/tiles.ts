@@ -19,6 +19,14 @@ export interface TileOptions {
   /** The tile's accessible name, when the visible content is not enough. */
   label?: string;
   /**
+   * Extra controls below the tile, outside the link.
+   *
+   * A tile is a link, and a link inside a link is not a thing a browser can
+   * make sense of -- so the summary button an order tile carries lives here
+   * rather than among the children.
+   */
+  footer?: HTMLElement;
+  /**
    * Faded, for an expired order.
    *
    * The fading is never the only signal: the caller also puts the state in the
@@ -35,7 +43,12 @@ export function tile(options: TileOptions, ...children: Child[]): HTMLElement {
     ...(options.label ? { "aria-label": options.label } : {}),
   });
   append(link, ...children);
-  return el("div", { role: "listitem", class: "tile-cell" }, link);
+
+  const cell = el("div", { role: "listitem", class: "tile-cell" }, link);
+  if (options.footer) {
+    cell.appendChild(options.footer);
+  }
+  return cell;
 }
 
 /**

@@ -134,6 +134,9 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
 	restaurantHandlers.Register(router)
 
+	pageHandlers := &PageHandlers{Pool: opts.Pool}
+	pageHandlers.Register(router)
+
 	imageHandlers := &ImageHandlers{
 		Pool:           opts.Pool,
 		MaxUploadBytes: cfg.Server.MaxImageSize,

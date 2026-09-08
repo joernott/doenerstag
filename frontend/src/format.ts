@@ -22,28 +22,50 @@ function cached<T>(key: string, build: () => T): T {
   return created;
 }
 
+/**
+ * What to show for a value that is not a timestamp at all.
+ *
+ * Intl throws on an invalid date, and a throw inside a render takes the whole
+ * page with it. That is not hypothetical: a development build reports its build
+ * date as "unknown", and the version page rendered nothing at all until this
+ * existed. Showing the value as it stands says more than an empty screen.
+ */
+function unformattable(value: Date | string, date: Date): string | null {
+  if (!Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return typeof value === "string" ? value : "";
+}
+
 /** Formats a date: `Sep 10, 2026` in English, `10.09.2026` in German. */
 export function formatDate(locale: string, value: Date | string): string {
   const date = toDate(value);
-  return cached(`d:${locale}`, () =>
-    new Intl.DateTimeFormat(locale, { dateStyle: "medium" }),
-  ).format(date);
+  return (
+    unformattable(value, date) ??
+    cached(`d:${locale}`, () => new Intl.DateTimeFormat(locale, { dateStyle: "medium" })).format(
+      date,
+    )
+  );
 }
 
 /** Formats a time. The locale decides 12- or 24-hour, not this code. */
 export function formatTime(locale: string, value: Date | string): string {
   const date = toDate(value);
-  return cached(`t:${locale}`, () =>
-    new Intl.DateTimeFormat(locale, { timeStyle: "short" }),
-  ).format(date);
+  return (
+    unformattable(value, date) ??
+    cached(`t:${locale}`, () => new Intl.DateTimeFormat(locale, { timeStyle: "short" })).format(date)
+  );
 }
 
 /** Formats a date and time together, for a deadline or a fulfilment time. */
 export function formatDateTime(locale: string, value: Date | string): string {
   const date = toDate(value);
-  return cached(`dt:${locale}`, () =>
-    new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }),
-  ).format(date);
+  return (
+    unformattable(value, date) ??
+    cached(`dt:${locale}`, () =>
+      new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }),
+    ).format(date)
+  );
 }
 
 /** A weekday name, for opening hours. ISO numbering: 1 is Monday. */
@@ -194,6 +216,11 @@ export function formatRelativeTime(
   now: Date = new Date(),
 ): string {
   const date = toDate(target);
+  const unusable = unformattable(target, date);
+  if (unusable !== null) {
+    return unusable;
+  }
+
   const seconds = Math.round((date.getTime() - now.getTime()) / 1000);
   const absolute = Math.abs(seconds);
 

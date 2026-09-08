@@ -173,3 +173,18 @@ describe("byte sizes", () => {
     expect(formatBytes("de", 1024 * 1024 * 2.5)).toBe("2,5 MiB");
   });
 });
+
+describe("a value that is not a timestamp", () => {
+  it("is shown as it stands rather than throwing", () => {
+    // A development build reports its build date as "unknown". Intl throws on
+    // an invalid date, and a throw inside a render takes the whole page with
+    // it -- which is exactly what the version page did until this existed.
+    expect(formatDate("en", "unknown")).toBe("unknown");
+    expect(formatDateTime("de", "unknown")).toBe("unknown");
+    expect(formatRelativeTime("en", "not a date")).toBe("not a date");
+  });
+
+  it("still formats a real one", () => {
+    expect(formatDateTime("en", "2026-09-10T10:30:00Z")).toContain("2026");
+  });
+});

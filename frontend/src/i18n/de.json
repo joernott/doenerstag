@@ -326,5 +326,24 @@
   "order.join": "Zum Mitbestellen anmelden",
   "order.add_missing_item": "Ein Gericht hinzufügen, das auf der Karte fehlt",
   "order.deleted": "Diese Bestellung wurde gelöscht.",
-  "order.live.changed": "Die Bestellung hat sich geändert."
+  "order.live.changed": "Die Bestellung hat sich geändert.",
+
+  "summary.what_to_order": "Was zu bestellen ist",
+  "summary.who_owes_what": "Wer was zahlt",
+  "summary.actions": "Kopieren und drucken",
+  "summary.copy": "Als Text kopieren",
+  "summary.copy_failed": "Die Zwischenablage ist nicht verfügbar. Der Text steht unten bereit.",
+  "summary.plain_text": "Die Übersicht als reiner Text",
+  "summary.print": "Drucken",
+  "summary.participants_only": "Diese Übersicht sehen die Teilnehmer der Bestellung.",
+  "summary.back": "Zurück zur Bestellung",
+
+  "admin.last_login": "Letzte Anmeldung",
+  "admin.never_logged_in": "nie",
+  "admin.delete_user": "Dieses Konto löschen",
+  "admin.confirm_name": "Zur Bestätigung bitte den Benutzernamen eingeben.",
+  "admin.name_mismatch": "Das ist nicht der Benutzername dieses Kontos.",
+  "admin.replace_content": "Inhalt ersetzen",
+  "admin.snippet": "HTML",
+  "admin.snippet_hint": "Überschriften, Absätze, Listen, Links und Tabellen. Alles andere wird beim Speichern entfernt."
 }

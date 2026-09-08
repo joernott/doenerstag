@@ -107,6 +107,11 @@ The privileged database credentials are used once and never stored. See
 [09_configuration.md](09_configuration.md) for why they may not be passed on the
 command line.
 
+Leaving the two snippet paths empty is fine: the migration seeds a placeholder
+for each, and the `root` account can replace both from the imprint and legal
+notes pages in the browser afterwards. Whichever way they arrive, the HTML goes
+through the same allow-list.
+
 ### Step 3 — start it
 
 ```sh

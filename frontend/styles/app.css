@@ -1090,3 +1090,160 @@ a {
 .tile-hint {
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   The summary
+
+   The aggregated list is the section somebody reads down a telephone, so it is
+   the visually dominant one: larger type, more room, and the count in front of
+   each line where the eye lands.
+--------------------------------------------------------------------------- */
+
+.dictation {
+  font-size: 1.15rem;
+}
+
+.dictation-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-block: 0.6rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.dictation-count {
+  min-width: 2.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.dictation-item {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dictation-details {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  font-size: 0.875rem;
+}
+
+.dictation-total {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The number somebody dials. It is the point of the header. */
+.phone {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.tile-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 0.5rem;
+}
+
+/* --- administration ------------------------------------------------------ */
+
+.user-row {
+  align-items: center;
+}
+
+.user-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: 1 1 14rem;
+}
+
+.user-meta {
+  flex: 1 1 16rem;
+  font-size: 0.875rem;
+}
+
+/* The operator's own HTML. It is sanitised on the way in, and it is the only
+   place in the application that assigns innerHTML. */
+.content-page :is(h1, h2, h3) {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.content-page p,
+.content-page ul,
+.content-page ol,
+.content-page table {
+  margin: 0 0 0.75rem;
+}
+
+.content-page a {
+  color: var(--accent);
+}
+
+.content-page table {
+  border-collapse: collapse;
+}
+
+.content-page :is(td, th) {
+  padding: 0.25rem 0.75rem 0.25rem 0;
+  text-align: start;
+  vertical-align: top;
+}
+
+/* ---------------------------------------------------------------------------
+   Printing the summary
+
+   docs/06_ui_ux.md: the print stylesheet drops the chrome and the buttons,
+   forces light colours and keeps the aggregated list and the totals on one page
+   where it can. The base rules are in the print block above; these are the
+   summary's own.
+--------------------------------------------------------------------------- */
+
+@media print {
+  .card {
+    border: none;
+    margin-block-end: 0.75rem;
+    padding: 0;
+    break-inside: avoid;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+
+  .dictation {
+    font-size: 12pt;
+  }
+
+  .dictation-line {
+    border-block-end: 1px solid #cccccc;
+  }
+
+  .phone {
+    color: #000000;
+  }
+
+  /* The two sections that must not be split if it can be helped: the list
+     being read out, and the numbers being settled. */
+  .dictation,
+  .totals,
+  .person-group {
+    break-inside: avoid;
+  }
+
+  .status,
+  .field-hint,
+  .skip-link,
+  textarea {
+    display: none !important;
+  }
+}
