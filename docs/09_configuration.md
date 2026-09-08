@@ -84,10 +84,33 @@ Runs the web server. HTTPS by default.
 | `--jwt-secret`              |       | *(generated)*  | **Never on the command line.** Written by `install`.           |
 | `--max-image-size`          |       | `5MiB`         | Largest accepted image upload. Accepts `KiB`, `MiB` suffixes.  |
 | `--cors-allowed-origins`    |       | *(empty)*      | Comma-separated origins allowed to call the API cross-origin. Empty sends no CORS headers. |
+| `--base-url`                |       | *(empty)*      | The address this installation answers on, as a person types it. Only mail needs it: a link in a message cannot be relative. |
 | `--login-rate-limit-user`   |       | `10`           | Failed logins per user name per window.                        |
 | `--login-rate-limit-ip`     |       | `60`           | Failed logins per client address per window.                   |
 | `--login-rate-limit-window` |       | `15m`          | Rate limit window.                                             |
 | `--shutdown-grace`          |       | `30s`          | How long to wait for in-flight requests during shutdown.       |
+
+### Outgoing mail
+
+Optional. With no `--mail-host` the application sends nothing and says so where
+it matters, rather than failing at the moment somebody asks for a password
+reset: an intranet tool in a company with no internal relay is a reasonable
+thing to run, it just cannot offer a reset by mail.
+
+| Flag                  | Short | Default     | Meaning                                            |
+| --------------------- | ----- | ----------- | -------------------------------------------------- |
+| `--mail-host`         |       | *(empty)*   | SMTP host. Empty disables sending altogether.       |
+| `--mail-port`         |       | `25`        | SMTP port.                                          |
+| `--mail-username`     |       | *(empty)*   | User name for SMTP authentication. Empty sends unauthenticated. |
+| `--mail-password`     |       | *(empty)*   | **Never on the command line.**                      |
+| `--mail-from`         |       | *(computed)*| Envelope and header `From`. Defaults to `doenerstag@<hostname>`, which is what a machine with no configured identity can honestly claim to be. |
+| `--mail-encryption`   |       | `starttls`  | `none`, `starttls` or `tls`. Three answers rather than two: implicit TLS on port 465 is not "more STARTTLS", because the handshake happens before any SMTP is spoken. |
+| `--mail-timeout`      |       | `10s`       | Bounds the whole exchange. A mail server that accepts a connection and then stops talking must not hold a request open. |
+
+A relay that does not advertise STARTTLS is not refused when
+`--mail-encryption` is `starttls`. On an intranet relay that does not speak it,
+refusing would mean no mail at all, and silently configuring `none` would be
+worse because nothing would say so.
 
 ### Timeouts and the SSE exemption
 
@@ -237,6 +260,107 @@ Every deletion is logged at INFO with the object type and count.
 Prints the newest `app_version` row: the semantic version, the applied schema
 version and when it was applied. Connects to the database; use the `--version`
 flag instead when the database is unavailable.
+
+## Verb `user`
+
+Administering accounts from a terminal. Everything here can also be done in the
+browser by the root administrator; this exists for when that is not possible —
+an installation nobody can log into, or an account that has to exist before
+anybody has a password.
+
+| Subcommand        | Does                                                            |
+| ----------------- | --------------------------------------------------------------- |
+| `user list`       | Every account: id, name, display name, e-mail, whether it is the administrator. |
+| `user add`        | Creates an account with `--username`, `--displayname`, `--email` and prints a generated password. |
+| `user delete`     | Deletes the account named by `--id` or `--username`.             |
+| `user password`   | Issues a reset link, or sets a password with `--set-password`.    |
+
+`user add` generates twenty characters meeting the complexity rules and prints
+them once. They are not recoverable afterwards: the account stores an Argon2id
+hash like every other. The alphabet leaves out `I`, `l`, `1`, `O`, `o` and `0`,
+because this is a password somebody reads off a screen.
+
+`user delete` and `user password` require exactly one of `--id` and
+`--username`. Accepting both and preferring one would let a mistyped id act on
+whatever account the name happened to match, which for a deletion is the wrong
+account gone without a word.
+
+`user password` without `--set-password` prints a reset link valid for an hour
+and mails it, if the account has an address and the installation can send mail.
+That is the better of the two and is the default for a reason: an administrator
+who sets a password knows it, and a password two people know is not a password.
+A mail that fails to send does not fail the command, because the link printed
+above it works either way.
+
+## Verb `restaurant`
+
+Carrying a restaurant between installations, and removing one completely.
+
+| Subcommand           | Does                                                         |
+| -------------------- | ------------------------------------------------------------ |
+| `restaurant list`    | Every restaurant: id, name, currency, item count, order count. |
+| `restaurant delete`  | Removes the restaurant named by `--id`, **and its orders**.    |
+| `restaurant export`  | Writes restaurants as YAML or JSON.                            |
+| `restaurant import`  | Reads a file written by export.                                |
+
+### `restaurant delete` is not the delete button
+
+`DELETE /restaurants/{id}` is a soft delete and refuses while any order still
+points at the restaurant: somebody clicking a button in a browser must not be
+able to destroy what other people ordered last Thursday. This subcommand removes
+those orders too. It prints what it is about to destroy and asks, unless
+`--force` is given.
+
+### What travels, and what does not
+
+`export` carries the restaurant, its contacts, its opening hours, and its menu:
+categories, items, prices, availability, modifications, and the tags, allergens
+and additives each item is marked with.
+
+It does **not** carry images or orders. The logo and the item pictures are
+binary in the `image` table and would multiply the file's size to move something
+somebody can upload again in a minute; an imported restaurant has no logo.
+Orders belong to the installation they were placed on.
+
+**Reference data travels as codes, never as ids.** Tags, allergens, additives,
+currencies and contact types are seeded per installation, so their uuids differ
+between one server and the next. A file naming a tag by uuid would import
+cleanly onto the machine it came from and attach the wrong tags, or none,
+anywhere else. A file naming a code this installation does not have is refused,
+with every unknown code listed at once.
+
+**Everything else keeps its id.** The restaurant, its categories and its items
+arrive with the uuids they left with, which is what makes "a restaurant with
+this id is already here" a question worth asking.
+
+### Formats
+
+`--format` is `yaml` or `json`, and defaults to YAML on export. On import the
+format is worked out by **reading the file**, not from its name: a suffix is a
+claim somebody made, and a `.yaml` holding JSON, or a file with no suffix at
+all, are both ordinary. `--format` overrides the detection.
+
+A file may hold any number of restaurants, so `--all` and a single `--id`
+produce documents of the same shape and are read by the same import.
+
+### Importing over something that is already there
+
+A restaurant whose id is already present is skipped and the run continues, so a
+file of forty restaurants where one is already here imports the other
+thirty-nine. `--overwrite` deletes the existing one first — orders and all —
+and then imports.
+
+An import is one transaction per restaurant. One that arrived with its contacts
+and half its menu, because the twentieth item named an unknown tag, would be
+worse than one that did not arrive.
+
+### A note on `--file`
+
+`restaurant import --file` has no single-letter form, and `restaurant delete
+--force` does not either. `-f` belongs to `--log-file`, which every verb
+inherits, and a subcommand cannot shadow an inherited shorthand: pflag panics
+when the flags are merged. Renaming a flag that shipped in 0.1.0 to free up one
+letter is the worse trade.
 
 ---
 

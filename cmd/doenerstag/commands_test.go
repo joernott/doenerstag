@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
@@ -10,12 +11,13 @@ import (
 
 // Every documented verb.
 var expectedVerbs = map[string]bool{
-	"server":  true,
-	"install": true,
-	"update":  true,
-	"cleanup": true,
-	"version": true,
-	"user":    true,
+	"server":     true,
+	"install":    true,
+	"update":     true,
+	"cleanup":    true,
+	"version":    true,
+	"user":       true,
+	"restaurant": true,
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {
@@ -148,4 +150,61 @@ func TestEveryCommandHasHelpText(t *testing.T) {
 		}
 	}
 	check(newRootCommand())
+}
+
+// A shorthand that collides with an inherited one is a panic, not an error.
+//
+// pflag refuses to merge a persistent flag into a subcommand that has claimed
+// the same letter, and it does so by panicking the moment the flags are merged
+// -- which is when somebody runs the command, or asks it for help. Nothing
+// catches that at build time, and a unit test that only builds the tree does
+// not merge anything.
+//
+// `restaurant import --file -f` and `restaurant delete --force -f` both shipped
+// into a manual test this way, against --log-file, which every verb inherits.
+// This walks the whole tree and forces the merge on each command.
+func TestNoCommandClaimsAnInheritedShorthand(t *testing.T) {
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Errorf("%q cannot be used: %v", cmd.CommandPath(), recovered)
+				}
+			}()
+			// Merging is what panics, and this is what merges.
+			_ = cmd.InheritedFlags()
+			_ = cmd.Flags()
+		}()
+
+		for _, child := range cmd.Commands() {
+			walk(child)
+		}
+	}
+	walk(newRootCommand())
+}
+
+// Every subcommand must be runnable enough to print its own help. A command
+// whose help panics is a command nobody can discover.
+func TestEverySubcommandCanPrintItsHelp(t *testing.T) {
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Errorf("%q panics when asked for help: %v", cmd.CommandPath(), recovered)
+				}
+			}()
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			if err := cmd.Help(); err != nil {
+				t.Errorf("%q: %v", cmd.CommandPath(), err)
+			}
+		}()
+
+		for _, child := range cmd.Commands() {
+			walk(child)
+		}
+	}
+	walk(newRootCommand())
 }
