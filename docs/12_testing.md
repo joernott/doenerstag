@@ -167,6 +167,27 @@ Cross-cutting API tests:
 formatting of dates and money, the client-side validation rules, and the
 API-error-code-to-message mapping.
 
+Two of those deserve naming, because they are the ones where being wrong is
+expensive and invisible:
+
+- **The password rules exist twice**, in `internal/auth/complexity.go` and in
+  `frontend/src/password.ts`, because asking the server on every keystroke would
+  send an unfinished password over the wire repeatedly. The two test suites
+  therefore assert the same cases — NFC normalisation, the space that earns no
+  class, a passphrase that fails on two classes — so that a change to one and
+  not the other shows up as a disagreement rather than as an indicator that
+  quietly lies.
+- **Money is parsed from text, not through a float.**
+  `Math.round(parseFloat("19.99") * 100)` is 1998.9999999999998, and rounding
+  hides it for most numbers but not for all of them. The parser works on the
+  digits and is tested on the amounts where the float version goes wrong.
+
+Pages are tested by rendering them against a stubbed fetch and asserting on the
+DOM they produce — that the last contact's delete button is disabled and says
+why, that an unavailable item is marked in words and not only by a strike, that
+a non-administrator is not offered the deletions. What the test sees is what a
+browser would show.
+
 Five catalog tests, none of which names a language, so all keep working as
 translations are added:
 

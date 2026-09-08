@@ -600,3 +600,343 @@ a {
     content: "";
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Cards, rows and the editing forms
+
+   Sprint 11's screens are all the same three shapes: a card with a title, a
+   row of fields that wraps on a narrow viewport, and a list of rows that can be
+   added to. Everything below is one of those three.
+--------------------------------------------------------------------------- */
+
+.card {
+  margin-block-end: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.card-title {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status {
+  margin: 0.5rem 0 0;
+  min-height: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.status-error {
+  color: var(--danger);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding-block-end: 0.75rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.row:last-child,
+.row-new {
+  border-block-end: none;
+}
+
+.row-new {
+  padding-block-start: 0.5rem;
+  border-block-start: 1px dashed var(--border);
+}
+
+.row .field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.hint-inline {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.fieldset {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.fieldset legend {
+  padding-inline: 0.35rem;
+  font-weight: 500;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.35rem 1rem;
+}
+
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* --- tabs ---------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-block-end: 1rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-block-end: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  font-weight: 600;
+}
+
+/* --- password rules ------------------------------------------------------ */
+
+.rules {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.rule {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.rule-met {
+  color: var(--text);
+}
+
+.rule-mark {
+  width: 1rem;
+  text-align: center;
+}
+
+/* --- images -------------------------------------------------------------- */
+
+.image-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.image-preview {
+  flex: none;
+}
+
+.image-thumb,
+.image-placeholder {
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+/* --- tokens -------------------------------------------------------------- */
+
+.token {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.75rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.token-prefix {
+  margin-inline-start: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.token-meta {
+  font-size: 0.875rem;
+}
+
+.impact {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 1.25rem;
+}
+
+/* --- the menu ------------------------------------------------------------ */
+
+.menu-group {
+  margin-block-end: 1.5rem;
+}
+
+.menu-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-block-end: 0.5rem;
+}
+
+.menu-group-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-block: 0.75rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.menu-item-unavailable .menu-item-head strong {
+  text-decoration: line-through;
+}
+
+.menu-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.menu-item-text p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+.menu-number {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-price {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.menu-thumb,
+.menu-thumb-empty,
+.tile-logo,
+.tile-logo-empty {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.menu-thumb-empty,
+.tile-logo-empty {
+  border-style: dashed;
+  background: var(--surface-sunken);
+}
+
+.menu-add {
+  padding-block: 0.75rem;
+}
+
+.tile-title {
+  font-size: 1.05rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-block-start: 0.35rem;
+}
+
+.chip {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+/* The three kinds differ by more than colour: each says what it is in words,
+   and the border weight distinguishes them without relying on hue. */
+.chip-allergen {
+  border-color: var(--border-strong);
+  border-style: dashed;
+}
+
+.chip-additive {
+  border-style: dotted;
+}
+
+.badge {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+/* The menu editor. Named apart from .menu, which is the title bar's dropdown
+   and is absolutely positioned -- one class for both would have hung the
+   editor off the top right corner of the page. */
+.menu-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+/* "Open now" on a restaurant tile. The word is the state; the colour only
+   agrees with it. */
+.badge-open {
+  border-color: var(--accent);
+  color: var(--accent);
+}

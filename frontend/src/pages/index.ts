@@ -1,15 +1,20 @@
 // The route table, and the pages that exist so far.
 //
-// Sprint 10 builds the shell, not the screens: every route resolves, the
-// chrome renders around it and the URL works, but most pages say plainly that
-// they are not built yet rather than pretending. Sprints 11 and 12 replace them
-// one at a time, and the route table is where that happens.
+// Sprint 11 filled in the account, the restaurants and the menus. Orders are
+// sprint 12, and their routes still resolve to a page that says so rather than
+// to a 404: the URL is right, the screen is not built.
 
 import type { App } from "../app";
 import { api, type VersionInfo } from "../api";
 import { el } from "../dom";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
+import { accountPage } from "./account";
+import { page } from "./page";
+import { restaurantPage } from "./restaurant";
+import { restaurantsPage } from "./restaurants";
+
+export { page } from "./page";
 
 /** The routes, in the order the router tries them. */
 export function routes(app: App): Route[] {
@@ -17,26 +22,14 @@ export function routes(app: App): Route[] {
     { pattern: "/", render: () => placeholder(app, app.t.t("nav.orders")) },
     { pattern: "/orders/:id", render: () => placeholder(app, app.t.t("nav.orders")) },
     { pattern: "/orders/:id/summary", render: () => placeholder(app, app.t.t("order.summary")) },
-    { pattern: "/restaurants", render: () => placeholder(app, app.t.t("nav.restaurants")) },
-    { pattern: "/restaurants/:id", render: () => placeholder(app, app.t.t("nav.restaurants")) },
-    { pattern: "/account", render: () => placeholder(app, app.t.t("nav.account")) },
+    { pattern: "/restaurants", render: () => restaurantsPage(app) },
+    { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },
+    { pattern: "/account", render: () => accountPage(app) },
     { pattern: "/admin/users", render: () => placeholder(app, app.t.t("nav.users")) },
     { pattern: "/version", render: () => versionPage(app) },
     { pattern: "/imprint", render: () => placeholder(app, app.t.t("nav.imprint")) },
     { pattern: "/legal-notes", render: () => placeholder(app, app.t.t("nav.legal_notes")) },
   ];
-}
-
-/** A page with a heading and a body, which every page here is. */
-export function page(title: string, ...content: (Node | string | null)[]): HTMLElement {
-  const article = el("article", { class: "page-body" }, el("h1", { class: "page-title", text: title }));
-  for (const item of content) {
-    if (item !== null) {
-      article.appendChild(typeof item === "string" ? document.createTextNode(item) : item);
-    }
-  }
-  document.title = `${title} — doenerstag`;
-  return article;
 }
 
 /** A screen a later sprint fills in. */
@@ -47,10 +40,8 @@ function placeholder(app: App, title: string): HTMLElement {
 /**
  * The version page.
  *
- * Real rather than a placeholder, because it is the one screen whose API
- * exists in full -- and because it exercises the whole foundation at once: a
- * request through the client, a translated label and a date formatted in the
- * interface locale.
+ * It exercises the whole foundation at once: a request through the client, a
+ * translated label and a date formatted in the interface locale.
  */
 async function versionPage(app: App): Promise<HTMLElement> {
   const { t } = app;

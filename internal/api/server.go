@@ -85,9 +85,10 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	}
 
 	system := &SystemHandlers{
-		Pool:     opts.Pool,
-		Shutdown: s.beginShutdown,
-		Swagger:  routerOptions.Swagger != nil,
+		Pool:         opts.Pool,
+		Shutdown:     s.beginShutdown,
+		Swagger:      routerOptions.Swagger != nil,
+		MaxImageSize: cfg.Server.MaxImageSize,
 	}
 	system.Register(router)
 

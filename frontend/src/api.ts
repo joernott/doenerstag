@@ -192,6 +192,28 @@ export const api = {
 };
 
 /**
+ * Reads a collection endpoint.
+ *
+ * Collections are not sent as bare arrays: each one is an object with a single
+ * plural key holding the array -- `{"restaurants": [...]}`, `{"menu_items":
+ * [...]}`. Unwrapping it in one place means the page code works in lists, and
+ * means the one thing that has to know the key is the call that names the path
+ * beside it.
+ *
+ * A missing key gives an empty list rather than an exception. A collection that
+ * is not there and a collection that is empty are the same thing to a page
+ * rendering it.
+ */
+export async function getList<T>(
+  path: string,
+  key: string,
+  options?: RequestOptions,
+): Promise<T[]> {
+  const body = await request<Record<string, T[] | undefined>>("GET", path, options);
+  return body[key] ?? [];
+}
+
+/**
  * The message to show a person for a failed request.
  *
  * The catalog is keyed on the internal code. The API's own `message` is English
@@ -233,6 +255,8 @@ export interface VersionInfo {
   build_date: string;
   /** Whether Swagger UI is served. False under --no-swagger. */
   swagger: boolean;
+  /** The largest image the server accepts, in bytes: --max-image-size. */
+  max_image_size: number;
 }
 
 /**

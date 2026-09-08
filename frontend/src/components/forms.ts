@@ -72,6 +72,8 @@ export interface InputOptions {
   required?: boolean;
   autocomplete?: string;
   disabled?: boolean;
+  /** A hint to a touch keyboard: "decimal" for a price. */
+  inputMode?: string;
   min?: string;
   max?: string;
   step?: string;
@@ -87,6 +89,7 @@ export function input(options: InputOptions = {}): HTMLInputElement {
     ...(options.value === undefined ? {} : { value: options.value }),
     ...(options.placeholder ? { placeholder: options.placeholder } : {}),
     ...(options.autocomplete ? { autocomplete: options.autocomplete } : {}),
+    ...(options.inputMode ? { inputmode: options.inputMode } : {}),
     ...(options.min === undefined ? {} : { min: options.min }),
     ...(options.max === undefined ? {} : { max: options.max }),
     ...(options.step === undefined ? {} : { step: options.step }),

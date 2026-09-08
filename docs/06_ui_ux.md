@@ -232,8 +232,15 @@ logged-in user; deletion is administrator-only.
    end time precedes its start time is shown with a "crosses midnight" hint
    rather than an error.
 4. **Menu** — categories with their items. Categories can be added, renamed and
-   reordered by drag handle. Items can be added and edited inline, including
-   their tags, allergens, additives and predefined modifications.
+   reordered with move-up and move-down controls. Items are added and edited in
+   a dialog, including their tags, allergens, additives and predefined
+   modifications.
+
+   Reordering is by button rather than by dragging. The accessibility rule below
+   requires a keyboard equivalent for any drag, and once the buttons exist for a
+   list that is rarely more than five entries long, the drag implementation is
+   only the part that can break — on a touch screen, under a screen reader, or
+   when a pointer is released outside the window.
 
 ## User page
 
@@ -269,8 +276,8 @@ Visible only to `root`.
 Target: **WCAG 2.1 level AA**.
 
 - Every function is reachable and operable by keyboard alone. No control is
-  mouse-only, including the drag-handle reordering of categories, which has
-  keyboard move-up / move-down alternatives.
+  mouse-only: category reordering is a pair of buttons rather than a drag, for
+  exactly this reason.
 - Visible focus indicators everywhere, meeting the 3:1 contrast requirement
   against both the focused component and the background.
 - Text contrast at least 4.5:1, and 3:1 for large text and UI component

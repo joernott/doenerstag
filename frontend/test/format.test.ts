@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  formatBytes,
   formatClockTime,
   formatDate,
   formatDateTime,
@@ -15,6 +16,8 @@ import {
   formatNumber,
   formatRelativeTime,
   formatWeekday,
+  moneyInputValue,
+  parseMoney,
   resetFormatterCache,
   toApiTimestamp,
 } from "../src/format";
@@ -114,5 +117,59 @@ describe("numbers", () => {
   it("follows the locale's separators", () => {
     expect(formatNumber("de", 1234.5)).toBe("1.234,5");
     expect(formatNumber("en", 1234.5)).toBe("1,234.5");
+  });
+});
+
+describe("reading an amount somebody typed", () => {
+  it("takes either separator, whatever the language", () => {
+    // A German numeric keypad produces a comma. Nobody should have to think
+    // about which one a price field wants.
+    expect(parseMoney("6.50")).toBe(650);
+    expect(parseMoney("6,50")).toBe(650);
+  });
+
+  it("is exact where a float is not", () => {
+    // Math.round(parseFloat("19.99") * 100) lands on 1998.9999999999998.
+    expect(parseMoney("19.99")).toBe(1999);
+    expect(parseMoney("0.07")).toBe(7);
+    expect(parseMoney("1234.56")).toBe(123456);
+  });
+
+  it("pads a short fraction and cuts a long one", () => {
+    expect(parseMoney("6.5")).toBe(650);
+    expect(parseMoney("6")).toBe(600);
+    // Cut, not rounded: a third decimal is a slip, and rounding it up would
+    // charge a cent nobody agreed to.
+    expect(parseMoney("6.509")).toBe(650);
+  });
+
+  it("follows the currency's minor unit", () => {
+    expect(parseMoney("1200", 0)).toBe(1200);
+    expect(parseMoney("1.234", 3)).toBe(1234);
+  });
+
+  it("says so when it is not a number", () => {
+    expect(parseMoney("")).toBeNull();
+    expect(parseMoney("   ")).toBeNull();
+    expect(parseMoney("free")).toBeNull();
+  });
+
+  it("round-trips through the input value", () => {
+    expect(moneyInputValue(650)).toBe("6.50");
+    expect(moneyInputValue(7)).toBe("0.07");
+    expect(moneyInputValue(1200, 0)).toBe("1200");
+    expect(parseMoney(moneyInputValue(123456))).toBe(123456);
+  });
+});
+
+describe("byte sizes", () => {
+  it("uses binary units, as --max-image-size does", () => {
+    expect(formatBytes("en", 5 * 1024 * 1024)).toBe("5 MiB");
+    expect(formatBytes("en", 1536)).toBe("2 KiB");
+    expect(formatBytes("en", 512)).toBe("512 B");
+  });
+
+  it("formats the number in the interface language", () => {
+    expect(formatBytes("de", 1024 * 1024 * 2.5)).toBe("2,5 MiB");
   });
 });
