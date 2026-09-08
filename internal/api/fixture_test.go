@@ -17,6 +17,7 @@ import (
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/sse"
 	"github.com/joernott/doenerstag/internal/testdb"
 )
 
@@ -48,6 +49,7 @@ type apiFixture struct {
 	images        *api.ImageHandlers
 	menu          *api.MenuHandlers
 	orders        *api.OrderHandlers
+	registry      *sse.Registry
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -134,7 +136,10 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	f.images.Register(f.router)
 	f.menu = &api.MenuHandlers{Pool: pool}
 	f.menu.Register(f.router)
-	f.orders = &api.OrderHandlers{Pool: pool, Now: clock}
+	f.registry = sse.NewRegistry()
+	f.orders = &api.OrderHandlers{
+		Pool: pool, Events: f.registry, Now: clock,
+	}
 	f.orders.Register(f.router)
 	f.registerProbe()
 
@@ -465,3 +470,14 @@ func (f *apiFixture) seedOrderAt(restaurantID, creator string, deadline time.Tim
 // ctx is the background context, so a test does not import context just to
 // run a query against the fixture's pool.
 func (f *apiFixture) ctx() context.Context { return context.Background() }
+
+// mustParseUUID is uuid.MustParse with a test failure instead of a panic.
+func mustParseUUID(t *testing.T, s string) uuid.UUID {
+	t.Helper()
+
+	id, err := uuid.Parse(s)
+	if err != nil {
+		t.Fatalf("parsing %q: %v", s, err)
+	}
+	return id
+}

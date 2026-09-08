@@ -504,3 +504,11 @@ recorded on the branch of the sprint it belongs to.
 > 14_implementation_plan.md does not show checkmarks for tasks 8.1 to 8.9.
 > Please ensure, that bthese tasks have been completed and are marked as
 > completed.
+
+---
+
+## Sprint 9
+
+### Prompt 27
+
+> Please continue with sprint 9

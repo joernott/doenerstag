@@ -19,11 +19,10 @@ var expectedVerbs = map[string]string{
 }
 
 // stubTasks names the verbs still waiting on a later sprint, and the task that
-// will deliver each. server, install and version are implemented, so they are
-// absent.
+// will deliver each. server, install, cleanup and version are implemented, so
+// they are absent.
 var stubTasks = map[string]string{
-	"update":  "14.4",
-	"cleanup": "9.7",
+	"update": "14.4",
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {

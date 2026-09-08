@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
 	"github.com/joernott/doenerstag/internal/api"
@@ -146,4 +149,50 @@ func runServer(app *appContext, cmd *cobra.Command) error {
 		Msg("frontend ready")
 
 	return server.ListenAndServe(ctx)
+}
+
+// runCleanup removes expired data, or reports what a run would remove.
+func runCleanup(app *appContext, _ *cobra.Command) error {
+	ctx := context.Background()
+	cfg := app.Config
+	logger := app.Logger.Component("cleanup")
+
+	pool, err := db.Connect(ctx, db.OptionsFromConfig(cfg.Database), app.Logger.Component("db"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	report, err := db.Cleanup(ctx, pool, cfg.Cleanup.Retention, time.Now(), cfg.Cleanup.DryRun)
+	if err != nil {
+		// The report carries whatever the steps before the failure achieved, so
+		// it is logged rather than discarded: a run that removed four things
+		// and then failed should say so.
+		logCleanup(logger, report)
+		return err
+	}
+
+	logCleanup(logger, report)
+	return nil
+}
+
+// logCleanup writes one INFO line per step, as docs/09_configuration.md
+// requires, plus a summary.
+func logCleanup(logger *zerolog.Logger, report db.CleanupReport) {
+	for _, step := range report.Steps {
+		logger.Info().
+			Str("object", step.Object).
+			Int64("count", step.Count).
+			Bool("dry_run", report.DryRun).
+			Msg("cleanup step")
+	}
+
+	event := logger.Info().
+		Int64("total", report.Total()).
+		Bool("dry_run", report.DryRun)
+	if report.DryRun {
+		event.Msg("cleanup dry run complete; nothing was removed")
+		return
+	}
+	event.Msg("cleanup complete")
 }

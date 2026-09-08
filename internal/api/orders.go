@@ -9,9 +9,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/model"
+	"github.com/joernott/doenerstag/internal/sse"
 )
 
 // Field limits, matching migration 000007.
@@ -26,9 +29,28 @@ const (
 type OrderHandlers struct {
 	Pool *pgxpool.Pool
 
+	// Events carries live updates. Nil disables streaming, which is what a test
+	// that does not care about it uses.
+	Events *sse.Registry
+
+	// Logger records what must not fail a request. Nil discards.
+	Logger *zerolog.Logger
+
 	// Now is the clock. Everything about an order turns on it -- whether it is
 	// active, whether it may still be edited -- so a test needs to move it.
 	Now func() time.Time
+}
+
+// log returns a logger carrying the request's correlation ID.
+func (h *OrderHandlers) log(r *http.Request) *zerolog.Logger {
+	if h.Logger == nil {
+		discard := zerolog.Nop()
+		return &discard
+	}
+	logger := h.Logger.With().
+		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
+		Logger()
+	return &logger
 }
 
 func (h *OrderHandlers) now() time.Time {
@@ -45,6 +67,9 @@ func (h *OrderHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodGet, "/orders/:id", h.get)
 	r.HandleFunc(http.MethodPatch, "/orders/:id", h.patch)
 	r.HandleFunc(http.MethodDelete, "/orders/:id", h.remove)
+
+	r.HandleFunc(http.MethodGet, "/orders/:id/summary", h.summary)
+	r.HandleFunc(http.MethodGet, "/orders/:id/events", h.events)
 
 	r.HandleFunc(http.MethodPost, "/orders/:id/items", h.addItem)
 	r.HandleFunc(http.MethodPatch, "/orders/:id/items/:iid", h.patchItem)
@@ -422,6 +447,8 @@ func (h *OrderHandlers) patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.publishOrderChange(updated)
+
 	h.writeDetail(w, r, updated, http.StatusOK)
 }
 
@@ -538,6 +565,9 @@ func (h *OrderHandlers) remove(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
 		return
 	}
+
+	h.publishOrderGone(order.ID, sse.EventOrderDeleted)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

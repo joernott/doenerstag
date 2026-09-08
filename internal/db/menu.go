@@ -305,3 +305,37 @@ func SoftDeleteMenuItem(ctx context.Context, q Querier, id, actor uuid.UUID) err
 	}
 	return nil
 }
+
+// ExternalIDsForItems maps menu item ids to their restaurant item numbers.
+//
+// Read from the menu as it is now rather than from a snapshot: the number is a
+// dialling aid -- "number 12, three times" -- not part of what was agreed, so
+// the current one is the useful one. A soft-deleted item simply has no entry,
+// and the summary shows the snapshotted name without a number.
+func ExternalIDsForItems(ctx context.Context, q Querier, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := q.Query(ctx, `
+		SELECT id, coalesce(external_id, '')
+		FROM menu_item
+		WHERE id = ANY($1) AND deleted_at IS NULL`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			id         uuid.UUID
+			externalID string
+		)
+		if err := rows.Scan(&id, &externalID); err != nil {
+			return nil, err
+		}
+		out[id] = externalID
+	}
+	return out, rows.Err()
+}
