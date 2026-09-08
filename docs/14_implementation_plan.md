@@ -408,16 +408,19 @@ browser, by a user who is not an administrator.
 
 | ID   | Task                                                                                   | Size | Spec |
 | ---- | ---------------------------------------------------------------------------------------- | :--: | ---- |
-| 12.1 | Order overview tiles: active and expired, deadline with relative hint, counts, totals      | M | [06](06_ui_ux.md) |
-| 12.2 | Create order flow with client-side validation of the deadline and opening hours warning     | M | [02](02_features.md) |
-| 12.3 | Order page left column: order data, creator editing, delete with confirmation               | L | [06](06_ui_ux.md) |
-| 12.4 | Order page right column: menu, collapsible categories, the three filters                    | L | [06](06_ui_ux.md) |
-| 12.5 | Add-item dialog: quantity, modification checkboxes, free text, live line total               | M | [06](06_ui_ux.md) |
-| 12.6 | Add a missing menu item from inside the order                                                | M | [02](02_features.md) |
-| 12.7 | The anonymous order view: item count, explanatory line, login link                            | M | [06](06_ui_ux.md) |
-| 12.8 | SSE subscription, automatic reconnect, re-fetch on reconnect, reconnect on login               | L | [04](04_api.md) |
-| 12.9 | Deadline transition to read-only while the page is open                                        | M | [02](02_features.md) |
-| 12.10| Playwright coverage of the core flows, including two browser contexts seeing a live update      | L | [12](12_testing.md) |
+| ✅ 12.1 | Order overview tiles: active and expired, deadline with relative hint, counts, totals      | M | [06](06_ui_ux.md) |
+| ✅ 12.2 | Create order flow with client-side validation of the deadline and opening hours warning     | M | [02](02_features.md) |
+| ✅ 12.3 | Order page left column: order data, creator editing, delete with confirmation               | L | [06](06_ui_ux.md) |
+| ✅ 12.4 | Order page right column: menu, collapsible categories, the three filters                    | L | [06](06_ui_ux.md) |
+| ✅ 12.5 | Add-item dialog: quantity, modification checkboxes, free text, live line total               | M | [06](06_ui_ux.md) |
+| ✅ 12.6 | Add a missing menu item from inside the order                                                | M | [02](02_features.md) |
+| ✅ 12.7 | The anonymous order view: item count, explanatory line, login link                            | M | [06](06_ui_ux.md) |
+| ✅ 12.8 | SSE subscription, automatic reconnect, re-fetch on reconnect, reconnect on login               | L | [04](04_api.md) |
+| ✅ 12.9 | Deadline transition to read-only while the page is open                                        | M | [02](02_features.md) |
+| ✅ 12.10| Playwright coverage of the core flows, including two browser contexts seeing a live update      | L | [12](12_testing.md) |
+| ✅ 12.10.1 | Playwright browsers in `contrib/setup_dev_pipeline.sh`, `make e2e`, and a CI job that installs, starts and exercises the release binary against a PostgreSQL service container | M | [12](12_testing.md) |
+| ✅ 12.11 | Router teardown: a page can register work to undo when it is replaced, because an event stream outlives the DOM it feeds unless somebody closes it | S | [08](08_technologies.md) |
+| ✅ 12.12 | Move the menu item editor into a component. The order page opens the same dialog to add a dish the menu is missing, and two copies of that form would have drifted | S | [06](06_ui_ux.md) |
 
 **Exit criteria:** two people in two browsers can fill one order and see each
 other's items appear without reloading.

@@ -32,7 +32,7 @@ export default tseslint.config(
 
   // The application and its tests.
   {
-    files: ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "e2e/**/*.ts", "vitest.config.ts", "playwright.config.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {

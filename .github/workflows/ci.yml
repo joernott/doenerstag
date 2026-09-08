@@ -217,6 +217,111 @@ jobs:
             exit 1
           fi
 
+  # The browser tests, against the release binary and a real database. This is
+  # the only job that exercises the application as a person uses it: two
+  # windows on one order, a cookie surviving a reload, a modal walked by
+  # keyboard. Everything cheaper than a browser is a Vitest test.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install the browsers
+        # Chromium and Firefox only: those are the two docs/12_testing.md names,
+        # and a third browser is minutes of download for a platform nobody
+        # targets.
+        run: npx playwright install --with-deps chromium firefox
+        working-directory: frontend
+
+      - name: Build the release binary
+        run: make release
+
+      - name: Provision the database and the configuration
+        # Exactly the sequence docs/10_operations.md documents, secrets in the
+        # environment because the command line is refused for them. Running it
+        # here means the installer is exercised on every push, not only when
+        # somebody installs.
+        env:
+          DOENER_DATABASE_ROOT_PASSWORD: postgres
+          DOENER_DATABASE_ADMIN_PASSWORD: ci-admin-password
+          DOENER_DATABASE_PASSWORD: ci-runtime-password
+          DOENER_ROOT_PASSWORD: "Korrektes Pferd Batterie Klammer1"
+        run: |
+          ./dist/doenerstag install --non-interactive \
+            --output doenerstag.yaml \
+            --database-server localhost \
+            --database-port 5432 \
+            --database-name doenerstag \
+            --database-user doenerstag \
+            --database-root-user postgres \
+            --database-admin-user doenerstag_admin
+
+      - name: Start the server
+        # --no-https, so the suite does not spend its time on a self-signed
+        # certificate it would only be told to ignore.
+        run: |
+          ./dist/doenerstag server -c doenerstag.yaml --no-https --port 8443 \
+            >server.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -sf http://localhost:8443/api/v1/health >/dev/null; then
+              echo "the server is up after ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the server did not come up"
+          cat server.log
+          exit 1
+
+      - name: Playwright
+        env:
+          DOENER_E2E_URL: http://localhost:8443
+        run: npm run e2e
+        working-directory: frontend
+
+      - name: The server's log, when something failed
+        if: failure()
+        run: cat server.log
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
   build:
     name: Build
     runs-on: ubuntu-latest

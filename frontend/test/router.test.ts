@@ -132,6 +132,80 @@ describe("the router", () => {
     expect(outlet.textContent).toBe("orders");
   });
 
+  it("does not undo the page it is installing", async () => {
+    // The defect a browser found and no unit test had: the cleanups were kept
+    // on the router, so a page registering one while it was being built had it
+    // run by the very render that was building it. The order page opened its
+    // event stream and the router closed it a moment later, and the page then
+    // sat there showing data that never changed.
+    const closed: string[] = [];
+    const { router, outlet } = build([
+      {
+        pattern: "/",
+        render: (context) => {
+          context.onCleanup(() => closed.push("first"));
+          return text("first");
+        },
+      },
+      {
+        pattern: "/second",
+        render: (context) => {
+          context.onCleanup(() => closed.push("second"));
+          return text("second");
+        },
+      },
+    ]);
+
+    router.start();
+    await Promise.resolve();
+    expect(outlet.textContent).toBe("first");
+    expect(closed).toEqual([]);
+
+    router.navigate("/second");
+    await Promise.resolve();
+    // Only the outgoing page is undone.
+    expect(closed).toEqual(["first"]);
+
+    router.stop();
+    expect(closed).toEqual(["first", "second"]);
+  });
+
+  it("undoes a page that was overtaken before it was ever shown", async () => {
+    const closed: string[] = [];
+    let release: () => void = () => {};
+
+    const { router, outlet } = build([
+      { pattern: "/", render: () => text("orders") },
+      {
+        pattern: "/slow",
+        render: async (context) => {
+          context.onCleanup(() => closed.push("slow"));
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return text("slow");
+        },
+      },
+      { pattern: "/fast", render: () => text("fast") },
+    ]);
+    router.start();
+    await Promise.resolve();
+
+    router.navigate("/slow");
+    await Promise.resolve();
+    router.navigate("/fast");
+    await Promise.resolve();
+
+    release();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(outlet.textContent).toBe("fast");
+    // The abandoned page opened something; it has to be closed even though the
+    // page was never shown.
+    expect(closed).toEqual(["slow"]);
+  });
+
   it("shows the newest navigation when two renders overlap", async () => {
     let release: () => void = () => {};
     const { router, outlet } = build([

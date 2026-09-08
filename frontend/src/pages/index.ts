@@ -10,6 +10,9 @@ import { el } from "../dom";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
 import { accountPage } from "./account";
+import { createOrderPage } from "./ordercreate";
+import { orderPage } from "./order";
+import { ordersPage } from "./orders";
 import { page } from "./page";
 import { restaurantPage } from "./restaurant";
 import { restaurantsPage } from "./restaurants";
@@ -19,8 +22,12 @@ export { page } from "./page";
 /** The routes, in the order the router tries them. */
 export function routes(app: App): Route[] {
   return [
-    { pattern: "/", render: () => placeholder(app, app.t.t("nav.orders")) },
-    { pattern: "/orders/:id", render: () => placeholder(app, app.t.t("nav.orders")) },
+    { pattern: "/", render: () => ordersPage(app) },
+    { pattern: "/orders/new", render: () => createOrderPage(app) },
+    {
+      pattern: "/orders/:id",
+      render: (context) => orderPage(app, context.params["id"] ?? "", { cleanup: context }),
+    },
     { pattern: "/orders/:id/summary", render: () => placeholder(app, app.t.t("order.summary")) },
     { pattern: "/restaurants", render: () => restaurantsPage(app) },
     { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },

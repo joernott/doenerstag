@@ -309,5 +309,22 @@
 
   "action.copy": "Kopieren",
   "action.copied": "Kopiert",
-  "action.create": "Anlegen"
+  "action.create": "Anlegen",
+
+  "order.fulfilment.type": "Abholung oder Lieferung",
+  "order.item_list": "Positionen",
+  "order.totals": "Summen",
+  "order.edit": "Bestellung bearbeiten",
+  "order.delete": "Bestellung löschen",
+  "order.no_restaurants": "Es gibt noch kein Restaurant, bei dem bestellt werden könnte.",
+  "order.deadline_before_fulfilment": "Der Bestellschluss muss vor der Ankunft des Essens liegen.",
+  "order.outside_hours": "Das Restaurant hat dann geschlossen. Eine Vorbestellung ist meist trotzdem möglich.",
+  "order.restaurant_locked": "Das Restaurant lässt sich nicht mehr wechseln, sobald Positionen bestellt sind.",
+  "order.items_so_far.one": "bisher {count} Position",
+  "order.items_so_far.other": "bisher {count} Positionen",
+  "order.anonymous_hint": "Wer was bestellt hat, sehen angemeldete Benutzer.",
+  "order.join": "Zum Mitbestellen anmelden",
+  "order.add_missing_item": "Ein Gericht hinzufügen, das auf der Karte fehlt",
+  "order.deleted": "Diese Bestellung wurde gelöscht.",
+  "order.live.changed": "Die Bestellung hat sich geändert."
 }

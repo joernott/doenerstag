@@ -940,3 +940,153 @@ a {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ---------------------------------------------------------------------------
+   The order page
+
+   Two columns at lg and above, stacked below, per the breakpoint table in
+   docs/06_ui_ux.md. The order is the column that matters, so it is the one
+   that keeps its width when there is not enough of it to go round.
+--------------------------------------------------------------------------- */
+
+.order-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .order-layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .order-layout {
+    gap: 2.5rem;
+  }
+}
+
+.order-column {
+  min-width: 0;
+}
+
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  font-weight: 500;
+}
+
+.notice-warning {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.restaurant-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.contact + .contact::before {
+  content: "";
+}
+
+.person-group + .person-group {
+  margin-block-start: 1rem;
+}
+
+.person-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.person-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.order-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-block: 0.5rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.order-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.order-item-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.order-item-extras {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+}
+
+.item-note {
+  font-style: italic;
+}
+
+.item-quantity {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.totals .grand {
+  font-weight: 600;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.35rem;
+}
+
+.line-total {
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+
+.filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-block-end: 1rem;
+}
+
+.filter-bar .chips {
+  gap: 0.25rem 1rem;
+}
+
+/* A category heading that folds its items away. The state is on the button,
+   where a screen reader looks for it, not only in the icon. */
+.category-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0;
+  border: none;
+  border-block-end: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.tile-hint {
+  white-space: nowrap;
+}

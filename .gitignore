@@ -16,6 +16,10 @@ coverage.html
 /frontend/node_modules/
 /frontend/.cache/
 
+# Playwright output: reports, traces and screenshots from a failed run.
+/frontend/playwright-report/
+/frontend/test-results/
+
 # Generated from the catalogs beside it by scripts/i18n.mjs, on every build and
 # before every test run. Committing it would make it possible for the language
 # list to disagree with the catalogs actually present.

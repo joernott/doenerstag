@@ -21,5 +21,12 @@
     // inferred, so a test calling one with the wrong arguments still fails here.
     "allowJs": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.mjs", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "e2e/**/*.ts",
+    "scripts/**/*.mjs",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
 }

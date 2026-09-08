@@ -9,10 +9,27 @@ import { createApp, type App } from "../src/app";
 import type { Route } from "../src/router";
 import { resetReferenceData } from "../src/reference";
 
-/** One canned answer. */
+/**
+ * One canned answer with a status of its own.
+ *
+ * Marked rather than recognised by shape. The first version of this helper
+ * treated any value with a `status` field as a canned answer, which worked
+ * until an order body arrived: an order has a status, "active" or "expired",
+ * and every order stub was quietly turned into an HTTP failure.
+ */
 export interface Stub {
-  status?: number;
+  __stub: true;
+  status: number;
   body?: unknown;
+}
+
+/** A stubbed failure: `fails(409, { error: { code: 4001 } })`. */
+export function fails(status: number, body?: unknown): Stub {
+  return { __stub: true, status, ...(body === undefined ? {} : { body }) };
+}
+
+function isStub(value: unknown): value is Stub {
+  return typeof value === "object" && value !== null && "__stub" in value;
 }
 
 /**
@@ -39,9 +56,8 @@ export function stubServer(routes: Record<string, unknown>): {
     if (entry === undefined) {
       return Promise.resolve(response(404, { error: { code: 4000, message: "not stubbed" } }));
     }
-    const stub = entry as Stub;
-    if (stub && typeof stub === "object" && "status" in stub) {
-      return Promise.resolve(response(stub.status ?? 200, stub.body ?? null));
+    if (isStub(entry)) {
+      return Promise.resolve(response(entry.status, entry.body ?? null));
     }
     return Promise.resolve(response(200, entry));
   });

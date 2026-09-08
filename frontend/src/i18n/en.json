@@ -309,5 +309,22 @@
 
   "action.copy": "Copy",
   "action.copied": "Copied",
-  "action.create": "Create"
+  "action.create": "Create",
+
+  "order.fulfilment.type": "Pickup or delivery",
+  "order.item_list": "Items",
+  "order.totals": "Totals",
+  "order.edit": "Edit the order",
+  "order.delete": "Delete the order",
+  "order.no_restaurants": "There is no restaurant to order from yet.",
+  "order.deadline_before_fulfilment": "The deadline has to be before the food arrives.",
+  "order.outside_hours": "The restaurant is closed then. A pre-order is usually fine.",
+  "order.restaurant_locked": "The restaurant cannot be changed once the order has items.",
+  "order.items_so_far.one": "{count} item so far",
+  "order.items_so_far.other": "{count} items so far",
+  "order.anonymous_hint": "Who ordered what is visible to logged-in users.",
+  "order.join": "Log in to join this order",
+  "order.add_missing_item": "Add a dish that is missing from the menu",
+  "order.deleted": "This order has been deleted.",
+  "order.live.changed": "The order has changed."
 }

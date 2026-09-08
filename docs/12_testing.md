@@ -231,6 +231,31 @@ Chromium:
 - Run `axe-core` on every page in both themes with no serious or critical
   violations.
 
+### How the suite runs
+
+The suite does not start the server. The server needs a database, and where
+that database is depends on the machine: `make e2e` runs the tests against
+whatever `DOENER_E2E_URL` names, defaulting to `https://localhost:8443`, and the
+CI job builds the release binary, runs the installer against a PostgreSQL
+service container and starts it on `--no-https` before calling the same target.
+Running the documented installation on every push is a second benefit: the
+install path is exercised continuously rather than only when somebody installs.
+
+Each test builds the world it needs — an account, a restaurant, a menu, an
+order — through the API, with a name no other run will have used. That is not
+the shared fixture described below; it is what exists until the fixture package
+does, and it has the advantage that a test states its own preconditions instead
+of depending on a seed somebody else maintains.
+
+The browsers are Chromium and Firefox. `contrib/setup_dev_pipeline.sh` installs
+them, so a machine provisioned by that script can run the suite.
+
+On a small machine, run one at a time — `npx playwright test --project=firefox`.
+The development VM has 2 GB of memory, and running both projects in a single
+invocation puts it into swap: every test passes on its own and several time out
+together, which looks like flakiness and is arithmetic. CI has the memory to run
+both at once, and does.
+
 ## Coverage
 
 Coverage is a signal, not a target to game.
