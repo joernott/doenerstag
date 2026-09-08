@@ -230,6 +230,107 @@ paths:
               schema:
                 $ref: "#/components/schemas/SessionBody"
 
+  /auth/password-reset:
+    post:
+      tags: [authentication]
+      operationId: requestPasswordReset
+      summary: Ask for a password reset link.
+      description: |
+        Sends a link that lets the account holder choose a new password, valid
+        for one hour.
+
+        The answer is the same whether the account exists, does not exist, or
+        exists without an e-mail address on file. That is deliberate and is not
+        a detail a client may soften: an endpoint that answers differently for a
+        name that exists is a way to read out every account on the installation
+        one guess at a time, and an intranet tool's account list is a staff
+        list.
+
+        Accepts either the login name or the e-mail address, because somebody
+        who has forgotten their password should not also have to remember which
+        of the two they registered with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: The login name or the e-mail address.
+                  example: jo
+      responses:
+        "202":
+          description: |
+            The request was accepted. This says nothing about whether a message
+            was sent, and cannot be used to find out.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/password-reset/{token}:
+    post:
+      tags: [authentication]
+      operationId: completePasswordReset
+      summary: Set a new password from a reset link.
+      description: |
+        Sets the password and ends every session of that account: somebody
+        resetting a password may be doing it precisely because another person
+        has been using theirs.
+
+        A link works once. The password is checked before the link is spent, so
+        one rejected for being too weak leaves the link usable rather than
+        forcing a second request from somebody who has done nothing wrong.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: |
+            The token from the link. It is the whole credential: anybody holding
+            it can set the password of the account it names.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+                  description: The new password, subject to the usual complexity rules.
+      responses:
+        "200":
+          description: The password was changed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: reset
+        "400":
+          description: |
+            The link is not valid (1015), has expired (1016), or the password
+            does not meet the complexity rules (1010).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /auth/session:
     get:
       tags: [authentication]

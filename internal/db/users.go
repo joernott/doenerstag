@@ -270,3 +270,14 @@ func isForeignKeyViolation(err error) bool {
 // Exported for the api package, which turns a reference to a row that does not
 // exist into a 1002 naming the field rather than a server error.
 func IsForeignKeyViolation(err error) bool { return isForeignKeyViolation(err) }
+
+// UserByEmail reads one account by its e-mail address.
+//
+// Case-insensitive, because an address is: somebody who registered as
+// Anna@example.com and asks for a reset as anna@example.com is the same person,
+// and telling them otherwise would be telling them their account does not
+// exist.
+func UserByEmail(ctx context.Context, q Querier, email string) (model.User, error) {
+	return scanUser(q.QueryRow(ctx,
+		`SELECT `+userColumns+` FROM app_user WHERE lower(email) = lower($1)`, email))
+}

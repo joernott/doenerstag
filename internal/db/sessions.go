@@ -179,3 +179,16 @@ func DeleteExpiredSessions(ctx context.Context, q Querier, now time.Time) (int64
 	}
 	return tag.RowsAffected(), nil
 }
+
+// DeleteSessionsForUser ends every session of one account.
+//
+// Used when a password is reset. Somebody resetting a password may be doing it
+// precisely because somebody else has been using theirs, and a reset that left
+// the other browser logged in would achieve nothing.
+//
+// Removing no rows is success: an account with no session is the state this
+// asks for.
+func DeleteSessionsForUser(ctx context.Context, q Querier, user uuid.UUID) error {
+	_, err := q.Exec(ctx, `DELETE FROM session WHERE user_id = $1`, user)
+	return err
+}

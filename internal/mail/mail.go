@@ -150,10 +150,7 @@ func (s *SMTP) Send(ctx context.Context, msg Message) error {
 		return err
 	}
 
-	body, err := s.compose(msg)
-	if err != nil {
-		return err
-	}
+	body := s.compose(msg)
 
 	address := net.JoinHostPort(s.opts.Host, fmt.Sprint(s.opts.Port))
 
@@ -248,7 +245,7 @@ func (s *SMTP) tlsConfig() *tls.Config {
 // sentence and a link. HTML mail would mean a multipart body, an alternative
 // plain part, and a link that some clients rewrite -- for no gain to somebody
 // who needs to click one thing.
-func (s *SMTP) compose(msg Message) (string, error) {
+func (s *SMTP) compose(msg Message) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "From: %s\r\n", s.opts.From)
@@ -266,7 +263,7 @@ func (s *SMTP) compose(msg Message) (string, error) {
 	// net/smtp's DataWriter does not do them.
 	b.WriteString(strings.ReplaceAll(normaliseNewlines(msg.Body), "\n", "\r\n"))
 
-	return b.String(), nil
+	return b.String()
 }
 
 func normaliseNewlines(s string) string {

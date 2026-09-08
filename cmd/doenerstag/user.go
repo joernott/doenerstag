@@ -137,7 +137,7 @@ decides, and it refuses to remove the administrator or the placeholder.`,
 				if err := db.DeleteUser(ctx, pool, user.ID); err != nil {
 					return fmt.Errorf("deleting %s: %w", user.Name, err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s (%s).\n", user.Name, user.ID)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s (%s).\n", user.Name, user.ID)
 				return nil
 			})
 		},
@@ -240,18 +240,21 @@ func findUser(ctx context.Context, pool *pgxpool.Pool, id, name string) (model.U
 // writeUserTable prints the accounts, aligned.
 func writeUserTable(out io.Writer, users []model.User) {
 	if len(users) == 0 {
-		fmt.Fprintln(out, "No accounts.")
+		_, _ = fmt.Fprintln(out, "No accounts.")
 		return
 	}
 
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tDISPLAY NAME\tE-MAIL\tADMIN")
-	for _, u := range users {
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tDISPLAY NAME\tE-MAIL\tADMIN")
+	// Indexed rather than ranged by value: a model.User is 128 bytes and this
+	// copies one per row for no reason.
+	for i := range users {
+		u := &users[i]
 		admin := ""
 		if u.IsAdmin {
 			admin = "yes"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", u.ID, u.Name, u.DisplayName, u.Email, admin)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", u.ID, u.Name, u.DisplayName, u.Email, admin)
 	}
 	_ = w.Flush()
 }
@@ -284,11 +287,11 @@ func addUser(ctx context.Context, out io.Writer, pool *pgxpool.Pool, name, displ
 		return err
 	}
 
-	fmt.Fprintf(out, "Created %s.\n", user.Name)
-	fmt.Fprintf(out, "  Id:       %s\n", user.ID)
-	fmt.Fprintf(out, "  Password: %s\n", password)
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "This is the only time the password is shown. It is stored as a hash.")
+	_, _ = fmt.Fprintf(out, "Created %s.\n", user.Name)
+	_, _ = fmt.Fprintf(out, "  Id:       %s\n", user.ID)
+	_, _ = fmt.Fprintf(out, "  Password: %s\n", password)
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "This is the only time the password is shown. It is stored as a hash.")
 	return nil
 }
 
@@ -298,7 +301,7 @@ func setUserPassword(ctx context.Context, cmd *cobra.Command, pool *pgxpool.Pool
 
 	password, err := prompter.AskSecretTwice(install.Question{
 		Prompt:   fmt.Sprintf("New password for %s", user.Name),
-		Validate: func(value string) error { return auth.ValidateComplexity(value) },
+		Validate: auth.ValidateComplexity,
 	})
 	if err != nil {
 		return err
@@ -315,7 +318,7 @@ func setUserPassword(ctx context.Context, cmd *cobra.Command, pool *pgxpool.Pool
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\nThe password for %s has been changed.\n", user.Name)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nThe password for %s has been changed.\n", user.Name)
 	return nil
 }
 
@@ -337,15 +340,15 @@ func issueResetLink(ctx context.Context, cmd *cobra.Command, cfg *config.Config,
 	link := base + "/reset-password/" + token
 	out := cmd.OutOrStdout()
 
-	fmt.Fprintf(out, "A password reset link for %s, valid for %s:\n\n  %s\n\n",
+	_, _ = fmt.Fprintf(out, "A password reset link for %s, valid for %s:\n\n  %s\n\n",
 		user.Name, auth.ResetLifetime, link)
 
 	if user.Email == "" {
-		fmt.Fprintf(out, "%s has no e-mail address on file, so nothing was sent.\n", user.Name)
+		_, _ = fmt.Fprintf(out, "%s has no e-mail address on file, so nothing was sent.\n", user.Name)
 		return nil
 	}
 	if !cfg.Mail.Enabled() {
-		fmt.Fprintln(out, "No mail server is configured, so nothing was sent.")
+		_, _ = fmt.Fprintln(out, "No mail server is configured, so nothing was sent.")
 		return nil
 	}
 
@@ -359,11 +362,11 @@ func issueResetLink(ctx context.Context, cmd *cobra.Command, cfg *config.Config,
 		// Not a failure of the command. The link above is valid whether or not
 		// the message went anywhere, and an administrator who can read this can
 		// send it themselves.
-		fmt.Fprintf(out, "The mail could not be sent (%v).\nThe link above still works.\n", err)
+		_, _ = fmt.Fprintf(out, "The mail could not be sent (%v).\nThe link above still works.\n", err)
 		return nil
 	}
 
-	fmt.Fprintf(out, "Sent to %s.\n", user.Email)
+	_, _ = fmt.Fprintf(out, "Sent to %s.\n", user.Email)
 	return nil
 }
 
@@ -397,11 +400,11 @@ const resetMailSubject = "Reset your doenerstag password"
 // this translatable and is the obvious next step if anybody asks.
 func resetMailBody(displayName, link string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Hello %s,\n\n", displayName)
+	_, _ = fmt.Fprintf(&b, "Hello %s,\n\n", displayName)
 	b.WriteString("somebody asked to reset your doenerstag password.\n\n")
 	b.WriteString("Open this link to choose a new one:\n\n")
-	fmt.Fprintf(&b, "  %s\n\n", link)
-	fmt.Fprintf(&b, "The link stops working after %s.\n\n", auth.ResetLifetime)
+	_, _ = fmt.Fprintf(&b, "  %s\n\n", link)
+	_, _ = fmt.Fprintf(&b, "The link stops working after %s.\n\n", auth.ResetLifetime)
 	b.WriteString("If you did not ask for this, you can ignore this message.\n")
 	b.WriteString("Your password has not changed.\n")
 	return b.String()

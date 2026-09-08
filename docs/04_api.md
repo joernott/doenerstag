@@ -109,6 +109,8 @@ falls back to `message` when no translation exists.
 | 1012 | 415  | Unsupported image media type.                                   |
 | 1013 | 400  | Unknown currency code.                                          |
 | 1014 | 400  | The deadline is already in the past.                            |
+| 1015 | 400  | This password reset link is not valid: forged, mangled or already used. |
+| 1016 | 400  | This password reset link has expired.                           |
 | 2000 | 401  | Not authenticated.                                              |
 | 2001 | 401  | Invalid user name or password.                                  |
 | 2002 | 401  | Session expired (idle or absolute timeout).                     |

@@ -46,6 +46,16 @@ differ.
 */
 const resetPurpose = "doenerstag-password-reset-v1"
 
+// resetSeparator divides the payload from its signature.
+//
+// A tilde rather than the obvious dot, and not for taste: a reset token is a
+// path segment, and the SPA fallback treats a final segment containing a dot as
+// a request for a file and answers 404 rather than serving the application. A
+// dot here made every reset link in every mail land on a JSON error envelope.
+// Tilde is outside the base64url alphabet, so it cannot occur inside either
+// half, and it needs no escaping in a URL.
+const resetSeparator = "~"
+
 // Errors a reset token can fail with. They are distinguished because the caller
 // tells a person something different for each: an expired link can be asked for
 // again, a malformed one means the mail client mangled it.
@@ -74,7 +84,7 @@ func NewResetSigner(secret string) (*ResetSigner, error) {
 func (s *ResetSigner) IssueReset(user uuid.UUID, now time.Time) string {
 	payload := fmt.Sprintf("%s.%d", user, now.Add(ResetLifetime).Unix())
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(payload))
-	return encoded + "." + s.sign(encoded)
+	return encoded + resetSeparator + s.sign(encoded)
 }
 
 // ParseReset checks a token and reports who it is for.
@@ -84,7 +94,7 @@ func (s *ResetSigner) IssueReset(user uuid.UUID, now time.Time) string {
 // token: a server that keeps a list of valid reset tokens in memory is a server
 // whose memory is worth stealing.
 func (s *ResetSigner) ParseReset(token string, now time.Time) (user uuid.UUID, id string, err error) {
-	encoded, signature, ok := strings.Cut(token, ".")
+	encoded, signature, ok := strings.Cut(token, resetSeparator)
 	if !ok {
 		return uuid.Nil, "", ErrResetMalformed
 	}

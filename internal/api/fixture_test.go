@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -22,6 +23,7 @@ import (
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/mail"
 	"github.com/joernott/doenerstag/internal/sse"
 	"github.com/joernott/doenerstag/internal/testdb"
 )
@@ -118,6 +120,8 @@ type apiFixture struct {
 	menu          *api.MenuHandlers
 	orders        *api.OrderHandlers
 	registry      *sse.Registry
+	reset         *api.ResetHandlers
+	mail          *collectingSender
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -209,6 +213,23 @@ func newAPIFixtureWithUploadLimit(t *testing.T, maxImageBytes int64) *apiFixture
 	f.auth.Register(f.router)
 	f.users = &api.UserHandlers{Pool: pool, Secure: true, Now: clock}
 	f.users.Register(f.router)
+
+	// Password reset. The sender collects rather than sends, so a test can read
+	// the link out of the message the way a person would read it out of a mail.
+	resetSigner, err := auth.NewResetSigner(fixtureSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.mail = &collectingSender{}
+	f.reset = &api.ResetHandlers{
+		Pool:    pool,
+		Signer:  resetSigner,
+		Sender:  f.mail,
+		BaseURL: "https://doener.test",
+		Used:    api.NewUsedResets(),
+		Now:     clock,
+	}
+	f.reset.Register(f.router)
 
 	// The system endpoints are here so the permission matrix can assert the
 	// public-read rows against a real route rather than a stand-in. Shutdown is
@@ -698,4 +719,77 @@ func (f *apiFixture) signer() *auth.Signer {
 		f.t.Fatal(err)
 	}
 	return signer
+}
+
+// collectingSender keeps messages instead of sending them.
+//
+// The reset tests need to read the link out of a message the way the person
+// who received it would, because the link is the only thing that connects the
+// two halves of the flow and a test that reached into the signer to mint its
+// own would not be testing the half that mails it.
+type collectingSender struct {
+	mu       sync.Mutex
+	sent     []mail.Message
+	failWith error
+}
+
+func (c *collectingSender) Send(_ context.Context, msg mail.Message) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.failWith != nil {
+		return c.failWith
+	}
+	c.sent = append(c.sent, msg)
+	return nil
+}
+
+func (c *collectingSender) messages() []mail.Message {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]mail.Message(nil), c.sent...)
+}
+
+// resetLink pulls the link out of the one message that was sent.
+func (c *collectingSender) resetLink(t *testing.T) string {
+	t.Helper()
+
+	messages := c.messages()
+	if len(messages) != 1 {
+		t.Fatalf("%d messages were sent, want exactly 1", len(messages))
+	}
+	for _, field := range strings.Fields(messages[0].Body) {
+		if strings.HasPrefix(field, "https://") {
+			return field
+		}
+	}
+	t.Fatalf("no link in the message:\n%s", messages[0].Body)
+	return ""
+}
+
+// resetToken is the last path segment of the link.
+func (c *collectingSender) resetToken(t *testing.T) string {
+	t.Helper()
+
+	link := c.resetLink(t)
+	return link[strings.LastIndex(link, "/")+1:]
+}
+
+// captureLog runs fn with the reset handlers logging into a buffer, and returns
+// what was written.
+//
+// The reset handlers are the only ones a test needs this for: they are the only
+// ones that handle something whose appearance in a log would itself be the
+// defect.
+func (f *apiFixture) captureLog(fn func()) string {
+	f.t.Helper()
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf)
+
+	previous := f.reset.Logger
+	f.reset.Logger = &logger
+	defer func() { f.reset.Logger = previous }()
+
+	fn()
+	return buf.String()
 }

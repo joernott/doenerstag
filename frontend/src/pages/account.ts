@@ -12,7 +12,7 @@ import { button, field, form, input } from "../components/forms";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
 import { tabs } from "../components/tabs";
-import { actions, card, page, pageWithActions, statusLine } from "./page";
+import { actions, card, page, pageWithActions, section, statusLine } from "./page";
 
 /** The account page, in whichever of its two shapes applies. */
 export function accountPage(app: App): HTMLElement {
@@ -62,6 +62,14 @@ function loginForm(app: App): HTMLElement {
   const password = passwordField({ t, autocomplete: "current-password" });
   const submit = button({ label: t.t("auth.login"), variant: "primary", type: "submit" });
 
+  // Behind the login button, because it is the thing somebody reaches for only
+  // after the button in front of it has not worked.
+  const forgotten = button({
+    label: t.t("auth.forgot_password"),
+    type: "button",
+    onclick: () => forgottenPasswordDialog(app, name.value.trim()),
+  });
+
   const element = form(
     () => {
       void send();
@@ -69,7 +77,7 @@ function loginForm(app: App): HTMLElement {
     field({ label: t.t("auth.name"), control: name }),
     password.element,
     el("p", { class: "field-hint", text: t.t("auth.session_replaced") }),
-    actions(submit),
+    actions(submit, forgotten),
     status.element,
   );
 
@@ -732,4 +740,130 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
   }
 
   return start;
+}
+
+/**
+ * Asks for a reset link.
+ *
+ * The answer is the same whether the account exists or not, which is the
+ * server's rule and not a detail this dialog may soften: a message that says
+ * "we have sent you a mail" for a name nobody has is the point, because the
+ * alternative turns the login page into a way to find out who works here.
+ *
+ * So the confirmation is worded to be true either way. It does not say a
+ * message was sent; it says one was sent if the account exists and has an
+ * address.
+ */
+function forgottenPasswordDialog(app: App, prefill: string): void {
+  const { t } = app;
+  const status = statusLine();
+
+  const who = input({ name: "name", autocomplete: "username", required: true, value: prefill });
+  const submit = button({ label: t.t("auth.send_reset_link"), variant: "primary", type: "submit" });
+  const cancel = button({ label: t.t("action.cancel"), type: "button" });
+
+  const body = form(
+    () => {
+      void send();
+    },
+    el("p", { text: t.t("auth.forgot_password_explain") }),
+    field({ label: t.t("auth.name_or_email"), control: who }),
+    status.element,
+  );
+
+  const handle = openModal({
+    title: t.t("auth.forgot_password"),
+    body,
+    actions: [submit, cancel],
+    closeLabel: t.t("action.close"),
+  });
+
+  // The buttons live in the modal footer rather than inside the form, so the
+  // submit one has to be wired to it by hand.
+  submit.addEventListener("click", () => {
+    void send();
+  });
+  cancel.addEventListener("click", () => handle.close());
+  who.focus();
+
+  async function send(): Promise<void> {
+    const value = who.value.trim();
+    if (!value) {
+      status.fail(t.t("auth.name_or_email_required"));
+      who.focus();
+      return;
+    }
+
+    status.clear();
+    submit.disabled = true;
+    try {
+      await api.post("/auth/password-reset", { name: value });
+      handle.close();
+      openModal({
+        title: t.t("auth.reset_link_sent"),
+        body: el("p", { text: t.t("auth.reset_link_sent_explain") }),
+        actions: [],
+        closeLabel: t.t("action.close"),
+      });
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    } finally {
+      submit.disabled = false;
+    }
+  }
+}
+
+/**
+ * The page a reset link opens.
+ *
+ * The token is never shown and never put in a field: it is in the address bar
+ * already, and repeating it would only invite somebody to copy the wrong half
+ * of it. Whether it is any good is not asked in advance either -- a "check this
+ * token" endpoint would be a way to test tokens -- so the first thing that
+ * judges it is the submission itself, which is also the only moment it matters.
+ */
+export function resetPasswordPage(app: App, token: string): HTMLElement {
+  const { t } = app;
+  const status = statusLine();
+
+  const password = passwordField({ t, autocomplete: "new-password" });
+  const submit = button({ label: t.t("auth.set_password"), variant: "primary", type: "submit" });
+
+  const element = form(
+    () => {
+      void send();
+    },
+    el("p", { text: t.t("auth.reset_explain") }),
+    password.element,
+    actions(submit),
+    status.element,
+  );
+
+  async function send(): Promise<void> {
+    status.clear();
+    submit.disabled = true;
+    try {
+      await api.post(`/auth/password-reset/${encodeURIComponent(token)}`, {
+        password: password.value(),
+      });
+      // Straight to the login page, which is where somebody who has just
+      // chosen a password wants to be. The session is not started for them:
+      // the reset ended every session of the account, and starting a new one
+      // from a link that arrived by mail would undo that.
+      app.router.navigate("/account");
+      openModal({
+        title: t.t("auth.password_changed"),
+        body: el("p", { text: t.t("auth.password_changed_explain") }),
+        actions: [],
+        closeLabel: t.t("action.close"),
+      });
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+      password.control.focus();
+    } finally {
+      submit.disabled = false;
+    }
+  }
+
+  return page(t.t("auth.set_password"), section(t.t("auth.set_password"), element));
 }

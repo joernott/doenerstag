@@ -9,7 +9,7 @@ import { api, type VersionInfo } from "../api";
 import { el } from "../dom";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
-import { accountPage } from "./account";
+import { accountPage, resetPasswordPage } from "./account";
 import { contentPage, usersPage } from "./admin";
 import { createOrderPage } from "./ordercreate";
 import { orderPage } from "./order";
@@ -37,6 +37,13 @@ export function routes(app: App): Route[] {
     { pattern: "/restaurants", render: () => restaurantsPage(app) },
     { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },
     { pattern: "/account", render: () => accountPage(app) },
+    {
+      // The address a reset link points at. The token is a path segment rather
+      // than a query parameter so that it is not kept in a Referer header on
+      // the way to anything this page loads.
+      pattern: "/reset-password/:token",
+      render: (context) => resetPasswordPage(app, context.params["token"] ?? ""),
+    },
     { pattern: "/admin/users", render: () => usersPage(app) },
     { pattern: "/version", render: () => versionPage(app) },
     { pattern: "/imprint", render: () => contentPage(app, "imprint") },

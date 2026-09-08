@@ -73,10 +73,18 @@ describe("the user administration", () => {
     await settle();
 
     const rows = [...rendered.querySelectorAll(".user-row")];
+
     // The server refuses both -- deleting the administrator and deleting
-    // yourself -- so the button is not offered for either.
-    expect(rows[0]?.querySelector("button")).toBeNull();
-    expect(rows[1]?.querySelector("button")).not.toBeNull();
+    // yourself -- so the button is not offered for either. Every row still has
+    // the other two, Edit and Reset password, which is why this looks for the
+    // delete button by its label rather than for any button at all.
+    const deleteButton = (row: Element | undefined) =>
+      [...(row?.querySelectorAll("button") ?? [])].find(
+        (b) => b.textContent === app.t.t("action.delete"),
+      ) ?? null;
+
+    expect(deleteButton(rows[0])).toBeNull();
+    expect(deleteButton(rows[1])).not.toBeNull();
   });
 
   it("names the impact and wants the user name typed before deleting", async () => {
