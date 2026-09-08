@@ -438,29 +438,39 @@ func TestTheFilenameIsSanitised(t *testing.T) {
 	f := newAPIFixture(t)
 	cookies := f.register("nils")
 
-	// No NUL case here. Go's multipart parser refuses a filename containing one
-	// before the handler is reached, so a test of it would be a test of the
-	// standard library. sanitiseFilename strips control characters anyway --
-	// \r\n below covers that path -- and keeps doing so for a NUL that arrives
-	// some other way.
-	cases := map[string]string{
-		"../../etc/passwd":       "passwd",
-		`C:\Users\me\logo.png`:   "logo.png",
-		"/tmp/logo.png":          "logo.png",
-		"logo\r\n.png":           "logo.png",
-		strings.Repeat("a", 400): strings.Repeat("a", 255),
+	// No control-character cases. Go's multipart layer does not let one through
+	// unchanged: a NUL is refused outright, and CR/LF are percent-escaped into
+	// the header, so the handler receives the literal text "%0D%0A" and there
+	// is nothing to strip. sanitiseFilename still strips them, as defence in
+	// depth for a filename arriving some other way, but that path cannot be
+	// driven through HTTP and this test does not pretend to cover it.
+	//
+	// Each case uses a differently-sized picture. With identical ones the
+	// uploads deduplicate to a single row, every response comes back carrying
+	// the first-stored filename, and the assertions quietly stop testing
+	// anything -- which is exactly what happened here until an unrelated change
+	// altered Go's map iteration order and exposed it.
+	cases := []struct {
+		given string
+		want  string
+	}{
+		{"../../etc/passwd", "passwd"},
+		{`C:\Users\me\logo.png`, "logo.png"},
+		{"/tmp/logo.png", "logo.png"},
+		{"  spaced.png  ", "spaced.png"},
+		{strings.Repeat("a", 400), strings.Repeat("a", 255)},
 	}
 
-	for given, want := range cases {
-		rec := f.uploadFile(given, samplePNG(t, 40+len(want)%20, 40), cookies)
+	for i, tc := range cases {
+		rec := f.uploadFile(tc.given, samplePNG(t, 40+i*7, 40+i*3), cookies)
 		if rec.Code != http.StatusCreated {
-			t.Errorf("%q: %s", given, rec.Body.String())
+			t.Errorf("%q: %s", tc.given, rec.Body.String())
 			continue
 		}
 		var body imageResponse
 		decode(t, rec, &body)
-		if body.OriginalFilename != want {
-			t.Errorf("%q was stored as %q, want %q", given, body.OriginalFilename, want)
+		if body.OriginalFilename != tc.want {
+			t.Errorf("%q was stored as %q, want %q", tc.given, body.OriginalFilename, tc.want)
 		}
 	}
 }

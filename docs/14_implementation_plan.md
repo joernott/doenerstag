@@ -310,17 +310,19 @@ menu would be, and filtered by tag and by allergen exclusion.
 
 | ID   | Task                                                                                      | Size | Spec |
 | ---- | ------------------------------------------------------------------------------------------- | :--: | ---- |
-| 8.1  | Order create, copying currency, minimum order value and delivery fee from the restaurant      | M | [03](03_data_model.md) |
-| 8.2  | Order read in both shapes: anonymous header plus `item_count`, authenticated full             | L | [adr/0011](adr/0011-tiered-order-visibility.md) |
-| 8.3  | Order update: creator only, restaurant locked once items exist, deadline before fulfilment     | M | [02](02_features.md) |
-| 8.4  | Order delete, cascading                                                                       | S | [04](04_api.md) |
-| 8.5  | Order list, active first then expired, never with item detail                                  | M | [06](06_ui_ux.md) |
-| 8.6  | Order items: create with name and price snapshots, update, delete                              | L | [adr/0009](adr/0009-snapshot-prices-on-order-items.md) |
-| 8.7  | Order item modifications with their own snapshots; line total arithmetic                        | M | [03](03_data_model.md) |
-| 8.8  | Ownership and deadline rules, including read-only after the deadline for the administrator      | M | [05](05_auth_and_permissions.md) |
-| 8.9  | Derived status and computed title                                                               | S | [02](02_features.md) |
-| 8.10 | Re-verify account deletion against real orders                                                  | M | [02](02_features.md) |
-| 8.11 | Tests, including the anonymous leak test that scans the whole response body                     | L | [12](12_testing.md) |
+| ✅ 8.1 | Order create, copying currency, minimum order value and delivery fee from the restaurant      | M | [03](03_data_model.md) |
+| ✅ 8.2 | Order read in both shapes: anonymous header plus `item_count`, authenticated full             | L | [adr/0011](adr/0011-tiered-order-visibility.md) |
+| ✅ 8.3 | Order update: creator only, restaurant locked once items exist, deadline before fulfilment     | M | [02](02_features.md) |
+| ✅ 8.4 | Order delete, cascading                                                                       | S | [04](04_api.md) |
+| ✅ 8.5 | Order list, active first then expired, never with item detail                                  | M | [06](06_ui_ux.md) |
+| ✅ 8.6 | Order items: create with name and price snapshots, update, delete                              | L | [adr/0009](adr/0009-snapshot-prices-on-order-items.md) |
+| ✅ 8.7 | Order item modifications with their own snapshots; line total arithmetic                        | M | [03](03_data_model.md) |
+| ✅ 8.8 | Ownership and deadline rules, including read-only after the deadline for the administrator      | M | [05](05_auth_and_permissions.md) |
+| ✅ 8.9 | Derived status and computed title                                                               | S | [02](02_features.md) |
+| ✅ 8.10 | Re-verify account deletion against real orders                                                  | M | [02](02_features.md) |
+| ✅ 8.11 | Tests, including the anonymous leak test that scans the whole response body                     | L | [12](12_testing.md) |
+| ✅ 8.11.1 | Fix a sprint-6 test that deduplication and Go's map iteration order had made vacuous | S | [12](12_testing.md) |
+| ✅ 8.12 | Remove the creator from the anonymous order shape, so no user is named to an anonymous caller at all | S | [adr/0011](adr/0011-tiered-order-visibility.md) |
 
 **Exit criteria:** an order can be created, filled by several users and read
 back. Changing a menu item's name and price afterwards leaves the order

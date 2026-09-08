@@ -18,7 +18,8 @@ Reading is mostly open, but not entirely. An unauthenticated visitor can see:
 
 - Every restaurant, its contacts, opening hours and full menu.
 - The list of orders, and each order's header: restaurant, fulfilment type and
-  time, deadline, status and creator.
+  time, deadline and status. **No user is named**, not even the order's
+  creator.
 - **How many** items an order has — but not the items themselves.
 - The version, imprint and legal notes pages.
 
@@ -26,6 +27,8 @@ An unauthenticated visitor **cannot** see:
 
 - The order items: what was ordered, by whom, with which modifications, or any
   total (F1.2).
+- Who created an order. The header carries the restaurant and the times, not a
+  person.
 - Any order's summary page. That is restricted further still, to participants
   (F1.3).
 

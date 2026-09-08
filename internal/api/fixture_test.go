@@ -47,6 +47,7 @@ type apiFixture struct {
 	restaurants   *api.RestaurantHandlers
 	images        *api.ImageHandlers
 	menu          *api.MenuHandlers
+	orders        *api.OrderHandlers
 
 	// handler is the router wrapped in the middleware chain, which is what the
 	// tests drive. Anything that depends on a resolved principal has to go
@@ -133,6 +134,8 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	f.images.Register(f.router)
 	f.menu = &api.MenuHandlers{Pool: pool}
 	f.menu.Register(f.router)
+	f.orders = &api.OrderHandlers{Pool: pool, Now: clock}
+	f.orders.Register(f.router)
 	f.registerProbe()
 
 	logger := zerolog.Nop()

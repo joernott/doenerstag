@@ -29,9 +29,22 @@ Three tiers.
 
 | Tier                     | Sees                                                                    |
 | ------------------------ | ----------------------------------------------------------------------- |
-| Anonymous                | Restaurants and menus in full. The order list, each order's header, and its **item count**. |
-| Any logged-in user       | Additionally, the item list of any order: who ordered what, with modifications and totals. |
+| Anonymous                | Restaurants and menus in full. The order list, each order's header **naming no user at all**, and its **item count**. |
+| Any logged-in user       | Additionally, the order's creator, and the item list of any order: who ordered what, with modifications and totals. |
 | Participants of an order | Additionally, that order's summary page with per-person totals.          |
+
+**No user is named to an anonymous caller.** An earlier version of this decision
+put the creator's display name in the anonymous header, reasoning that the point
+of the list is to show whose order it is so you know who to talk to. That was
+wrong, and for the same reason the rest of this ADR exists: "who organised
+Thursday's kebab order" is still a named person's behaviour, published to
+anything that reaches the port. The convenience it bought is small — anyone who
+wants to join the order has to log in anyway, and sees the creator the moment
+they do — and it made the tier boundary something other than "no people".
+
+The rule is now flat enough to check by reading: an anonymous response contains
+no user name anywhere. That is testable as a property of the whole response
+body, which is exactly how [12_testing.md](../12_testing.md) tests it.
 
 A participant is the order's creator, anyone holding at least one item in the
 order, or the administrator. Participation is derived from the data on every
@@ -49,6 +62,12 @@ sent.
 
 - `GET /orders/{id}` returns two different shapes. `item_count` is present in
   both so the frontend does not branch on its absence.
+- An order tile has no creator to show before login. The frontend renders the
+  restaurant and the times, which is what identifies an order anyway, and the
+  creator appears once the visitor logs in.
+- `order.updated` carries the header, so the SSE stream splits on the creator
+  too: an anonymous subscriber must not receive through a live event what the
+  REST shape withholds.
 - The SSE stream has to split the same way, or the live updates would leak what
   the REST endpoint withholds. An anonymous subscriber gets `order.item_count`
   instead of `item.*` events. The count is republished even when a change leaves

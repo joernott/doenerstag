@@ -488,3 +488,19 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 24
 
 > Please continue with sprint 7
+
+---
+
+## Sprint 8
+
+### Prompt 25
+
+> Please continue with sprint 8
+
+### Prompt 26
+
+> Please change the documentation and implementation so, that the creator
+> display name is not shown to anonymous requests. Also, the document
+> 14_implementation_plan.md does not show checkmarks for tasks 8.1 to 8.9.
+> Please ensure, that bthese tasks have been completed and are marked as
+> completed.
