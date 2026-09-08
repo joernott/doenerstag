@@ -133,6 +133,17 @@ type sessionBody struct {
 // making somebody type their password twice in a row, once to register and once
 // to log in, is friction with no security benefit.
 func (h *AuthHandlers) register(w http.ResponseWriter, r *http.Request) {
+	// Anonymous callers only, which is what the first row of the matrix in
+	// docs/05_auth_and_permissions.md means by a tick under Anonymous and a
+	// dash under the other three. Registering starts a session, and starting
+	// one replaces whatever session the caller already had, so without this a
+	// logged-in user who submitted the form would be silently switched to the
+	// new account rather than told they are already logged in.
+	if principal := PrincipalFrom(r.Context()); principal != nil {
+		WriteError(w, r, &Error{Code: CodeAlreadyLoggedIn})
+		return
+	}
+
 	var body registerRequest
 	if !decodeJSON(w, r, &body) {
 		return

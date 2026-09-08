@@ -1,0 +1,131 @@
+<!--
+  The doenerstag mark: a calendar leaf with a doner spit on it.
+
+  One file for both themes. The two variants in contrib/ differed only in the
+  frame stroke and the calendar text, white on a dark background and near-black
+  on a light one, so those are `currentColor` here and everything else is the
+  artwork's own colour. Whatever renders it sets `color`, and the same file
+  works in the title bar, in a tile and as the watermark behind an overview.
+
+  It has to be inlined rather than referenced with an img element for that to
+  work: `currentColor` resolves against the element's own `color`, and an img
+  is a separate document that inherits nothing. src/logo.ts does the inlining.
+
+  The Saturday and Sunday columns keep their red, which is part of the drawing
+  and was identical in both variants.
+
+  Note for editors: a double hyphen may not appear inside an XML comment, so
+  this file cannot use the dash the rest of the codebase writes in prose. The
+  first version of it did, and the mark silently failed to parse.
+-->
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+
+
+  <!-- Äußerer Rahmen / Kalenderblatt (transparenter Hintergrund) -->
+  <rect x="24" y="24" width="464" height="464" rx="32" fill="none" stroke="currentColor" stroke-width="6"/>
+
+  <!-- ===== Dönerspieß ===== -->
+
+  <!-- Spieß-Stab (im Fleisch verborgen, endet am Teller) -->
+  <rect x="252" y="80" width="8" height="222" fill="#9a9a9a" stroke="#5c5c5c" stroke-width="2"/>
+
+  <!-- Spitze oben -->
+  <polygon points="256,50 247,80 265,80" fill="#9a9a9a" stroke="#5c5c5c" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Teller unter dem Döner (hinter dem Fleisch, wird vom Fleisch teilweise verdeckt) -->
+  <ellipse cx="256" cy="304" rx="98" ry="15" fill="#8a8a8a" opacity="0.5"/>
+  <ellipse cx="256" cy="299" rx="95" ry="14" fill="#d9d9d9" stroke="#888888" stroke-width="3"/>
+  <ellipse cx="256" cy="299" rx="80" ry="9" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+
+  <!-- Fleisch-Kegel -->
+  <path d="M256,82
+           C275,86 289,110 293,140
+           C297,170 300,200 302,230
+           C304,258 305,282 305,299
+           A49,7 0 0,1 207,299
+           C207,282 208,258 210,230
+           C212,200 215,170 219,140
+           C223,110 237,86 256,82 Z"
+        fill="#A0522D" stroke="#5C2E0E" stroke-width="4" stroke-linejoin="round"/>
+
+  <!-- Fleisch-Schichten -->
+  <path d="M241,110 Q256,116 271,110" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M236,140 Q256,147 276,140" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M230,170 Q256,178 282,170" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M225,200 Q256,209 287,200" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M220,230 Q256,240 292,230" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M214,260 Q256,271 298,260" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M210,285 Q256,296 302,285" fill="none" stroke="#7A3B18" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Krosse/angebratene Stellen -->
+  <ellipse cx="230" cy="122" rx="6" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(-15 230 122)"/>
+  <ellipse cx="278" cy="155" rx="7" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(20 278 155)"/>
+  <ellipse cx="222" cy="188" rx="6" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(-10 222 188)"/>
+  <ellipse cx="288" cy="215" rx="7" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(15 288 215)"/>
+  <ellipse cx="216" cy="250" rx="7" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(-20 216 250)"/>
+  <ellipse cx="294" cy="272" rx="8" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(12 294 272)"/>
+  <ellipse cx="228" cy="292" rx="7" ry="3" fill="#5C2E0E" opacity="0.7" transform="rotate(-8 228 292)"/>
+
+  <!-- Lichtreflex für Volumen -->
+  <path d="M232,100 C222,150 220,220 224,280" fill="none" stroke="#C98450" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- ===== Kalender-Tage ===== -->
+
+  <!-- Wochentage -->
+  <g font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">
+    <text x="80"  y="356" fill="currentColor">Mo</text>
+    <text x="139" y="356" fill="currentColor">Di</text>
+    <text x="198" y="356" fill="currentColor">Mi</text>
+    <text x="257" y="356" fill="currentColor">Do</text>
+    <text x="316" y="356" fill="currentColor">Fr</text>
+    <text x="375" y="356" fill="#D64541">Sa</text>
+    <text x="434" y="356" fill="#D64541">So</text>
+  </g>
+
+  <line x1="48" y1="366" x2="464" y2="366" stroke="#e5e5e5" stroke-width="2"/>
+
+  <!-- Tageszahlen -->
+  <g font-family="Arial, Helvetica, sans-serif" font-size="15" text-anchor="middle">
+    <!-- Reihe 1: 1-7 -->
+    <text x="80"  y="380" fill="currentColor">1</text>
+    <text x="139" y="380" fill="currentColor">2</text>
+    <text x="198" y="380" fill="currentColor">3</text>
+    <text x="257" y="380" fill="currentColor">4</text>
+    <text x="316" y="380" fill="currentColor">5</text>
+    <text x="375" y="380" fill="#D64541">6</text>
+    <text x="434" y="380" fill="#D64541">7</text>
+
+    <!-- Reihe 2: 8-14 -->
+    <text x="80"  y="403" fill="currentColor">8</text>
+    <text x="139" y="403" fill="currentColor">9</text>
+    <text x="198" y="403" fill="currentColor">10</text>
+    <text x="257" y="403" fill="currentColor">11</text>
+    <text x="316" y="403" fill="currentColor">12</text>
+    <text x="375" y="403" fill="#D64541">13</text>
+    <text x="434" y="403" fill="#D64541">14</text>
+
+    <!-- Reihe 3: 15-21 -->
+    <text x="80"  y="426" fill="currentColor">15</text>
+    <text x="139" y="426" fill="currentColor">16</text>
+    <text x="198" y="426" fill="currentColor">17</text>
+    <text x="257" y="426" fill="currentColor">18</text>
+    <text x="316" y="426" fill="currentColor">19</text>
+    <text x="375" y="426" fill="#D64541">20</text>
+    <text x="434" y="426" fill="#D64541">21</text>
+
+    <!-- Reihe 4: 22-28 -->
+    <text x="80"  y="449" fill="currentColor">22</text>
+    <text x="139" y="449" fill="currentColor">23</text>
+    <text x="198" y="449" fill="currentColor">24</text>
+    <text x="257" y="449" fill="currentColor">25</text>
+    <text x="316" y="449" fill="currentColor">26</text>
+    <text x="375" y="449" fill="#D64541">27</text>
+    <text x="434" y="449" fill="#D64541">28</text>
+
+    <!-- Reihe 5: 29-31 -->
+    <text x="80"  y="472" fill="currentColor">29</text>
+    <text x="139" y="472" fill="currentColor">30</text>
+    <text x="198" y="472" fill="currentColor">31</text>
+  </g>
+
+</svg>

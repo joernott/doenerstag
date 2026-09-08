@@ -105,6 +105,33 @@ const iconPaths: Record<string, string[]> = {
   logout: ["M9 20H5V4h4", "M15 16l4-4-4-4", "M19 12H9"],
   plus: ["M12 5v14", "M5 12h14"],
   user: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21a8 8 0 0 1 16 0"],
+  pencil: ["M12 20h9", "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"],
+  // The disclosure on a menu category: pointing down when it is open, to the
+  // side when it is shut.
+  "chevron-down": ["M6 9l6 6 6-6"],
+  "chevron-right": ["M9 6l6 6-6 6"],
+  // One per contact type, so the button behind a contact says what kind of
+  // thing it will open before it is pressed.
+  phone: [
+    "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2z",
+  ],
+  mobile: ["M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z", "M11 18h2"],
+  fax: [
+    "M6 9V3h12v6",
+    "M6 18h12v3H6z",
+    "M4 9h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1",
+    "M6 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2",
+  ],
+  mail: ["M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z", "M3 6l9 7 9-7"],
+  globe: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M3 12h18", "M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"],
+  "map-pin": ["M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"],
+  trash: [
+    "M3 6h18",
+    "M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",
+    "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+    "M10 11v6",
+    "M14 11v6",
+  ],
 };
 
 /** The name of every icon, so a test can assert none is missing. */

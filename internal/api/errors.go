@@ -41,6 +41,7 @@ const (
 	CodeImageTooLarge          Code = 1011
 	CodeImageUnsupportedType   Code = 1012
 	CodeUnknownCurrency        Code = 1013
+	CodeDeadlineInThePast      Code = 1014
 
 	// Authentication.
 	CodeNotAuthenticated  Code = 2000
@@ -49,6 +50,7 @@ const (
 	CodeSessionSuperseded Code = 2003
 	CodeInvalidToken      Code = 2004
 	CodeInvalidCSRF       Code = 2005
+	CodeAlreadyLoggedIn   Code = 2006
 
 	// Authorization.
 	CodeAdminRequired       Code = 3000
@@ -100,6 +102,7 @@ var registry = map[Code]definition{
 	CodeImageTooLarge:          {http.StatusRequestEntityTooLarge, "uploaded image exceeds the configured maximum size"},
 	CodeImageUnsupportedType:   {http.StatusUnsupportedMediaType, "unsupported image media type"},
 	CodeUnknownCurrency:        {http.StatusBadRequest, "unknown currency code"},
+	CodeDeadlineInThePast:      {http.StatusBadRequest, "the deadline is already in the past"},
 
 	CodeNotAuthenticated:  {http.StatusUnauthorized, "not authenticated"},
 	CodeInvalidLogin:      {http.StatusUnauthorized, "invalid user name or password"},
@@ -107,6 +110,7 @@ var registry = map[Code]definition{
 	CodeSessionSuperseded: {http.StatusUnauthorized, "session superseded by a newer login"},
 	CodeInvalidToken:      {http.StatusUnauthorized, "invalid or revoked API token"},
 	CodeInvalidCSRF:       {http.StatusForbidden, "missing or invalid CSRF token"},
+	CodeAlreadyLoggedIn:   {http.StatusForbidden, "already logged in; log out before registering another account"},
 
 	CodeAdminRequired:       {http.StatusForbidden, "administrator privileges required"},
 	CodeNotOrderCreator:     {http.StatusForbidden, "only the order creator may change this order"},

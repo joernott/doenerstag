@@ -15,7 +15,7 @@ import { createOrderPage } from "./ordercreate";
 import { orderPage } from "./order";
 import { ordersPage } from "./orders";
 import { summaryPage } from "./summary";
-import { page } from "./page";
+import { card, overviewPage, page } from "./page";
 import { restaurantPage } from "./restaurant";
 import { restaurantsPage } from "./restaurants";
 
@@ -78,7 +78,10 @@ async function versionPage(app: App): Promise<HTMLElement> {
     list.appendChild(el("dd", { text: value }));
   }
 
-  return page(t.t("nav.version"), list);
+  // The mark behind it and the facts in a card, like the two overviews. This is
+  // a short page, and three lines of text alone on a wide empty background
+  // looked unfinished.
+  return overviewPage(t.t("nav.version"), card(list));
 }
 
 /**

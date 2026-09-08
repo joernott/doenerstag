@@ -281,7 +281,7 @@ func TestTheStreamAnnouncesTheDeadline(t *testing.T) {
 // the page opened knowing it was read-only.
 func TestAnAlreadyExpiredOrderAnnouncesNothing(t *testing.T) {
 	o := newOrderFixture(t)
-	past := o.createOrder(o.cookies, -time.Hour)
+	past := o.createExpiredOrder(o.cookies)
 
 	s := o.openStream(past.ID, nil)
 	s.expectNothing(time.Second)

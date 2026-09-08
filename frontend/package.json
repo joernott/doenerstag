@@ -15,6 +15,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/cli": "^4.0.0",

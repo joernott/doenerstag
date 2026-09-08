@@ -213,6 +213,34 @@ func (p *Provisioner) grantRuntimePrivileges(ctx context.Context, conn *pgx.Conn
 	return nil
 }
 
+// SchemaVersion reports the migration version the database is at.
+//
+// Zero means no migration has ever been applied, which is what a database
+// created but never migrated looks like. A dirty schema is an error here as
+// well as in Migrate: a half-applied migration is not a version, and deciding
+// what to do next on the basis of one would compound the problem.
+func (p *Provisioner) SchemaVersion() (uint, error) {
+	opts := p.Server.WithUser(p.Admin.User, p.Admin.Password).WithDatabase(p.Database)
+
+	migrator, err := db.NewMigrator(opts.DSN(), p.Logger)
+	if err != nil {
+		return 0, fmt.Errorf("reading the schema version: %w", err)
+	}
+	defer func() { _ = migrator.Close() }()
+
+	version, dirty, err := migrator.Version()
+	if err != nil {
+		return 0, err
+	}
+	if dirty {
+		return 0, fmt.Errorf(
+			"the schema is at version %d and marked dirty, meaning a migration "+
+				"failed part way and was not rolled back; the database needs "+
+				"attention before it can be updated", version)
+	}
+	return version, nil
+}
+
 // Migrate applies every outstanding migration as the admin identity.
 //
 // Migrations run as the schema owner rather than as the runtime user, which is

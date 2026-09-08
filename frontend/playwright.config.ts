@@ -22,7 +22,24 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
-  retries: 0,
+
+  // One retry, for one specific failure that is not the application's.
+  //
+  // Roughly one navigation in sixty, Firefox never completes `page.goto`. The
+  // server logs the request served in under a millisecond, the failure
+  // report's page snapshot shows the page fully rendered, and the navigation
+  // sits there until the test times out. It happens on any page, in no fixed
+  // place, over HTTP and HTTPS alike, and waiting for `domcontentloaded`
+  // instead of `load` does not avoid it -- the stall is before either event.
+  // Chromium has never done it once.
+  //
+  // A retry is the honest response to that and not a way of hiding a real
+  // failure: a test that passes on the second attempt is reported as flaky
+  // rather than as passed, so it stays visible, and a genuine defect fails
+  // both attempts. The navigation timeout below is what makes the retry cheap
+  // -- without it a stall costs the full sixty seconds before the second
+  // attempt even starts.
+  retries: 1,
   reporter: process.env["CI"] ? "github" : "list",
   // Generous, because these tests are not fast by nature: the live-update one
   // opens two browser contexts, logs both in and seeds a restaurant and an
@@ -39,6 +56,11 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // Well under the test timeout, so a stalled navigation gives up and is
+    // retried rather than consuming the whole test's budget. No page here
+    // takes anything like twenty seconds to arrive: the slowest measured is
+    // the order page at well under one.
+    navigationTimeout: 20_000,
   },
 
   // Both browsers docs/12_testing.md names. They are the two this application

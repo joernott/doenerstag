@@ -3,10 +3,15 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,7 +29,70 @@ import (
 func TestMain(m *testing.M) {
 	code := m.Run()
 	testdb.Shutdown()
+	if code == 0 {
+		code = reportUnexercisedRoutes()
+	}
 	os.Exit(code)
+}
+
+// servedRoutes records every route the suite reached, across every fixture.
+//
+// A package-level set rather than a per-fixture one because each test builds
+// its own router: the question is whether the suite as a whole reaches a route,
+// not whether any single test does.
+var servedRoutes = struct {
+	sync.Mutex
+	seen       map[api.RouteInfo]bool
+	registered []api.RouteInfo
+}{seen: map[api.RouteInfo]bool{}}
+
+func recordServedRoute(info api.RouteInfo) {
+	servedRoutes.Lock()
+	defer servedRoutes.Unlock()
+	servedRoutes.seen[info] = true
+}
+
+// reportUnexercisedRoutes is the last assertion of the package: docs/12 expects
+// every API operation to have at least one test, and this is the only way to
+// know rather than assume.
+//
+// It runs from TestMain because it can only be answered once every test has
+// finished. A partial run cannot answer it -- a route is missing because the
+// test that exercises it was filtered out -- so a filtered run says nothing.
+func reportUnexercisedRoutes() int {
+	if filter := flag.Lookup("test.run"); filter != nil && filter.Value.String() != "" {
+		return 0
+	}
+
+	servedRoutes.Lock()
+	defer servedRoutes.Unlock()
+
+	if len(servedRoutes.registered) == 0 {
+		return 0 // no fixture was built, so nothing was claimed
+	}
+
+	var missing []api.RouteInfo
+	for _, route := range servedRoutes.registered {
+		if !servedRoutes.seen[route] {
+			missing = append(missing, route)
+		}
+	}
+	if len(missing) == 0 {
+		return 0
+	}
+
+	sort.Slice(missing, func(i, j int) bool {
+		if missing[i].Path != missing[j].Path {
+			return missing[i].Path < missing[j].Path
+		}
+		return missing[i].Method < missing[j].Method
+	})
+	fmt.Fprintf(os.Stderr,
+		"\nFAIL: %d API route(s) are registered but no test reaches them:\n", len(missing))
+	for _, route := range missing {
+		fmt.Fprintf(os.Stderr, "\t%s %s\n", route.Method, route.Path)
+	}
+	return 1
 }
 
 // The secret is fixed rather than random so that a failing test prints the same
@@ -59,6 +127,10 @@ type apiFixture struct {
 	// now is the clock the handlers read, so a test can move time forward
 	// rather than sleeping through a six-hour idle timeout.
 	now time.Time
+
+	// shutdowns counts calls to the shutdown hook. Atomic because the handler
+	// calls it from its own goroutine, after the response has been flushed.
+	shutdowns atomic.Int64
 }
 
 // Session timeouts for the fixture. Long enough that no test lapses by
@@ -91,6 +163,16 @@ const (
 
 func newAPIFixture(t *testing.T) *apiFixture {
 	t.Helper()
+	return newAPIFixtureWithUploadLimit(t, fixtureMaxImageBytes)
+}
+
+// newAPIFixtureWithUploadLimit is newAPIFixture with a different --max-image-size.
+//
+// Only the performance check needs one: its target is a 5 MiB upload, and the
+// ordinary fixture caps uploads far below that so the too-large test can be
+// written with a picture rather than with five megabytes of noise.
+func newAPIFixtureWithUploadLimit(t *testing.T, maxImageBytes int64) *apiFixture {
+	t.Helper()
 
 	pool := testdb.Migrated(t)
 	signer, err := auth.NewSigner(fixtureSecret)
@@ -122,17 +204,21 @@ func newAPIFixture(t *testing.T) *apiFixture {
 		Now:         clock,
 	}
 
-	f.router = api.NewRouter(api.Options{})
+	f.router = api.NewRouter(api.Options{RouteServed: recordServedRoute})
 	f.auth.Register(f.router)
 	f.users = &api.UserHandlers{Pool: pool, Secure: true, Now: clock}
 	f.users.Register(f.router)
 
 	// The system endpoints are here so the permission matrix can assert the
-	// public-read rows against a real route rather than a stand-in.
-	(&api.SystemHandlers{Pool: pool}).Register(f.router)
+	// public-read rows against a real route rather than a stand-in. Shutdown is
+	// supplied because the route is only registered when it is, and the matrix
+	// has to be able to ask who may call it; it records the call rather than
+	// stopping anything, so a test that is allowed through does not take the
+	// test binary with it.
+	(&api.SystemHandlers{Pool: pool, Shutdown: func() { f.shutdowns.Add(1) }}).Register(f.router)
 	f.restaurants = &api.RestaurantHandlers{Pool: pool}
 	f.restaurants.Register(f.router)
-	f.images = &api.ImageHandlers{Pool: pool, MaxUploadBytes: fixtureMaxImageBytes}
+	f.images = &api.ImageHandlers{Pool: pool, MaxUploadBytes: maxImageBytes}
 	f.images.Register(f.router)
 	f.menu = &api.MenuHandlers{Pool: pool}
 	f.menu.Register(f.router)
@@ -143,6 +229,12 @@ func newAPIFixture(t *testing.T) *apiFixture {
 	f.orders.Register(f.router)
 	(&api.PageHandlers{Pool: pool}).Register(f.router)
 	f.registerProbe()
+
+	// Claim the registered routes once. Every fixture registers the same set,
+	// so the last one to run wins and they all agree.
+	servedRoutes.Lock()
+	servedRoutes.registered = f.router.Routes()
+	servedRoutes.Unlock()
 
 	logger := zerolog.Nop()
 	f.handler = api.Chain(f.router,

@@ -479,3 +479,74 @@ func TestTheMenuOfAnUnknownRestaurantIsNotFound(t *testing.T) {
 		}
 	}
 }
+
+// Renaming a category and moving it in the list.
+//
+// The sort order is what the reorder buttons in the menu editor change, one
+// step at a time, and it is the field that decides what a printed menu looks
+// like. The endpoint had no test at all until sprint 14 counted which routes
+// the suite reaches.
+func TestPatchingACategoryRenamesAndReorders(t *testing.T) {
+	m := newMenuFixture(t)
+
+	first := m.addCategory("Vom Grill", 1)
+	second := m.addCategory("Getränke", 2)
+
+	// A rename leaves the position alone.
+	rec := m.patch(m.menuPath("/categories/"+first.ID),
+		map[string]any{"name": "Vom Drehspieß"}, m.cookies...)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("renaming: %d %s", rec.Code, rec.Body.String())
+	}
+	var renamed categoryResponse
+	decode(t, rec, &renamed)
+	if renamed.Name != "Vom Drehspieß" {
+		t.Errorf("the name is %q", renamed.Name)
+	}
+	if renamed.SortOrder != 1 {
+		t.Errorf("renaming moved the category to position %d", renamed.SortOrder)
+	}
+
+	// And a move leaves the name alone. Swapping the two is what the reorder
+	// buttons do.
+	rec = m.patch(m.menuPath("/categories/"+first.ID),
+		map[string]any{"sort_order": 3}, m.cookies...)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reordering: %d %s", rec.Code, rec.Body.String())
+	}
+	decode(t, rec, &renamed)
+	if renamed.Name != "Vom Drehspieß" {
+		t.Errorf("reordering changed the name to %q", renamed.Name)
+	}
+	if renamed.SortOrder != 3 {
+		t.Errorf("the category is at position %d, want 3", renamed.SortOrder)
+	}
+
+	// The list agrees, which is the point of the field.
+	rec = m.get(m.menuPath("/categories"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("listing: %d %s", rec.Code, rec.Body.String())
+	}
+	var list struct {
+		Categories []categoryResponse `json:"categories"`
+	}
+	decode(t, rec, &list)
+	if len(list.Categories) != 2 {
+		t.Fatalf("the restaurant has %d categories", len(list.Categories))
+	}
+	if list.Categories[0].ID != second.ID {
+		t.Errorf("the list still leads with %q", list.Categories[0].Name)
+	}
+}
+
+// A category belonging to another restaurant is not found, rather than being
+// patched through the wrong parent.
+func TestPatchingACategoryOfAnotherRestaurantIsNotFound(t *testing.T) {
+	m := newMenuFixture(t)
+	category := m.addCategory("Vom Grill", 1)
+	other := m.createRestaurant("Zweite Wahl", m.cookies).ID
+
+	rec := m.patch("/restaurants/"+other+"/categories/"+category.ID,
+		map[string]any{"name": "Untergeschoben"}, m.cookies...)
+	expectErrorCode(t, rec, api.CodeNotFound)
+}

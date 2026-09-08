@@ -168,6 +168,15 @@ export interface ButtonOptions {
   disabled?: boolean;
   /** Explains a disabled control, per the "never a mystery" rule in docs/06. */
   title?: string;
+  /**
+   * Overrides the accessible name.
+   *
+   * For the case where the visible word is not a name on its own: the menu tab
+   * has an Edit button on every category and every item, which is a dozen
+   * controls all called "Edit" -- ambiguous to a screen reader and unusable by
+   * voice.
+   */
+  ariaLabel?: string;
   onclick?: (event: Event) => void;
 }
 
@@ -180,6 +189,7 @@ export function button(options: ButtonOptions): HTMLButtonElement {
     text: options.label,
     disabled: options.disabled === true,
     ...(options.title ? { title: options.title } : {}),
+    ...(options.ariaLabel ? { "aria-label": options.ariaLabel } : {}),
     ...(options.onclick ? { onclick: options.onclick } : {}),
   });
 }

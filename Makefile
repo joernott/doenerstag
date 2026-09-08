@@ -98,7 +98,13 @@ test-race: ## Run the Go tests with the race detector
 
 .PHONY: cover
 cover: ## Run the tests and write <os>-coverage.out and <os>-coverage.html
-	$(GO) test $(GOFLAGS) -coverprofile=$(COVERAGE_OUT) ./...
+	@# -coverpkg matters more than it looks. Without it a package is credited
+	@# only for what its own tests execute, so internal/db reported 22% while
+	@# the API integration tests were exercising three quarters of it. The list
+	@# is spelled out rather than ./... because ./... reaches into
+	@# frontend/node_modules, which contains a vendored Go package that is not
+	@# ours and would count against us at 0%.
+	$(GO) test $(GOFLAGS) -coverpkg=./cmd/...,./internal/... -coverprofile=$(COVERAGE_OUT) ./...
 	$(GO) tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
 	@$(GO) tool cover -func=$(COVERAGE_OUT) | tail -1
 	@echo "wrote $(COVERAGE_OUT) and $(COVERAGE_HTML)"

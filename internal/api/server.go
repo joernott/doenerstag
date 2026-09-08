@@ -45,6 +45,9 @@ type Server struct {
 
 	// events is the SSE registry, kept so shutdown can close every stream.
 	events *sse.Registry
+
+	// routes is what the router registered, kept for the OpenAPI check.
+	routes []RouteInfo
 }
 
 // NewServer builds the server and its routes.
@@ -176,12 +179,21 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		ErrorLog:          nil,
 	}
 
+	s.routes = router.Routes()
 	return s, nil
 }
 
 // Handler exposes the fully wrapped handler, so a test can drive the whole
 // chain through httptest without binding a port.
 func (s *Server) Handler() http.Handler { return s.http.Handler }
+
+// Routes lists the API routes this server serves.
+//
+// Exported so the OpenAPI test can compare the document against the routes the
+// production wiring registers, rather than against a list of paths somebody
+// keeps up to date by hand -- which is what it did, and which is how the
+// document came to describe four endpoints out of sixty.
+func (s *Server) Routes() []RouteInfo { return s.routes }
 
 // Addr is the address the server listens on.
 func (s *Server) Addr() string { return s.http.Addr }

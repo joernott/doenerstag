@@ -10,16 +10,16 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
-import { el, replace, type Child } from "../dom";
+import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
-import { button, field, input } from "../components/forms";
+import { button, field, form, input } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
-import { confirmDialog } from "../components/modal";
+import { confirmDialog, openModal } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
 import { minorUnitOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
-import { actions, section, statusLine } from "./page";
+import { actions, card, statusLine } from "./page";
 
 /** The marks an item carries: its tags, allergens and additives, as chips. */
 export function itemChips(app: App, item: MenuItem): HTMLElement[] {
@@ -58,6 +58,11 @@ export function menuSection(
 
   let categories: Category[] = [];
   let items: MenuItem[] = [];
+
+  // Which categories are folded away, kept across the reloads a rename or a
+  // reorder triggers: a category somebody folded should not spring open
+  // because something else on the page changed.
+  const collapsedCategories = new Set<string>();
 
   async function reload(): Promise<void> {
     try {
@@ -124,15 +129,12 @@ export function menuSection(
   // --- categories ------------------------------------------------------------
 
   function categoryBlock(category: Category, index: number, own: MenuItem[]): HTMLElement {
-    const name = input({ value: category.name });
-
-    const rename = async (): Promise<void> => {
+    const rename = async (next: string): Promise<void> => {
       status.clear();
       try {
-        await api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, {
-          name: name.value.trim(),
-        });
-        category.name = name.value.trim();
+        await api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, { name: next });
+        category.name = next;
+        await reload();
         status.say(t.t("state.saved"));
       } catch (error) {
         status.fail(errorMessage(t, error));
@@ -184,9 +186,22 @@ export function menuSection(
 
     const controls = actions(
       button({
-        label: t.t("action.save"),
+        label: t.t("action.edit"),
+        variant: "primary",
+        // Every category has an Edit button and so does every item, so the
+        // visible word is not a name on its own. Naming the category is what
+        // lets a screen reader or a voice command tell them apart.
+        title: `${t.t("menu.category.rename")}: ${category.name}`,
+        ariaLabel: `${t.t("menu.category.rename")}: ${category.name}`,
         onclick: () => {
-          void rename();
+          openNameDialog({
+            app,
+            title: t.t("menu.category.rename"),
+            label: t.t("menu.category.name"),
+            value: category.name,
+            confirmLabel: t.t("action.save"),
+            onSubmit: rename,
+          });
         },
       }),
       button({
@@ -216,40 +231,57 @@ export function menuSection(
         : null,
     );
 
+    // The category is a heading with a disclosure in front of it, not a text
+    // box. A page full of input fields reads as a form to fill in; a menu is a
+    // menu, and the name is only edited now and then -- which is what the Edit
+    // button is for.
+    const items = itemList(own, category.id);
+    const open = collapsedCategories.has(category.id) ? false : true;
+    items.hidden = !open;
+
+    let marker = icon(open ? "chevron-down" : "chevron-right");
+    const toggle = el(
+      "button",
+      {
+        type: "button",
+        class: "menu-group-toggle",
+        "aria-expanded": String(open),
+        onclick: () => {
+          const shown = items.hidden;
+          items.hidden = !shown;
+          toggle.setAttribute("aria-expanded", String(shown));
+          // Remembered across a reload, which happens on every rename and every
+          // reorder: a category somebody folded away should not spring open
+          // because something else on the page changed.
+          if (shown) {
+            collapsedCategories.delete(category.id);
+          } else {
+            collapsedCategories.add(category.id);
+          }
+          const next = icon(shown ? "chevron-down" : "chevron-right");
+          marker.replaceWith(next);
+          marker = next;
+        },
+      },
+      marker,
+      el("h3", { class: "menu-group-title", text: category.name }),
+    );
+
     return el(
       "div",
       { class: "menu-group" },
-      el(
-        "div",
-        { class: "menu-group-header" },
-        field({ label: t.t("menu.category.name"), control: name }),
-        controls,
-      ),
-      itemList(own, category.id),
+      el("div", { class: "menu-group-header" }, toggle, controls),
+      items,
     );
   }
 
   // --- items -----------------------------------------------------------------
 
-  function itemList(own: MenuItem[], categoryId: string | null): HTMLElement {
-    const rows = own.map((item) => itemRow(item));
-
-    // An "add" button at the end of every category, so a missing item can be
-    // added where it belongs rather than at the bottom and then moved.
-    rows.push(
-      el(
-        "li",
-        { class: "menu-add" },
-        button({
-          label: t.t("item.add"),
-          onclick: () => {
-            edit(null, categoryId);
-          },
-        }),
-      ),
-    );
-
-    return el("ul", { class: "plain-list menu-items" }, ...rows);
+  function itemList(own: MenuItem[], _categoryId: string | null): HTMLElement {
+    // No "add" button per category any more: there is one at the top of the
+    // tab, and the dialog it opens asks which category the item belongs to.
+    // One button in a known place beats one at the end of every list.
+    return el("ul", { class: "plain-list menu-items" }, ...own.map((item) => itemRow(item)));
   }
 
   function itemRow(item: MenuItem): HTMLElement {
@@ -289,6 +321,10 @@ export function menuSection(
       actions(
         button({
           label: t.t("action.edit"),
+          variant: "primary",
+          // Named for the item it edits: this tab has an Edit on every item and
+          // on every category, so the word alone is not an accessible name.
+          ariaLabel: `${t.t("action.edit")}: ${item.name}`,
           onclick: () => {
             edit(item, item.category_id);
           },
@@ -299,19 +335,13 @@ export function menuSection(
 
   // --- adding a category -----------------------------------------------------
 
-  const newCategory = input({});
-  const addCategory = async (): Promise<void> => {
+  const addCategory = async (name: string): Promise<void> => {
     status.clear();
-    if (newCategory.value.trim() === "") {
-      newCategory.focus();
-      return;
-    }
     try {
       await api.post(`/restaurants/${restaurant.id}/categories`, {
-        name: newCategory.value.trim(),
+        name,
         sort_order: (categories[categories.length - 1]?.sort_order ?? 0) + 10,
       });
-      newCategory.value = "";
       await reload();
     } catch (error) {
       status.fail(errorMessage(t, error));
@@ -320,22 +350,92 @@ export function menuSection(
 
   void reload();
 
-  return section(
-    t.t("menu.items"),
-    body,
-    el(
-      "div",
-      { class: "row row-new" },
-      field({ label: t.t("menu.category.name"), control: newCategory }),
-      actions(
-        button({
-          label: t.t("menu.category.add"),
-          onclick: () => {
-            void addCategory();
-          },
-        }),
-      ),
-    ),
-    status.element,
+  // Both at the top, because both are things somebody arrives at this tab
+  // meaning to do, and a control you have to scroll to the bottom of a two
+  // hundred item menu to reach is a control that is hard to find. The
+  // category form that used to live down there is a dialog now: one field and
+  // a button is a dialog's worth of interface, not a permanent row.
+  const toolbar = el(
+    "div",
+    { class: "menu-toolbar" },
+    button({
+      label: t.t("item.add"),
+      variant: "primary",
+      onclick: () => {
+        edit(null, null);
+      },
+    }),
+    button({
+      label: t.t("menu.category.add"),
+      variant: "primary",
+      onclick: () => {
+        openNameDialog({
+          app,
+          title: t.t("menu.category.add"),
+          label: t.t("menu.category.name"),
+          value: "",
+          confirmLabel: t.t("action.create"),
+          onSubmit: addCategory,
+        });
+      },
+    }),
   );
+
+  return card(toolbar, body, status.element);
+}
+
+interface NameDialogOptions {
+  app: App;
+  title: string;
+  label: string;
+  value: string;
+  confirmLabel: string;
+  onSubmit: (name: string) => Promise<void>;
+}
+
+/**
+ * A dialog asking for one name.
+ *
+ * Adding a category and renaming one are the same question with a different
+ * starting value, so they are the same dialog. An empty name is refused by
+ * keeping the dialog open with the field focused rather than by an error
+ * message: there is only one field, and what is wrong with it is obvious.
+ */
+function openNameDialog(options: NameDialogOptions): void {
+  const t = options.app.t;
+  const name = input({ value: options.value, required: true });
+
+  const submit = button({
+    label: options.confirmLabel,
+    variant: "primary",
+    onclick: () => {
+      const next = name.value.trim();
+      if (next === "") {
+        name.focus();
+        return;
+      }
+      handle.close();
+      void options.onSubmit(next);
+    },
+  });
+
+  const handle = openModal({
+    title: options.title,
+    closeLabel: t.t("action.close"),
+    body: form(
+      () => submit.click(),
+      field({ label: options.label, control: name }),
+    ),
+    actions: [
+      button({
+        label: t.t("action.cancel"),
+        variant: "quiet",
+        onclick: () => handle.close(),
+      }),
+      submit,
+    ],
+  });
+
+  name.focus();
+  name.select();
 }

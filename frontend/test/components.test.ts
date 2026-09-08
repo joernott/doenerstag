@@ -167,7 +167,7 @@ describe("tiles", () => {
   it("is a list of tiles, with the plus first", () => {
     const grid = tileGrid(
       addTile("/orders/new", "New order"),
-      tile({ href: "/orders/1" }, document.createTextNode("Pinar")),
+      tile({ href: "/orders/1", title: "Pinar" }),
     );
 
     expect(grid.getAttribute("role")).toBe("list");
@@ -177,7 +177,7 @@ describe("tiles", () => {
 
   it("says an expired order is expired rather than only fading it", () => {
     const expired = tile(
-      { href: "/orders/1", faded: true },
+      { href: "/orders/1", title: "Pinar", faded: true },
       document.createTextNode("Closed"),
     );
 

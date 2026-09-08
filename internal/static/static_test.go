@@ -1,6 +1,8 @@
 package static
 
 import (
+	"bytes"
+	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -265,5 +267,50 @@ func TestEmbeddedBuildServesItsOwnAssets(t *testing.T) {
 	}
 	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
 		t.Errorf("Cache-Control is %q, want an immutable policy for embedded assets", cc)
+	}
+}
+
+// The client-side budgets from docs/11_nonfunctional.md: the JavaScript bundle
+// under 200 KiB and the stylesheet under 100 KiB, both compressed.
+//
+// Measured against static/ on disk, which is what a release embeds. The numbers
+// are a ceiling to notice a regression against, not a target to approach: at
+// the time this was written the bundle compressed to 30 KiB and the stylesheet
+// to 5 KiB, so a failure here means something grew by a factor of several and
+// is worth looking at rather than worth raising the limit for.
+func TestTheClientBudgetsAreMet(t *testing.T) {
+	budgets := map[string]int{
+		"../../static/js/app.js":   200 * 1024,
+		"../../static/css/app.css": 100 * 1024,
+	}
+
+	for path, budget := range budgets {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			// A checkout that has not run `make frontend` has no static/. That
+			// is not a budget failure, and failing here would make the Go tests
+			// depend on Node being installed.
+			t.Skipf("%s is not built: %v", path, err)
+		}
+
+		var buf bytes.Buffer
+		writer, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+		if err != nil {
+			t.Fatalf("preparing the compressor: %v", err)
+		}
+		if _, err := writer.Write(raw); err != nil {
+			t.Fatalf("compressing %s: %v", path, err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("finishing %s: %v", path, err)
+		}
+
+		if buf.Len() > budget {
+			t.Errorf("%s is %d bytes compressed (%d raw), over the %d byte budget",
+				path, buf.Len(), len(raw), budget)
+		} else {
+			t.Logf("%s: %d bytes compressed, %d raw, budget %d",
+				path, buf.Len(), len(raw), budget)
+		}
 	}
 }

@@ -57,19 +57,28 @@ export function imageField(options: ImageFieldOptions): ImageField {
 
   const preview = el("div", { class: "image-preview" });
   const status = el("p", { class: "field-hint" });
+  // The file input itself is never the control a person operates: the button
+  // below opens it. It is therefore taken out of the tab order -- a focusable
+  // element nobody can see cannot show a focus ring, and docs/06_ui_ux.md asks
+  // for one everywhere -- and it still carries a name, because it is a form
+  // element and an unnamed one is a violation whether or not anybody reaches
+  // it.
   const file = el("input", {
     type: "file",
     class: "visually-hidden",
     accept: "image/jpeg,image/png,image/gif",
+    tabindex: "-1",
+    "aria-label": options.label,
   });
 
   const choose = button({
     label: current ? t.t("image.replace") : t.t("image.choose"),
+    variant: "primary",
     onclick: () => file.click(),
   });
   const remove = button({
     label: t.t("image.remove"),
-    variant: "quiet",
+    variant: "danger",
     onclick: () => {
       current = null;
       options.onChange(null);

@@ -256,6 +256,27 @@ invocation puts it into swap: every test passes on its own and several time out
 together, which looks like flakiness and is arithmetic. CI has the memory to run
 both at once, and does.
 
+### The one retry
+
+The browser suite runs with `retries: 1`, which is otherwise not this project's
+habit. It exists for one failure, and only one.
+
+Roughly one navigation in sixty, Firefox never completes `page.goto`. The server
+logs the request served in under a millisecond, the failure report's page
+snapshot shows the page fully rendered behind the stalled navigation, and it
+sits there until the test times out. It happens on any page, in no fixed place,
+over HTTP and HTTPS alike, and waiting for `domcontentloaded` rather than `load`
+does not avoid it -- the stall is before either event. Chromium has never done
+it. It is a browser-level stall, not something the application can fix or that a
+better assertion would catch.
+
+A retry is the honest response and not a way of hiding a failure. Playwright
+reports a test that passes on the second attempt as *flaky* rather than as
+passed, so it stays visible in the summary, and a genuine defect fails both
+attempts. `navigationTimeout` is set to 20 s -- far above any page here, far
+below the 60 s test timeout -- so a stall gives up quickly and the retry is
+cheap.
+
 ## Coverage
 
 Coverage is a signal, not a target to game.
@@ -270,6 +291,19 @@ Coverage is a signal, not a target to game.
 
 The last two matter more than the percentages. A permission bug is the most
 likely serious defect in an application whose access rules are this asymmetric.
+
+Both are checked rather than estimated. The permission matrix is read out of
+[05](05_auth_and_permissions.md) by `TestEveryMatrixRowIsCovered`, so a row added
+there fails until a test covers it. And the API test fixture records which routes
+the suite actually reaches; `TestMain` fails the package when a registered route
+was served by nobody. Counting operations in the OpenAPI document proves the
+other thing -- that they are described -- and the first version of this promise
+was exactly that, which is how three routes stayed untested for nine sprints.
+
+The percentages are measured with `-coverpkg` across the module. Without it a
+package is credited only for what its own tests execute, and `internal/db`
+reported 22.6% while the API integration tests were exercising three quarters of
+it.
 
 ### Coverage is measured per platform
 

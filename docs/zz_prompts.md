@@ -548,3 +548,183 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 32
 
 > Please start sprint 13
+
+---
+
+## Sprint 14
+
+### Prompt 33
+
+> please start implementing sprint 14
+
+---
+
+### Prompt 34
+
+> please continue
+
+---
+
+### Prompt 35
+
+> I have mounted the doenerstag folder into the VM as /home/doener/doenerstag,
+> so you don't need to copy any content of the folder to the VM. Please start
+> the application in the VM using the static folder and not the embedded one.
+
+---
+
+### Prompt 36
+
+> Using the dark schema, the orange buttons turn black when hovering over them.
+> That makes the black text unreadable. In light mode, they turn white. That
+> makes the light gray text almost unreadable. When hovering, the text should
+> turn orange (the same color as the button itself held before). That way we
+> still have enough contrast.
+
+---
+
+### Prompt 37
+
+> More modifications:
+> Global:
+> - I placed two SVG graphics (doenerstag_dark and doenerstag_bright) into
+>   contrib. Please use them as logo in the title bar. You can move them to the
+>   appropriate place. As they only differ in the color of the border and text,
+>   you might be able to use only one of them if you can make the color
+>   customizable. The size of the logo should not change too much
+> - In the tile used to add new orders and new restaurants, make the + sign
+>   approximately 75% the size of the tile
+> - If possible, show a very faded version of the doenerstag logo centered and
+>   scaled up to 80% of the height on the background of the overview pages
+> On the order overview page:
+> - there is a summary button, partially hidden behind the tiles. It points to
+>   the ordeer Pinar_mtq94gr8338 where I added one entry myself. That button
+>   should only be visible when showing the order but on that page, it is not
+>   visible at all.
+> - remvove the number of positions and participants as well as the total amount
+>   from the tiles on the overview page as well as the creator
+> - Add a "Summary" button inside each tile and if the creator is the currently
+>   logged in user, also show an edit button (only using a pencil) and a delete
+>   button, only using a trashcan icon
+> - If a restaurant has no logo, show the doenerstag logo instead
+> On the restaurant overview page:
+> - If a restaurant has no logo, show the doenerstag logo instead
+> On the restaurant page:
+> - Use a tabbed design instead of showing tiles in a long scroll list. The tab
+>   "Menu" should be the first tab when showing an already existing restaurant.
+> - Add a red delete button on the same height as the title. but aligned to the
+>   right border of the tile containing the tabs. If a restaurant can't be
+>   deleted, fade it.
+> - Move the save button to the same height as the restaurant title, left of the
+>   delete button Fade it as long as there are no changes to the restaurant data
+> - Use a more compact design for the opening hours: The dropdowns should be max
+>   10% larger than the largest text. Always reserve space for the "past
+>   midnight" note to achieve a more uniform design.
+> - The remove button for tjhe opening hours should be red like the other remove
+>   buttons
+
+---
+
+### Prompt 38
+
+> On the order page:
+> - Move the Summary button outside the first tile, on nthe same level as the
+>   title, align it to the right and make it orange
+> On the restaurant page:
+> - The title of every tab is mirrored as heading in the tab. That is redundant
+>   and should be removed
+> - The dropdown and input fields for a new contact should have the same size as
+>   the ones for the existing contact entries. The dropdown should also be not
+>   too much longer than the longest entry.
+> - Add a button with an icon behind the value field of a contact, the icon
+>   should match the type of contact. The link should open in a new tab where it
+>   makes sense. For example, any phone type entry (telephone,. mobile) should
+>   use a tel: URL using the value, Use a similar logic to fax, email and
+>   website. Address should open google maps at the given address. If the type is
+>   "Other" don't show the button but still reserve the link
+> - Move the remove button on the "opening hours" tab right behind the "past
+>   midnight" block.
+> - I changed the name of the
+>   https://192.168.178.183:8443/restaurants/01a0765f-517b-748a-bdb0-c4495513ae94
+>   restaurant and saved it. The title did not change immediately, only after a
+>   reload. That change should trigger immediately.
+> - On the "Menu" tab, move the "Add item" button to the top and make it orange,
+>   Add a "Add category" button next to it and move the "Add Category"
+>   functionality at the bottom of the tab to a modal dialog
+> - In tzhe menu tap, the category shoul be rendered as a heading instead of an
+>   input field. There should be an icon left to it that shows a down or sideways
+>   arrow to show and hide the elements in that category. Replace the "Save"
+>   button with an orange "Edit" button
+
+---
+
+### Prompt 39
+
+> Having the day dropdown at 118px is fine with me
+> More changes to the restaurant page:
+> - On the menu tab, make the Edit button for menu items orange as well. Align
+>   the edit and the up/down buttons for categories to the right as well and add
+>   a border around the category headline and buttons
+> - On the restaurant tab: Make the "Remove the picture" button red and the
+>   "Replace picture" button orange
+> - On the contact page, make the "Save" buttons and "Add a contact" button
+>   orange, resize the "Adfd a contact" button so that it's left border aligns
+>   with the "Save " buttons above and the right border aligns with the "Remove"
+>   button.
+> - Remove the "Save" button from the "Opening hours" tab and make the "Add
+>   opening hours" button orange
+> On the order page:
+> - Increase the distance between the Total and the red warning box "Below the
+>   minimum value", so that the distance between the border and the Total is at
+>   least as big as the distance to the text inside the box
+> - Make the "Add an item" page on the menu there orange as well
+> - Always show the "Summary" button on the order but fade it out if the order
+>   can't be placed
+> On the order overview: Always show the "Summarty" button but fade it out if the
+> order can't be placed
+> On the account page:
+> - Use the same tab design as for the restaurant.
+> - Move the "Delete my account" button to the top on the level of the Heading
+>   and align it to the right.
+> - Move the "Save" button to the left of the delete account. Fade it out if
+>   there are no changes to be saved
+> - Remove the second "Save" button on the password tile, that functionality
+>   should be covered by the button in the top line
+> - Remove the warning that an account deletion can't be uindone and get ridf of
+>   the whole tile. The warning cayn be shown in a modal after clicking the
+>   button.
+> On the version page:
+> - Add the background image similar to the overview pages and create a tile
+>   around the version information
+> Open the api documentation in a separate tab
+
+---
+
+### Prompt 40
+
+> On the order page:
+> - After adding my own order item, the Summary button is still locked. Make
+>   sure, it is unlocked when I place an order and make sure, it is locked again,
+>   when I remove my last order item
+> - I just created a new order. There should be an "Edit" button to the right of
+>   the "Summary" button and the "Delete order" button should be to the right of
+>   that one
+> - Also, creating an order where the deadline is before the creation date should
+>   be blocked with an error message. My newly created order
+>   https://192.168.178.183:8443/orders/01a07d8b-ff37-7ccd-8dc1-bd23c5824b6e has
+>   a deadline 11 hours ago
+
+---
+
+### Prompt 41
+
+> On the Summary page:
+> - Increase the distance between the Total line and the "Below the minimum
+>   order" box similarly to what you've done on the order page itself.
+
+---
+
+### Prompt 42
+
+> Also, when creating a new order, the default value for deadline should be 1
+> hour in the future and the pickup/delivery time 2 hours in the future

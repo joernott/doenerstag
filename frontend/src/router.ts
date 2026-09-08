@@ -130,7 +130,7 @@ export class Router {
     } else {
       history.pushState(null, "", path);
     }
-    void this.render();
+    void this.render(true);
   }
 
   /** Re-renders the current page, after a language or session change. */
@@ -162,7 +162,16 @@ export class Router {
     return { path: url.pathname, params: {}, query: url.searchParams, onCleanup: () => {} };
   }
 
-  private async render(): Promise<void> {
+  /**
+   * Renders the current URL.
+   *
+   * `moveFocus` is true only for an actual navigation. On the first render it
+   * would take focus off the top of the document, putting the skip link and the
+   * whole title bar behind the visitor -- forward tabbing would never reach
+   * them again. On a refresh -- a language or theme change -- it would take
+   * focus off the control the person just used.
+   */
+  private async render(moveFocus = false): Promise<void> {
     const outlet = this.outlet;
     if (!outlet) {
       return;
@@ -210,8 +219,10 @@ export class Router {
     // Focus moves to the top of the new page, or a keyboard user would carry
     // on from wherever the link they followed happened to be. tabindex="-1" on
     // the outlet is what makes that possible without adding a tab stop.
-    outlet.focus({ preventScroll: true });
-    window.scrollTo(0, 0);
+    if (moveFocus) {
+      outlet.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
 
     for (const listener of this.listeners) {
       listener(context);
@@ -219,7 +230,7 @@ export class Router {
   }
 
   private readonly onPopState = (): void => {
-    void this.render();
+    void this.render(true);
   };
 
   /**

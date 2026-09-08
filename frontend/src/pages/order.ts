@@ -26,8 +26,14 @@ import { confirmDialog, openModal } from "../components/modal";
 import { minorUnitOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
-import { isActive, type OrderDetail, type OrderHeader, type OrderItem } from "./orders";
-import { actions, page, section, statusLine } from "./page";
+import {
+  isActive,
+  summaryLink,
+  type OrderDetail,
+  type OrderHeader,
+  type OrderItem,
+} from "./orders";
+import { actions, page, pageWithActions, section, statusLine } from "./page";
 import type { Contact, Restaurant } from "./restaurant";
 
 interface RestaurantDetail extends Restaurant {
@@ -81,6 +87,7 @@ export async function orderPage(
   const left = el("div", { class: "order-column" });
   const right = el("div", { class: "order-column" });
   const banner = el("div");
+  const heading = el("div", { class: "page-heading-actions" });
 
   let menuItems = menu;
   let categoryList = categories;
@@ -140,6 +147,8 @@ export async function orderPage(
   // --- the left column ----------------------------------------------------
 
   function renderLeft(): void {
+    renderHeading();
+
     const own = detail();
     const parts: Child[] = [orderCard()];
 
@@ -205,21 +214,24 @@ export async function orderPage(
       list.appendChild(dd);
     }
 
-    const controls: Child[] = [];
+    // Editing and deleting the order live on the title's line with the summary,
+    // not in this card: all three act on the order as a whole rather than on
+    // anything inside the card, and they were the only reason it had a row of
+    // buttons at all.
+    return section(order.title, list, status.element);
+  }
 
-    // The summary is for participants: the creator, anybody with an item, and
-    // the administrator (F1.3). The page itself refuses anyone else, so this
-    // only decides whether to offer the link -- and offering it to somebody
-    // who would be refused is exactly what docs/06_ui_ux.md says not to do.
-    if (isParticipant()) {
-      controls.push(
-        el("a", {
-          class: "button",
-          href: `/orders/${id}/summary`,
-          text: t.t("order.summary"),
-        }),
-      );
-    }
+  /**
+   * The controls on the title's line: summary, edit, delete.
+   *
+   * Rebuilt on every refresh rather than built once, because whether they apply
+   * changes while the page is open. Adding the first item of your own makes you
+   * a participant and unlocks the summary; removing your last one locks it
+   * again; the deadline passing takes the edit away. Built once, the summary
+   * stayed locked for the rest of the visit however many items you added.
+   */
+  function renderHeading(): void {
+    const controls: Child[] = [summaryLink(app, id, isParticipant())];
 
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
@@ -246,12 +258,7 @@ export async function orderPage(
       );
     }
 
-    return section(
-      order.title,
-      list,
-      controls.length > 0 ? actions(...controls) : null,
-      status.element,
-    );
+    heading.replaceChildren(...controls.filter((part): part is Node => part instanceof Node));
   }
 
   /** The restaurant, with its contacts as the links they are meant to be. */
@@ -410,7 +417,11 @@ export async function orderPage(
       t.t("order.totals"),
       list,
       own.below_minimum
-        ? el("p", { class: "notice notice-warning", role: "status", text: t.t("order.below_minimum") })
+        ? el("p", {
+            class: "notice notice-warning notice-spaced",
+            role: "status",
+            text: t.t("order.below_minimum"),
+          })
         : null,
     );
   }
@@ -640,6 +651,16 @@ export async function orderPage(
       return bar;
     }
 
+    /**
+     * One filter, folded away until it is wanted.
+     *
+     * The three groups together are nearly forty checkboxes, and expanded they
+     * sit between the top of the menu column and the first dish: a keyboard
+     * user had to cross all of them to order anything. A <details> is three tab
+     * stops instead of forty, is open to the same keyboard without any script,
+     * and says in its own summary how many filters are active -- so folding one
+     * away cannot hide the fact that it is filtering.
+     */
     const group = (
       legend: string,
       entries: { id: string; label: string }[],
@@ -663,7 +684,14 @@ export async function orderPage(
         });
         list.appendChild(box);
       }
-      return el("fieldset", { class: "fieldset" }, el("legend", { text: legend }), list);
+
+      const label = chosen.size > 0 ? `${legend} (${String(chosen.size)})` : legend;
+      return el(
+        "details",
+        { class: "filter-group", open: chosen.size > 0 },
+        el("summary", { text: label }),
+        list,
+      );
     };
 
     append(
@@ -774,6 +802,9 @@ export async function orderPage(
       addable
         ? button({
             label: t.t("item.add"),
+            variant: "primary",
+            // Named for the dish: the menu column has one of these per item.
+            ariaLabel: `${t.t("item.add")}: ${item.name}`,
             onclick: () => {
               void openItemEditor(null, item);
             },
@@ -1004,7 +1035,12 @@ export async function orderPage(
   renderLeft();
   renderMenu();
 
-  return page(order.title, banner, el("div", { class: "order-layout" }, left, right));
+  return pageWithActions(
+    order.title,
+    heading,
+    banner,
+    el("div", { class: "order-layout" }, left, right),
+  );
 }
 
 /** An API timestamp as a `datetime-local` value in the viewer's time zone. */

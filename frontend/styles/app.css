@@ -171,10 +171,30 @@ a {
   font-weight: 600;
 }
 
+/* The sprite holding the mark's `<symbol>`, appended once to the body.
+ *
+ * Out of the layout without `display: none`, which in some engines takes the
+ * copies that reference it out too. It carries no `style` attribute on purpose:
+ * the CSP is `style-src 'self'`, so an inline style is refused and reported. */
+.logo-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* The mark in the title bar.
+ *
+ * A little larger than the four strokes it replaced -- 2rem against 1.75 --
+ * because the drawing has a calendar grid in it and 1.75rem turned that into
+ * grey mush. `--text` rather than `--accent`: the two files in contrib/
+ * differed by drawing the frame and the numbers white on dark and near-black
+ * on light, which is what `--text` already means in each theme, so one asset
+ * lands on both of the looks that were asked for. */
 .logo {
-  width: 1.75rem;
-  height: 1.75rem;
-  color: var(--accent);
+  width: 2rem;
+  height: 2rem;
+  color: var(--text);
 }
 
 /* Hidden below the small breakpoint, per the title bar table in docs/06. */
@@ -283,6 +303,79 @@ a {
   outline: none;
 }
 
+/* The mark behind an overview.
+ *
+ * Wallpaper: `aria-hidden` in the markup, `pointer-events: none` here, and
+ * behind everything on z-index, so it can neither be clicked nor read out.
+ *
+ * The opacity is very low on purpose. This sits underneath body text, and
+ * anything darker would eat into the contrast the whole palette was built for.
+ * Under `prefers-reduced-transparency` it goes entirely, and it is dropped from
+ * print along with the rest of the chrome. */
+.page-watermarked {
+  position: relative;
+}
+
+.page-watermark {
+  /* Fixed to the viewport rather than to the page.
+   *
+   * "80% of the height" only means something against a height that does not
+   * change: the orders grid is as tall as there are orders, and at a hundred
+   * and twenty-five of them 80% of the page was a mark several screens high
+   * with none of it on screen at once. Against the viewport it is the same
+   * size on every page and stays put while the grid scrolls over it. */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  height: 80vh;
+  width: auto;
+  max-width: 90vw;
+  z-index: 0;
+  opacity: 0.03;
+  color: var(--text);
+  pointer-events: none;
+}
+
+/* Everything else on the page sits above it. */
+.page-watermarked > *:not(.page-watermark) {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .page-watermark {
+    display: none;
+  }
+}
+
+/* A heading with controls on its line.
+ *
+ * The buttons are aligned to the right edge of the page body, which is the same
+ * edge as the card below, so Save and Delete sit above the corner of the thing
+ * they act on. `align-items: baseline` would drop the buttons a few pixels
+ * below the title's baseline; centring the two blocks reads better when one is
+ * a 1.5rem heading and the other a pair of buttons. */
+.page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-end: 1rem;
+}
+
+.page-heading .page-title {
+  margin: 0;
+}
+
+.page-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
 .page-title {
   margin: 0 0 1rem;
   font-size: 1.5rem;
@@ -339,6 +432,7 @@ a {
 }
 
 .tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -354,29 +448,99 @@ a {
   border-color: var(--border-strong);
 }
 
-/* An expired order. The opacity is never the only signal: the tile also says
-   so in words, because opacity is not information. */
+/* The whole card is clickable, and the thing that makes it so is the title.
+ *
+ * The tile used to be one big anchor, which is why the summary button had to
+ * hang underneath it in a footer: a link inside a link is not something a
+ * browser can make sense of. Stretching the title's own ::after over the card
+ * gets the same click target with the title as the link text -- a better
+ * accessible name than an aria-label on an empty box -- and leaves the card
+ * free to hold real buttons. */
+.tile-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tile-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* The focus ring belongs on the card, because the card is what the link
+ * covers; on the text alone it would look like half the target is focused. */
+.tile:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tile-link:focus-visible {
+  outline: none;
+}
+
+/* Buttons sit above the stretched link rather than under it. Pushed to the
+ * bottom so tiles of different heights line their controls up. */
+.tile-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-block-start: auto;
+  padding-block-start: 0.25rem;
+}
+
+/* An expired order. The recessed surface is never the only signal: the tile
+   also says so in words, because a colour is not information.
+
+   This used to be `opacity: 0.72`, which is the obvious way to make something
+   look past and the wrong one. Opacity applies to the whole subtree and cannot
+   be undone by a child, so it dimmed the "expired" badge along with everything
+   else, and 72% of the danger colour on the dark theme's raised surface falls
+   below the AA contrast ratio. axe found it on the order list once enough
+   expired orders had accumulated to put one on the page. Recessing the
+   background and dashing the border says the same thing and leaves every
+   foreground colour at the strength it was designed at. */
 .tile-faded {
-  opacity: 0.72;
   border-style: dashed;
+  background: var(--surface-sunken);
+}
+
+/* The add tile is mostly the plus.
+ *
+ * Sized as a share of the card rather than in rem, so it stays three quarters
+ * of the tile at every breakpoint: the grid is one column on a phone and four
+ * on a wide screen, and a fixed 2.5rem mark looked lost in the wide case. The
+ * square aspect keeps the card the same height as its neighbours instead of
+ * growing with the column width. */
+.tile-add-card {
+  justify-content: center;
 }
 
 .tile-add {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 5rem;
   color: var(--accent);
 }
 
 .tile-add .icon {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 75%;
+  height: auto;
+  max-height: 12rem;
+  aspect-ratio: 1;
+  /* The stroke is scaled with the mark, so a plus this large is not also a
+     plus this heavy. */
+  stroke-width: 1;
 }
 
 .tile-add-label {
   text-align: center;
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* ---------------------------------------------------------------------------
@@ -481,9 +645,53 @@ a {
   color: var(--danger-text);
 }
 
+/* A coloured button inverts on hover; it does not merely lose its background.
+ *
+ * `.button:hover` above swaps the background for the sunken surface, and it
+ * outranks `.button-primary` -- three selectors against one -- so it applied to
+ * these two as well and took the background away while leaving the text set to
+ * `--accent-text` or `--danger-text`. Those are chosen to sit on the accent, so
+ * the result was near-black on near-black in the dark theme and white on light
+ * grey in the light one: the label vanished exactly while the pointer was on
+ * it.
+ *
+ * Turning the text the colour the button just was keeps the pair legible and
+ * makes the hovered state read as the outlined version of the same button --
+ * the border is already accent-coloured and untouched by the hover rule. The
+ * four combinations measure 9.2:1 and 4.9:1 for the accent, 6.9:1 and 5.5:1
+ * for the danger colour, dark and light respectively, so all of them clear AA.
+ *
+ * axe could not have caught this: it scans a page at rest, and nothing is
+ * hovered in a page at rest. */
+.button-primary:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.button-danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
 .button-quiet {
   border-color: var(--border);
   background: transparent;
+}
+
+/* A button that is only an icon.
+ *
+ * Square, and sized so the target still clears the 44px the pointer guidance in
+ * docs/06_ui_ux.md asks for -- an icon small enough to look tidy in a tile is
+ * not by itself something you can reliably hit. The name lives in aria-label
+ * and title, because there is no text to read. */
+.button-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  flex: none;
+}
+
+.button-icon .icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 /* ---------------------------------------------------------------------------
@@ -677,6 +885,146 @@ a {
   font-size: 0.875rem;
 }
 
+/* --- contacts ------------------------------------------------------------ */
+
+/* Every contact row is the same grid, the new one included.
+ *
+ * They used to be flex rows whose fields shared the leftover space, so the new
+ * row -- which has one button where the others have two -- laid its fields out
+ * a different width from the rows above it. Fixed columns line them up, and the
+ * open button keeps its column on the new row even though there is nothing to
+ * open yet. */
+/* Every column is a fixed size or a share, and none of them is `max-content`.
+ *
+ * Each row is its own grid -- they are separate elements -- so a `max-content`
+ * column is measured per row, and the button column holds Save and Remove on an
+ * existing contact but only Add on the new one. That alone made the new row's
+ * fields a few pixels wider than the ones above it. A fixed width for that
+ * column is what makes the two rows line up. */
+.contact-row {
+  display: grid;
+  grid-template-columns: 9rem minmax(10rem, 1fr) 2.5rem minmax(8rem, 16rem) 12rem;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+/* Sized to its own widest option plus the arrow, like the weekday dropdown. */
+.contact-row select {
+  width: auto;
+  min-width: 0;
+  max-width: 12rem;
+  padding-inline: 0.5rem;
+}
+
+.contact-row .field {
+  flex: none;
+  min-width: 0;
+}
+
+/* The buttons fill their column on every row.
+ *
+ * "Add a contact" is alone in the cell where the other rows have Save and
+ * Remove, so its left edge lines up with their Save and its right with their
+ * Remove -- but only if both fill the column. Left to their natural widths, the
+ * pair came up short of the column's right edge and the single button did not,
+ * which is the 32 pixels that made the new row look out of line. */
+.contact-row .actions {
+  display: flex;
+  width: 100%;
+}
+
+.contact-row .actions > .button {
+  flex: 1 1 auto;
+}
+
+/* The column the open button lives in, reserved whether or not there is a
+   button in it. */
+.contact-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+}
+
+@media (max-width: 767px) {
+  /* One column per line on a phone; a five-column grid there would be five
+     things too narrow to use. The open button goes back to sitting under its
+     value rather than beside it. */
+  .contact-row {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-open-empty {
+    display: none;
+  }
+}
+
+/* --- opening hours ------------------------------------------------------- */
+
+/* A row of opening hours is four small things and a button, and it used to be
+ * laid out as though each of them wanted the width of a name field: a weekday
+ * dropdown three times wider than "Wednesday", two time fields to match, and a
+ * "crosses midnight" note that appeared and vanished as the times were typed,
+ * shoving the remove button sideways every time.
+ *
+ * Each control is now sized to its own content, and the note keeps its column
+ * whether or not there is anything in it, so a week of opening hours lines up
+ * into a table instead of a ragged stack. */
+.hours-row {
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+/* A contact row wants wide fields, so `.row .field` grows to fill the line. An
+ * opening-hours row wants the opposite: three controls that are each as wide as
+ * what goes in them, and the leftover space at the end rather than shared out
+ * between them. */
+.hours-row .field {
+  flex: none;
+  min-width: 0;
+}
+
+/* The remove button sits directly after the note rather than at the far end of
+ * the row. The note's column is a fixed width whether or not it has anything in
+ * it, so "after the note" is already the same place on every row -- pushing the
+ * button to the right edge only put it a long way from the row it belongs to. */
+.hours-row .actions {
+  margin-inline-start: 0;
+}
+
+/* `width: auto` on a select is the browser sizing it to its widest option plus
+ * the arrow, which is as close to "the largest text and no more" as CSS gets
+ * without measuring the text. The cap stops a long weekday name in some future
+ * language from running away with the row. */
+.hours-row select,
+.hours-row input[type="time"] {
+  width: auto;
+  min-width: 0;
+  max-width: 11rem;
+  /* Trimmed from the shared control padding, which is sized for a name field.
+     What is left beyond the text is the select's own arrow, which is the
+     browser's and cannot be reclaimed without hiding the affordance that says
+     it is a dropdown at all. */
+  padding-inline: 0.5rem;
+}
+
+/* The reserved column for the note. Wide enough for the longest form of it in
+ * either catalog, and it stays reserved when empty. */
+.hours-hint {
+  flex: none;
+  width: 9rem;
+  align-self: center;
+  line-height: 1.2;
+}
+
+@media (max-width: 639px) {
+  /* On a phone the row wraps anyway, so a reserved column would only be a gap.
+     The note takes the width it needs and the rows are read one at a time. */
+  .hours-hint {
+    width: auto;
+  }
+}
+
 .fieldset {
   margin: 0 0 1rem;
   padding: 0.75rem 1rem 1rem;
@@ -725,6 +1073,21 @@ a {
   border-color: var(--border);
   background: var(--surface-raised);
   font-weight: 600;
+}
+
+/* A tab strip built by the tabs component: the strip, then the panels.
+ *
+ * The account page builds its own strip with the same `.tabs` and `.tab`
+ * classes, which is why the component uses them too -- one tab look, not two.
+ * These two rules are the part it adds. */
+.tab-panels > .panel {
+  /* A panel may be nothing but text, so it is a tab stop of its own; the ring
+     needs room not to sit on the card's border. */
+  outline-offset: 4px;
+}
+
+.tab-panels > .panel[hidden] {
+  display: none;
 }
 
 /* --- password rules ------------------------------------------------------ */
@@ -814,18 +1177,72 @@ a {
   margin-block-end: 1.5rem;
 }
 
+/* The two things somebody comes to this tab to do, at the top of it. */
+.menu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block-end: 1rem;
+}
+
+/* The category's heading and its controls, in a frame of their own.
+ *
+ * A menu is a list of lists, and without a border the category headings read as
+ * items in the same stream as the dishes under them. The frame says where one
+ * category starts. The controls go to the right-hand end, so a column of
+ * categories has its buttons in a column too. */
 .menu-group-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.75rem;
-  margin-block-end: 0.5rem;
+  margin-block-end: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.menu-group-header .actions {
+  margin-inline-start: auto;
+}
+
+/* The category name and its disclosure are one button, so the whole heading is
+ * the target rather than a chevron a few pixels wide. `aria-expanded` on the
+ * button is what tells a screen reader which way it is; the arrow direction is
+ * the same fact for everybody else. */
+.menu-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  margin-inline-start: -0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.menu-group-toggle:hover {
+  background: var(--surface-sunken);
+}
+
+.menu-group-toggle .icon {
+  flex: none;
+  color: var(--text-muted);
 }
 
 .menu-group-title {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.menu-group-header + .menu-items {
+  margin-block-start: 0;
 }
 
 .menu-item {
@@ -883,6 +1300,17 @@ a {
 .tile-logo-empty {
   border-style: dashed;
   background: var(--surface-sunken);
+}
+
+/* A restaurant with no logo of its own borrows ours.
+ *
+ * Solid rather than dashed, because it is a picture and not an empty slot, and
+ * muted so it reads as a stand-in rather than as that restaurant's mark. */
+.tile-logo-fallback {
+  border-style: solid;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  padding: 2px;
 }
 
 .menu-add {
@@ -984,6 +1412,16 @@ a {
 .notice-warning {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+/* A notice that follows something it is about, rather than heading a page.
+ *
+ * The "below the minimum order value" box sat directly under the total with
+ * less space between the two than the box has inside it, so the total read as
+ * though it were part of the warning. The gap above is now the box's own
+ * padding plus a little, which is the least that makes them two things. */
+.notice-spaced {
+  margin-block-start: 1.5rem;
 }
 
 .restaurant-line {
@@ -1246,4 +1684,17 @@ a {
   textarea {
     display: none !important;
   }
+}
+
+/* A filter that is folded away until it is wanted. Native <details>, so it
+   opens with the keyboard and is announced correctly without any script. */
+.filter-group > summary {
+  padding: 0.35rem 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.filter-group[open] > summary {
+  border-block-end: 1px solid var(--border);
+  margin-block-end: 0.35rem;
 }

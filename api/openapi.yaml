@@ -8,14 +8,19 @@ info:
     doenerstag coordinates food orders for a group. It does not take payments
     and does not place orders with restaurants.
 
-    This document describes the endpoints that exist today. It grows with the
-    implementation: sprint 4 delivers the operational endpoints, sprint 5 the
-    accounts, and sprints 6 to 9 the restaurants, menus and orders. A test walks
-    the registered routes and fails when one is missing from here, so the two
-    cannot drift apart.
+    This document describes every endpoint the server registers. A test walks
+    the routes of the production router and fails when one of them is missing
+    from here, and fails the other way too when this document describes a path
+    nothing serves — so the two cannot drift apart.
 
     Reading is mostly open. An unauthenticated visitor sees restaurants, menus,
-    the list of orders and each order's item count, but not who ordered what.
+    the list of orders and each order's item count, but never who ordered what:
+    the split is enforced in the handlers and is described at each endpoint it
+    affects.
+
+    Collections are wrapped in an object with one plural key rather than being
+    returned as a bare array — `{"restaurants": [...]}` — which leaves room to
+    add a field beside the list without changing the type of the response.
   license:
     name: BSD-3-Clause
     identifier: BSD-3-Clause
@@ -27,6 +32,26 @@ servers:
 tags:
   - name: system
     description: Operational endpoints for monitoring and administration.
+  - name: authentication
+    description: Registering, logging in and the current session.
+  - name: users
+    description: Accounts, their API tokens and their deletion.
+  - name: restaurants
+    description: Restaurants, their contacts and their opening hours.
+  - name: menu
+    description: Categories, menu items and their options.
+  - name: reference
+    description: The seeded tables the frontend translates from codes.
+  - name: images
+    description: Upload and delivery of logos and dish photographs.
+  - name: orders
+    description: Orders, their items, their summary and their event stream.
+  - name: content
+    description: The imprint and the legal notes.
+
+security:
+  - session: []
+  - token: []
 
 paths:
   /health:
@@ -80,11 +105,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Metrics"
         "503":
-          description: The database is unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/DatabaseUnavailable"
 
   /version:
     get:
@@ -111,14 +132,13 @@ paths:
     post:
       tags: [system]
       operationId: postShutdown
-      summary: Begin a graceful shutdown.
+      summary: Begin a graceful shutdown. Administrator only.
       description: |
         Responds before shutting down, so the administrator sees a confirmation
         rather than a dropped connection. In-flight requests are given the
-        configured grace period to finish.
-
-        Restricted to the administrator from sprint 5, when authentication
-        exists.
+        configured grace period to finish, and every event stream is closed
+        first — otherwise the grace period would be spent waiting on
+        connections designed never to end.
       responses:
         "202":
           description: The shutdown has begun.
@@ -130,12 +150,1473 @@ paths:
                   status:
                     type: string
                     const: shutting down
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Administrator privileges are required.
+          $ref: "#/components/responses/Forbidden"
+
+  /auth/register:
+    post:
+      tags: [authentication]
+      operationId: register
+      summary: Create an account and log in.
+      description: |
+        Registration logs the new account in, which is why the response is a
+        session rather than a user: nobody registers in order to then log in.
+
+        The password must meet the three-of-five complexity rules; failing them
+        is error 1010, which names how many classes were met and never echoes
+        the password.
+
+        Anonymous callers only. A caller who already has a session is refused
+        with 2006 rather than being switched to the new account.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/Session"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /auth/login:
+    post:
+      tags: [authentication]
+      operationId: login
+      summary: Start a session.
+      description: |
+        Sets the `doener_session` and `doener_csrf` cookies and replaces any
+        session this account already had: one browser at a time, per F2.5.
+
+        An unknown user name and a wrong password both answer 2001, in
+        comparable time, so the endpoint does not say which accounts exist.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /auth/logout:
+    post:
+      tags: [authentication]
+      operationId: logout
+      summary: End the current session.
+      description: |
+        Deletes the session row and clears the cookies. Logging out twice is
+        not an error: the second call has nothing to do and says so with the
+        same answer.
+      responses:
+        "200":
+          description: The session is over.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionBody"
+
+  /auth/session:
+    get:
+      tags: [authentication]
+      operationId: getSession
+      summary: Who the caller is.
+      description: |
+        Answers `{"user": null}` for an anonymous caller rather than 401: "who
+        am I" is a question anybody may ask, and the answer "nobody" is a
+        useful one.
+      security: []
+      responses:
+        "200":
+          description: The current session, or none.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionBody"
+
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Every account. Administrator only.
+      responses:
+        "200":
+          description: All accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminUser"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: A public profile.
+      description: |
+        Id, user name and display name for anybody; the e-mail address only to
+        the account itself and to the administrator.
+      security: []
+      responses:
+        "200":
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [users]
+      operationId: patchUser
+      summary: Change an account. Owner or administrator.
+      description: |
+        Only the fields present in the body change. Changing your own password
+        requires the current one — a borrowed unlocked browser should not be
+        enough to lock the owner out — while the administrator resetting
+        somebody else's does not, because that is the recovery path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchUserRequest"
+      responses:
+        "200":
+          description: The updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [users]
+      operationId: deleteUser
+      summary: Delete an account. Owner or administrator.
+      description: |
+        Immediate and irreversible, and it takes the account's items in active
+        orders with it. Items in expired orders and orders the account created
+        are reassigned to the deleted-user placeholder, so history stays
+        readable. Ask `/deletion-impact` first.
+      responses:
+        "204":
+          description: The account is gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{id}/deletion-impact:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: getDeletionImpact
+      summary: What deleting this account would cost.
+      description: |
+        The numbers the confirmation dialog names, so that a person confirms
+        something specific rather than something general.
+      responses:
+        "200":
+          description: The impact.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionImpact"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{id}/tokens:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: listTokens
+      summary: The account's API tokens.
+      description: The value is never returned; only its prefix, for recognition.
+      responses:
+        "200":
+          description: The tokens.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tokens]
+                properties:
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Token"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [users]
+      operationId: createToken
+      summary: Issue an API token.
+      description: |
+        The response carries the token value, and it is the only time it ever
+        does: what is stored is a hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "201":
+          description: The new token, with its value.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /users/{id}/tokens/{tid}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - name: tid
+        in: path
+        required: true
+        description: The token's id.
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [users]
+      operationId: revokeToken
+      summary: Revoke an API token.
+      responses:
+        "204":
+          description: The token is revoked.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /currencies:
+    get:
+      tags: [reference]
+      operationId: listCurrencies
+      summary: The seeded currencies.
+      description: |
+        Codes, symbols and minor units. No names: a name is a translation, and
+        the frontend has the catalog (docs/07_i18n.md).
+      security: []
+      responses:
+        "200":
+          description: Every currency.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [currencies]
+                properties:
+                  currencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Currency"
+
+  /contact-types:
+    get:
+      tags: [reference]
+      operationId: listContactTypes
+      summary: The seeded contact types.
+      description: |
+        `render_as` tells the frontend how to present the value: a tel: link, a
+        mailto: link, a map link or plain text.
+      security: []
+      responses:
+        "200":
+          description: Every contact type.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contact_types]
+                properties:
+                  contact_types:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactType"
+
+  /tags:
+    get:
+      tags: [reference]
+      operationId: listTags
+      summary: The tags a menu item can carry.
+      security: []
+      responses:
+        "200":
+          description: Every tag.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tags]
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tag"
+    post:
+      tags: [reference]
+      operationId: createTag
+      summary: Add a tag.
+      description: |
+        The one seeded table users may add to, which is why `tag` keeps a name
+        column: an invented tag has no catalog entry and can only carry the
+        text somebody typed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+      responses:
+        "201":
+          description: The new tag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /allergens:
+    get:
+      tags: [reference]
+      operationId: listAllergens
+      summary: The fourteen declarable allergens.
+      description: |
+        Regulation (EU) No 1169/2011, Annex II. Codes and reference numbers
+        only; the wording is a legal declaration and lives in the catalogs.
+      security: []
+      responses:
+        "200":
+          description: Every allergen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [allergens]
+                properties:
+                  allergens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Classification"
+
+  /additives:
+    get:
+      tags: [reference]
+      operationId: listAdditives
+      summary: The additive declarations customary on German menus.
+      security: []
+      responses:
+        "200":
+          description: Every additive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [additives]
+                properties:
+                  additives:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Classification"
+
+  /images:
+    post:
+      tags: [images]
+      operationId: uploadImage
+      summary: Upload an image.
+      description: |
+        Multipart, in the `file` field. The media type is decided by sniffing
+        the content, not by the extension or the declared type; only JPEG, PNG
+        and GIF are accepted. Every image is decoded and re-encoded, which
+        strips EXIF metadata — including GPS coordinates — as a side effect,
+        and a thumbnail is produced at the same time.
+
+        Identical bytes are stored once: the response for a duplicate is the
+        existing image.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: The stored image.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Image"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: Larger than --max-image-size.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "415":
+          description: Not a JPEG, PNG or GIF.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /images/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    get:
+      tags: [images]
+      operationId: getImage
+      summary: The image at full size.
+      description: |
+        Carries an ETag and a long cache lifetime: an image's bytes never
+        change, because a different picture is a different image.
+      security: []
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+        "304":
+          description: Unchanged since the ETag the caller sent.
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /images/{id}/thumbnail:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    get:
+      tags: [images]
+      operationId: getThumbnail
+      summary: The image's thumbnail.
+      security: []
+      responses:
+        "200":
+          description: The thumbnail.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+        "304":
+          description: Unchanged since the ETag the caller sent.
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /openapi.json:
+    get:
+      tags: [system]
+      operationId: getOpenAPIJSON
+      summary: This document, as JSON.
+      description: |
+        What Swagger UI and every generator consume. The source of truth is the
+        YAML served below; this is converted from it on first use.
+      security: []
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /openapi.yaml:
+    get:
+      tags: [system]
+      operationId: getOpenAPIYAML
+      summary: This document, in its source form.
+      description: YAML is what a person maintains, so it is what is served here.
+      security: []
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/yaml:
+              schema: { type: string }
+
+  /pages/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        description: Which page.
+        schema:
+          type: string
+          enum: [imprint, legal_notes]
+    get:
+      tags: [content]
+      operationId: getContentPage
+      summary: The imprint or the legal notes.
+      description: |
+        HTML rather than JSON: what is stored is a fragment of a document, and
+        wrapping it in a JSON string would only mean unwrapping it again.
+      security: []
+      responses:
+        "200":
+          description: The snippet.
+          content:
+            text/html:
+              schema: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [content]
+      operationId: putContentPage
+      summary: Replace the snippet. Administrator only.
+      description: |
+        The body is sanitized with an allow-list before it is stored — the same
+        policy the installer applies — and the response is what was actually
+        kept, so an administrator can see what survived. A snippet that is
+        empty once sanitized is refused rather than stored.
+      requestBody:
+        required: true
+        content:
+          text/html:
+            schema: { type: string }
+      responses:
+        "200":
+          description: The stored snippet.
+          content:
+            text/html:
+              schema: { type: string }
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /restaurants:
+    get:
+      tags: [restaurants]
+      operationId: listRestaurants
+      summary: Every restaurant.
+      security: []
+      responses:
+        "200":
+          description: All restaurants.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [restaurants]
+                properties:
+                  restaurants:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Restaurant"
+    post:
+      tags: [restaurants]
+      operationId: createRestaurant
+      summary: Add a restaurant.
+      description: |
+        At least one contact entry is required: a restaurant nobody can telephone
+        is not much use to an order (error 1007).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRestaurantRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/RestaurantDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /restaurants/{id}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [restaurants]
+      operationId: getRestaurant
+      summary: One restaurant, with its contacts and opening hours.
+      security: []
+      responses:
+        "200":
+          $ref: "#/components/responses/RestaurantDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [restaurants]
+      operationId: patchRestaurant
+      summary: Change a restaurant.
+      description: Only the fields present in the body change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchRestaurantRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/RestaurantDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [restaurants]
+      operationId: deleteRestaurant
+      summary: Soft delete a restaurant. Administrator only.
+      description: |
+        Refused with 4003 while an order still references it: an order records
+        the terms it was placed under, and those terms have to keep existing.
+      responses:
+        "204":
+          description: The restaurant is deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /restaurants/{id}/contacts:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [restaurants]
+      operationId: listContacts
+      summary: The restaurant's contact entries.
+      security: []
+      responses:
+        "200":
+          description: Every contact.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contacts]
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Contact"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [restaurants]
+      operationId: createContact
+      summary: Add a contact entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequest"
+      responses:
+        "201":
+          description: The new contact.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/contacts/{cid}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The contact entry's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [restaurants]
+      operationId: replaceContact
+      summary: Replace a contact entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequest"
+      responses:
+        "200":
+          description: The updated contact.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [restaurants]
+      operationId: deleteContact
+      summary: Remove a contact entry.
+      description: |
+        Refused with 1007 when it is the last one: the rule that a restaurant
+        has at least one contact is enforced on the way out as well as on the
+        way in.
+      responses:
+        "204":
+          description: The contact is gone.
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/opening-hours:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [restaurants]
+      operationId: listOpeningHours
+      summary: The restaurant's opening hours.
+      description: |
+        Wall-clock times with no date and no time zone. An entry whose end is
+        not after its start crosses midnight, and says so.
+      security: []
+      responses:
+        "200":
+          description: Every opening period.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [opening_hours]
+                properties:
+                  opening_hours:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OpeningPeriod"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [restaurants]
+      operationId: replaceOpeningHours
+      summary: Replace the whole set in one call.
+      description: |
+        The whole set at once, because that is how a person edits them: a lunch
+        break is two entries that only make sense together.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [opening_hours]
+              properties:
+                opening_hours:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/OpeningPeriodRequest"
+      responses:
+        "200":
+          description: The stored set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [opening_hours]
+                properties:
+                  opening_hours:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OpeningPeriod"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/categories:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [menu]
+      operationId: listCategories
+      summary: The menu's categories, in their sort order.
+      security: []
+      responses:
+        "200":
+          description: Every category.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [categories]
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [menu]
+      operationId: createCategory
+      summary: Add a category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                sort_order: { type: integer }
+      responses:
+        "201":
+          description: The new category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /restaurants/{id}/categories/{cid}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The category's id.
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [menu]
+      operationId: patchCategory
+      summary: Rename or reorder a category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                sort_order: { type: integer }
+      responses:
+        "200":
+          description: The updated category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [menu]
+      operationId: deleteCategory
+      summary: Soft delete a category. Administrator only.
+      description: Its items stay on the menu, without a category.
+      responses:
+        "204":
+          description: The category is deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [menu]
+      operationId: listMenuItems
+      summary: The menu, in a printed menu's order.
+      description: |
+        Ordered by the restaurant's own item number, numerically where it is a
+        number so that 2 comes before 10, then by name. Items without a number
+        come last.
+
+        The filters combine with AND across parameter names and OR within one:
+        `?tag=vegan&tag=spicy&exclude_allergen=nuts` means "vegan or spicy, and
+        not containing nuts".
+      security: []
+      parameters:
+        - name: category
+          in: query
+          description: Restrict to a category.
+          schema: { type: string, format: uuid }
+        - name: tag
+          in: query
+          description: Item carries any of these tags.
+          schema: { type: array, items: { type: string } }
+        - name: exclude_allergen
+          in: query
+          description: Item does not carry this allergen.
+          schema: { type: array, items: { type: string } }
+        - name: exclude_additive
+          in: query
+          description: Item does not carry this additive.
+          schema: { type: array, items: { type: string } }
+        - name: available
+          in: query
+          description: Only items that can be ordered.
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: The matching items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [menu_items]
+                properties:
+                  menu_items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MenuItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [menu]
+      operationId: createMenuItem
+      summary: Add a menu item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuItemRequest"
+      responses:
+        "201":
+          description: The new item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /restaurants/{id}/menu-items/{mid}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - $ref: "#/components/parameters/MenuItemId"
+    get:
+      tags: [menu]
+      operationId: getMenuItem
+      summary: One menu item, with its options.
+      description: |
+        The list leaves the options out — sending every item's options to draw a
+        menu would be most of a payload nobody is reading — so this is where
+        they come from.
+      security: []
+      responses:
+        "200":
+          description: The item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [menu]
+      operationId: patchMenuItem
+      summary: Change a menu item, including its availability.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMenuItemRequest"
+      responses:
+        "200":
+          description: The updated item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [menu]
+      operationId: deleteMenuItem
+      summary: Soft delete a menu item. Administrator only.
+      description: |
+        Orders already placed are untouched: they carry snapshots of the name
+        and the price, which is the whole point of taking them.
+      responses:
+        "204":
+          description: The item is deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items/{mid}/modifications:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - $ref: "#/components/parameters/MenuItemId"
+    get:
+      tags: [menu]
+      operationId: listModifications
+      summary: The item's predefined options.
+      security: []
+      responses:
+        "200":
+          description: Every option.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [modifications]
+                properties:
+                  modifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Modification"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [menu]
+      operationId: createModification
+      summary: Add an option.
+      description: |
+        A flat list with a price delta each, per ADR-0007: no groups and no
+        "choose exactly one", because a doner shop's menu does not have them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModificationRequest"
+      responses:
+        "201":
+          description: The new option.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Modification"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /restaurants/{id}/menu-items/{mid}/modifications/{k}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - $ref: "#/components/parameters/MenuItemId"
+      - name: k
+        in: path
+        required: true
+        description: The option's id.
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [menu]
+      operationId: patchModification
+      summary: Change an option.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                price_delta_cents: { type: integer, format: int64 }
+                sort_order: { type: integer }
+      responses:
+        "200":
+          description: The updated option.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Modification"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [menu]
+      operationId: deleteModification
+      summary: Soft delete an option. Administrator only.
+      responses:
+        "204":
+          description: The option is deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /orders:
+    get:
+      tags: [orders]
+      operationId: listOrders
+      summary: Every order, active first.
+      description: |
+        Active orders come first by fulfilment time ascending — the soonest
+        lunch is the one that matters — then the expired ones descending, so
+        the most recent history is at the top of the second group.
+
+        Never any item detail, for anybody. A logged-in caller additionally
+        gets the creator of each order; an anonymous one is told no user's name
+        at all (ADR-0011).
+      security: []
+      responses:
+        "200":
+          description: All orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders]
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/OrderListEntry"
+                        - $ref: "#/components/schemas/OrderHeader"
+    post:
+      tags: [orders]
+      operationId: createOrder
+      summary: Open an order.
+      description: |
+        The currency, the minimum order value and the delivery fee are copied
+        from the restaurant as they are at this moment: the order records the
+        terms it was placed under, and a later price change does not rewrite
+        history.
+
+        The deadline must be strictly before the fulfilment time (error 1003)
+        and must not already have passed (error 1014). An order created with a
+        deadline in the past is born closed: an expired order is read-only, so
+        nobody could add an item to it and its creator could not edit it back
+        into life. Moving an existing order's deadline into the past through
+        PATCH is still allowed, and is how an order is closed early.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: The new order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: One order, in the shape the caller is entitled to.
+      description: |
+        An anonymous caller receives the header and `item_count`: no items, no
+        totals, and no user named at all — the creator included. An
+        authenticated caller receives the same header plus the creator, the
+        items and the totals.
+
+        `item_count` is in both shapes so a client never has to branch on its
+        absence (F1.2, ADR-0011).
+      security: []
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OrderDetail"
+                  - $ref: "#/components/schemas/OrderHeader"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [orders]
+      operationId: patchOrder
+      summary: Change an order. Creator only.
+      description: |
+        Refused with 4001 once the deadline has passed, and the restaurant
+        cannot be changed once the order has items (4002), because the prices
+        were copied from it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchOrderRequest"
+      responses:
+        "200":
+          description: The updated order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [orders]
+      operationId: deleteOrder
+      summary: Delete an order and everything in it. Creator or administrator.
+      responses:
+        "204":
+          description: The order is gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}/items:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      tags: [orders]
+      operationId: createOrderItem
+      summary: Add an item to an order.
+      description: |
+        Stores a snapshot of the menu item's name and unit price, and of the
+        name and price delta of every selected option. A later price correction
+        never changes a historical order (ADR-0009).
+
+        Refused with 4001 after the deadline and with 4004 for an item marked
+        unavailable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderItemRequest"
+      responses:
+        "201":
+          description: The new item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /orders/{id}/items/{iid}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+      - name: iid
+        in: path
+        required: true
+        description: The order item's id.
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [orders]
+      operationId: patchOrderItem
+      summary: Change your own item.
+      description: |
+        Quantity, note and options. Only the owner, and only while the order is
+        active: after the deadline every item is read-only for everybody, the
+        administrator included (F6.6).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchOrderItemRequest"
+      responses:
+        "200":
+          description: The updated item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [orders]
+      operationId: deleteOrderItem
+      summary: Remove your own item.
+      responses:
+        "204":
+          description: The item is gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /orders/{id}/summary:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [orders]
+      operationId: getOrderSummary
+      summary: The aggregated order. Participants only.
+      description: |
+        One row per distinct combination of menu item, selected options and
+        note — the list somebody reads down the telephone — plus a block per
+        person and the totals.
+
+        Readable by the creator, anybody with an item in the order, and the
+        administrator. Everybody else gets 3004 (F1.3).
+
+        `plain_text` is the same summary rendered for the clipboard. It is
+        produced here rather than in the frontend so that every client says the
+        same words.
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}/events:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [orders]
+      operationId: getOrderEvents
+      summary: A Server-Sent Events stream of changes to this order.
+      description: |
+        One stream per open order (ADR-0003). What arrives depends on who is
+        asking, and the split is the server's: an authenticated subscriber
+        receives `item.created`, `item.updated` and `item.deleted` with their
+        payloads, while an anonymous one receives `order.item_count` instead
+        and never any item detail (F7.4).
+
+        Both receive `order.updated`, `order.deleted` and `order.expired` —
+        with `order.updated` carrying the same header shape a fetch would give
+        that caller, so a live event cannot deliver what a fetch withholds.
+
+        A comment-only `ping` every 30 seconds keeps intermediate proxies from
+        closing an idle connection. The write deadline is cleared for this
+        route, so `--http-write-timeout` does not kill a stream meant to stay
+        open for hours.
+      security: []
+      responses:
+        "200":
+          description: The stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:
@@ -153,6 +1634,94 @@ components:
       description: |
         An API token for third-party and scripted access. Not subject to the
         CSRF check, because it carries no ambient browser credentials.
+
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: The account's id.
+      schema: { type: string, format: uuid }
+    RestaurantId:
+      name: id
+      in: path
+      required: true
+      description: The restaurant's id.
+      schema: { type: string, format: uuid }
+    MenuItemId:
+      name: mid
+      in: path
+      required: true
+      description: The menu item's id.
+      schema: { type: string, format: uuid }
+    OrderId:
+      name: id
+      in: path
+      required: true
+      description: The order's id.
+      schema: { type: string, format: uuid }
+    ImageId:
+      name: id
+      in: path
+      required: true
+      description: The image's id.
+      schema: { type: string, format: uuid }
+
+  responses:
+    Session:
+      description: The session, and who it belongs to.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SessionBody"
+    RestaurantDetail:
+      description: The restaurant, with its contacts and opening hours.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RestaurantDetail"
+    Validation:
+      description: The request was refused. Errors 1000 to 1999.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication is required, or the session has ended. Errors 2000 to 2999.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: The caller is authenticated but not permitted. Errors 3000 to 3999.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No such thing. Error 4000.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: The request conflicts with the current state. Errors 4001 to 4999.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Too many login attempts. Error 5000.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    DatabaseUnavailable:
+      description: The database could not be reached. Error 9001.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
   schemas:
     Health:
@@ -245,16 +1814,633 @@ components:
           properties:
             code:
               type: integer
-              description: |
-                Ranges: 1000-1999 validation, 2000-2999 authentication,
-                3000-3999 authorization, 4000-4999 resource state,
-                5000-5999 rate limiting, 9000-9999 server.
-              examples: [4000]
+              description: The internal error number. See docs/04_api.md.
             message:
               type: string
-              examples: ["resource not found"]
             field:
-              type: string
+              type: [string, "null"]
               description: The offending request field, for validation errors.
             request_id:
               type: string
+
+    User:
+      type: object
+      required: [id, name, display_name, is_admin]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        display_name: { type: string }
+        is_admin: { type: boolean }
+        email:
+          type: string
+          description: Only present for the account itself and the administrator.
+
+    AdminUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [created_at]
+          properties:
+            created_at: { type: string, format: date-time }
+            last_login_at: { type: string, format: date-time }
+
+    SessionBody:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+        expires_at:
+          type: string
+          format: date-time
+
+    RegisterRequest:
+      type: object
+      required: [name, password]
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 64
+        display_name:
+          type: string
+          maxLength: 64
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 10
+          maxLength: 256
+
+    LoginRequest:
+      type: object
+      required: [name, password]
+      properties:
+        name: { type: string }
+        password: { type: string }
+
+    PatchUserRequest:
+      type: object
+      description: Only the fields present are changed.
+      properties:
+        name: { type: string }
+        display_name: { type: string }
+        email: { type: string }
+        password: { type: string }
+        current_password:
+          type: string
+          description: |
+            Required when changing your own password. The administrator
+            resetting somebody else's does not supply it, because they do not
+            have it.
+
+    DeletionImpact:
+      type: object
+      required: [active_orders, active_items, expired_items, created_active_orders]
+      properties:
+        active_orders:
+          type: integer
+          description: Active orders this account has items in.
+        active_items:
+          type: integer
+          description: Items that would be deleted.
+        expired_items:
+          type: integer
+          description: Items that would be reassigned to the deleted user.
+        created_active_orders:
+          type: integer
+          description: Active orders this account opened, which would be reassigned.
+
+    Token:
+      type: object
+      required: [id, name, prefix, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix:
+          type: string
+          description: The first characters of the value, for recognition.
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time }
+
+    CreatedToken:
+      allOf:
+        - $ref: "#/components/schemas/Token"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: |
+                The value, returned exactly once. What is stored is a hash, so
+                this response is the only chance to copy it.
+
+    CreateTokenRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 64 }
+        expires_at:
+          type: string
+          description: RFC 3339, in the future. Empty means the token never expires.
+
+    Currency:
+      type: object
+      required: [code, symbol, minor_unit, sort_order]
+      properties:
+        code: { type: string, examples: ["CHF"] }
+        symbol: { type: string }
+        minor_unit:
+          type: integer
+          description: Decimal places. Money is carried as integers of this unit.
+        sort_order: { type: integer }
+
+    ContactType:
+      type: object
+      required: [id, code, render_as, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, examples: ["phone"] }
+        render_as:
+          type: string
+          enum: [tel, mailto, url, address, text]
+        sort_order: { type: integer }
+
+    Tag:
+      type: object
+      required: [id, code, name, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name:
+          type: string
+          description: |
+            Only meaningful for a tag somebody invented. A seeded tag is
+            translated from its code.
+        sort_order: { type: integer }
+
+    Classification:
+      type: object
+      required: [id, code, reference, sort_order]
+      description: An allergen or an additive.
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, examples: ["gluten"] }
+        reference:
+          type: string
+          description: The regulatory or conventional number.
+        sort_order: { type: integer }
+
+    Image:
+      type: object
+      required: [id, media_type, width, height, byte_size]
+      properties:
+        id: { type: string, format: uuid }
+        media_type: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+        byte_size: { type: integer }
+        thumb_media_type: { type: string }
+        thumb_width: { type: integer }
+        thumb_height: { type: integer }
+        sha256: { type: string }
+        original_filename: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Restaurant:
+      type: object
+      required: [id, name, currency_code, notes]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        logo_image_id: { type: [string, "null"], format: uuid }
+        currency_code: { type: string }
+        min_order_value_cents: { type: [integer, "null"], format: int64 }
+        delivery_fee_cents: { type: [integer, "null"], format: int64 }
+        notes: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RestaurantDetail:
+      allOf:
+        - $ref: "#/components/schemas/Restaurant"
+        - type: object
+          required: [contacts, opening_hours]
+          properties:
+            contacts:
+              type: array
+              items:
+                $ref: "#/components/schemas/Contact"
+            opening_hours:
+              type: array
+              items:
+                $ref: "#/components/schemas/OpeningPeriod"
+
+    CreateRestaurantRequest:
+      type: object
+      required: [name, currency_code, contacts]
+      properties:
+        name: { type: string }
+        currency_code: { type: string }
+        logo_image_id: { type: [string, "null"], format: uuid }
+        min_order_value_cents: { type: [integer, "null"], format: int64 }
+        delivery_fee_cents: { type: [integer, "null"], format: int64 }
+        notes: { type: string }
+        contacts:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ContactRequest"
+
+    PatchRestaurantRequest:
+      type: object
+      description: Only the fields present are changed.
+      properties:
+        name: { type: string }
+        currency_code: { type: string }
+        logo_image_id: { type: [string, "null"], format: uuid }
+        min_order_value_cents: { type: [integer, "null"], format: int64 }
+        delivery_fee_cents: { type: [integer, "null"], format: int64 }
+        notes: { type: string }
+
+    Contact:
+      type: object
+      required: [id, contact_type_id, contact_type_code, render_as, value, label, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        contact_type_id: { type: string, format: uuid }
+        contact_type_code: { type: string }
+        render_as: { type: string }
+        value: { type: string }
+        label: { type: string }
+        sort_order: { type: integer }
+
+    ContactRequest:
+      type: object
+      required: [contact_type_id, value]
+      properties:
+        contact_type_id: { type: string, format: uuid }
+        value: { type: string }
+        label: { type: string }
+        sort_order: { type: integer }
+
+    OpeningPeriod:
+      type: object
+      required: [id, day_of_week, start, end, crosses_midnight]
+      properties:
+        id: { type: string, format: uuid }
+        day_of_week:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: ISO numbering. 1 is Monday.
+        start: { type: string, examples: ["11:00"] }
+        end: { type: string, examples: ["14:00"] }
+        crosses_midnight:
+          type: boolean
+          description: |
+            True when the end is not after the start, which is the normal case
+            for a shop that closes at two in the morning rather than a mistake.
+
+    OpeningPeriodRequest:
+      type: object
+      required: [day_of_week, start, end]
+      properties:
+        day_of_week: { type: integer, minimum: 1, maximum: 7 }
+        start: { type: string }
+        end: { type: string }
+
+    Category:
+      type: object
+      required: [id, name, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sort_order: { type: integer }
+
+    MenuItem:
+      type: object
+      required:
+        - id
+        - restaurant_id
+        - external_id
+        - name
+        - description
+        - price_cents
+        - available
+        - tags
+        - allergens
+        - additives
+      properties:
+        id: { type: string, format: uuid }
+        restaurant_id: { type: string, format: uuid }
+        category_id: { type: [string, "null"], format: uuid }
+        external_id:
+          type: string
+          description: The restaurant's own item number, if it has one.
+        name: { type: string }
+        description: { type: string }
+        image_id: { type: [string, "null"], format: uuid }
+        price_cents: { type: integer, format: int64 }
+        available: { type: boolean }
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+        allergens:
+          type: array
+          items:
+            $ref: "#/components/schemas/Classification"
+        additives:
+          type: array
+          items:
+            $ref: "#/components/schemas/Classification"
+        modifications:
+          type: array
+          description: Present when one item is fetched, absent from the list.
+          items:
+            $ref: "#/components/schemas/Modification"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    MenuItemRequest:
+      type: object
+      required: [name, price_cents]
+      properties:
+        category_id: { type: [string, "null"], format: uuid }
+        external_id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        image_id: { type: [string, "null"], format: uuid }
+        price_cents: { type: integer, format: int64 }
+        available: { type: boolean }
+        tag_ids: { type: array, items: { type: string, format: uuid } }
+        allergen_ids: { type: array, items: { type: string, format: uuid } }
+        additive_ids: { type: array, items: { type: string, format: uuid } }
+
+    PatchMenuItemRequest:
+      allOf:
+        - $ref: "#/components/schemas/MenuItemRequest"
+        - type: object
+          description: Only the fields present are changed.
+
+    Modification:
+      type: object
+      required: [id, name, price_delta_cents, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        price_delta_cents:
+          type: integer
+          format: int64
+          description: May be negative, for an option that takes something away.
+        sort_order: { type: integer }
+
+    ModificationRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        price_delta_cents: { type: integer, format: int64 }
+        sort_order: { type: integer }
+
+    OrderHeader:
+      type: object
+      description: |
+        What every caller may see. It carries no item data of any kind and
+        names no user — the creator included — which is why the authenticated
+        shape adds fields rather than this one hiding them.
+      required:
+        - id
+        - title
+        - restaurant_id
+        - restaurant_name
+        - fulfilment
+        - fulfilment_at
+        - deadline_at
+        - status
+        - currency_code
+        - item_count
+      properties:
+        id: { type: string, format: uuid }
+        title:
+          type: string
+          description: |
+            Computed, never stored: the restaurant's name, the fulfilment date
+            and the fulfilment time (F5.6).
+        restaurant_id: { type: string, format: uuid }
+        restaurant_name: { type: string }
+        restaurant_logo_image_id: { type: [string, "null"], format: uuid }
+        fulfilment:
+          type: string
+          enum: [pickup, delivery]
+        fulfilment_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [active, expired]
+          description: Derived from the deadline. There is no manual transition.
+        money_collector: { type: string }
+        pickup_person: { type: string }
+        currency_code: { type: string }
+        min_order_value_cents: { type: [integer, "null"], format: int64 }
+        delivery_fee_cents: { type: [integer, "null"], format: int64 }
+        item_count:
+          type: integer
+          description: In both shapes, so a client never branches on its absence.
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    OrderListEntry:
+      allOf:
+        - $ref: "#/components/schemas/OrderHeader"
+        - type: object
+          required: [creator_id, creator_name]
+          description: >-
+            What a logged-in caller gets in the list: the header plus who
+            opened it.
+          properties:
+            creator_id: { type: string, format: uuid }
+            creator_name: { type: string }
+
+    OrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/OrderListEntry"
+        - type: object
+          required: [items, item_total_cents, grand_total_cents, below_minimum]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderItem"
+            item_total_cents: { type: integer, format: int64 }
+            grand_total_cents:
+              type: integer
+              format: int64
+              description: The item total plus the delivery fee.
+            below_minimum: { type: boolean }
+
+    OrderItem:
+      type: object
+      required:
+        - id
+        - user_id
+        - user_name
+        - menu_item_id
+        - quantity
+        - item_name
+        - unit_price_cents
+        - note
+        - modifications
+        - line_total_cents
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        user_name: { type: string }
+        menu_item_id: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+        item_name:
+          type: string
+          description: Snapshotted when the item was added, not read from the menu now.
+        unit_price_cents: { type: integer, format: int64 }
+        note: { type: string }
+        modifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemModification"
+        line_total_cents:
+          type: integer
+          format: int64
+          description: quantity × (unit price + the sum of the price deltas).
+        created_at: { type: string, format: date-time }
+
+    OrderItemModification:
+      type: object
+      required: [id, name, price_delta_cents]
+      properties:
+        id: { type: string, format: uuid }
+        modification_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            The menu option this came from, or null once that option has been
+            deleted. The name and the delta are snapshots and remain.
+        name: { type: string }
+        price_delta_cents: { type: integer, format: int64 }
+
+    CreateOrderRequest:
+      type: object
+      required: [restaurant_id, fulfilment, fulfilment_at, deadline_at]
+      properties:
+        restaurant_id: { type: string, format: uuid }
+        fulfilment: { type: string, enum: [pickup, delivery] }
+        fulfilment_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        money_collector: { type: string }
+        pickup_person: { type: string }
+
+    PatchOrderRequest:
+      type: object
+      description: Only the fields present are changed.
+      properties:
+        restaurant_id: { type: string, format: uuid }
+        fulfilment: { type: string, enum: [pickup, delivery] }
+        fulfilment_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        money_collector: { type: string }
+        pickup_person: { type: string }
+
+    CreateOrderItemRequest:
+      type: object
+      required: [menu_item_id, quantity]
+      properties:
+        menu_item_id: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+        note: { type: string }
+        modification_ids:
+          type: array
+          items: { type: string, format: uuid }
+
+    PatchOrderItemRequest:
+      type: object
+      description: |
+        Only the fields present are changed. The menu item is not among them: a
+        different dish is a different item.
+      properties:
+        quantity: { type: integer, minimum: 1 }
+        note: { type: string }
+        modification_ids:
+          type: array
+          items: { type: string, format: uuid }
+
+    Summary:
+      type: object
+      required:
+        - order_id
+        - title
+        - currency_code
+        - aggregated
+        - per_person
+        - item_total_cents
+        - grand_total_cents
+        - below_minimum
+        - plain_text
+      properties:
+        order_id: { type: string, format: uuid }
+        title: { type: string }
+        currency_code: { type: string }
+        aggregated:
+          type: array
+          items:
+            $ref: "#/components/schemas/SummaryLine"
+        per_person:
+          type: array
+          items:
+            $ref: "#/components/schemas/SummaryPerson"
+        item_total_cents: { type: integer, format: int64 }
+        delivery_fee_cents: { type: [integer, "null"], format: int64 }
+        grand_total_cents: { type: integer, format: int64 }
+        min_order_value_cents: { type: [integer, "null"], format: int64 }
+        below_minimum: { type: boolean }
+        plain_text:
+          type: string
+          description: The summary as text, for reading out or for the clipboard.
+
+    SummaryLine:
+      type: object
+      required: [item_name, external_id, modifications, count, unit_price_cents, total_cents]
+      description: |
+        One line of the order as it would be dictated: the same dish with the
+        same options and the same note, counted together.
+      properties:
+        item_name: { type: string }
+        external_id:
+          type: string
+          description: |
+            Read from the menu as it is now rather than snapshotted: it is a
+            dialling aid, "number 12, three times", not part of what was
+            agreed. Empty when the item has since left the menu.
+        modifications:
+          type: array
+          items: { type: string }
+        note: { type: [string, "null"] }
+        count: { type: integer }
+        unit_price_cents: { type: integer, format: int64 }
+        total_cents: { type: integer, format: int64 }
+
+    SummaryPerson:
+      type: object
+      required: [user_id, display_name, items, total_cents]
+      properties:
+        user_id: { type: string, format: uuid }
+        display_name:
+          type: string
+          description: The deleted-user placeholder's name for a deleted account.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        total_cents: { type: integer, format: int64 }

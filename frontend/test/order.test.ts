@@ -132,20 +132,28 @@ afterEach(() => {
 });
 
 describe("the order overview", () => {
-  it("shows the item count to everyone and nothing else about the items", async () => {
+  it("shows the restaurant and the times, and nothing about the items", async () => {
     stubServer({ ...referenceStubs, "GET /orders": { orders: [header()] } });
 
     const app = mountApp(() => []);
     const rendered = await ordersPage(app);
 
-    expect(rendered.textContent).toContain(app.t.t("order.items", { count: 1 }));
-    // No creator, no total: an anonymous list names no user and carries no
-    // item data (ADR-0011).
+    // The title is the tile's link, which is what makes the whole card
+    // clickable without nesting one link inside another.
+    const link = rendered.querySelector<HTMLAnchorElement>(".tile-link[href='/orders/o1']");
+    expect(link?.textContent).toContain("Pinar");
+
+    // The item count, the participant count, the total and the creator all used
+    // to be here. A grid of tiles is for choosing between orders, not for
+    // reading them, and every one of those is on the order itself.
+    expect(rendered.textContent).not.toContain(app.t.t("order.items", { count: 1 }));
+    // And an anonymous list names no user and carries no item data anyway
+    // (ADR-0011).
     expect(rendered.textContent).not.toContain("Jo");
     expect(rendered.textContent).not.toContain("CHF");
   });
 
-  it("adds the creator, the participants and the total once logged in", async () => {
+  it("still says nothing about items or people once logged in", async () => {
     stubServer({
       ...referenceStubs,
       "GET /orders": { orders: [{ ...header(), creator_id: "u1", creator_name: "Jo" }] },
@@ -156,9 +164,83 @@ describe("the order overview", () => {
     loggedIn(app);
     const rendered = await ordersPage(app);
 
-    expect(rendered.textContent).toContain("Jo");
-    expect(rendered.textContent).toContain(app.t.t("order.participants", { count: 1 }));
-    expect(rendered.textContent).toContain("24.50");
+    expect(rendered.textContent).not.toContain("Jo");
+    expect(rendered.textContent).not.toContain(app.t.t("order.participants", { count: 1 }));
+    expect(rendered.textContent).not.toContain("24.50");
+  });
+
+  it("offers the summary to a participant, inside the tile", async () => {
+    stubServer({
+      ...referenceStubs,
+      "GET /orders": { orders: [{ ...header(), creator_id: "u1", creator_name: "Jo" }] },
+      "GET /orders/o1": detail(),
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await ordersPage(app);
+
+    const summary = rendered.querySelector(".tile-actions a[href='/orders/o1/summary']");
+    expect(summary).not.toBeNull();
+  });
+
+  it("keeps the summary from somebody who is not taking part", async () => {
+    stubServer({
+      ...referenceStubs,
+      "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
+      "GET /orders/o1": detail({ creator_id: "u9", items: [] }),
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await ordersPage(app);
+
+    expect(rendered.querySelector("a[href='/orders/o1/summary']")).toBeNull();
+  });
+
+  it("gives the creator a pencil and a bin, and nobody else", async () => {
+    const stubs = {
+      ...referenceStubs,
+      "GET /orders": { orders: [{ ...header(), creator_id: "u1", creator_name: "Jo" }] },
+      "GET /orders/o1": detail(),
+    };
+
+    stubServer(stubs);
+    const mine = mountApp(() => []);
+    loggedIn(mine);
+    const asCreator = await ordersPage(mine);
+    expect(asCreator.querySelector(".tile-actions [aria-label]")).not.toBeNull();
+    expect(asCreator.querySelectorAll(".tile-actions .button-icon").length).toBe(2);
+
+    stubServer({
+      ...stubs,
+      "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
+      "GET /orders/o1": detail({ creator_id: "u9" }),
+    });
+    const theirs = mountApp(() => []);
+    loggedIn(theirs);
+    const asStranger = await ordersPage(theirs);
+    expect(asStranger.querySelectorAll(".tile-actions .button-icon").length).toBe(0);
+  });
+
+  it("offers the creator no pencil once the deadline has passed", async () => {
+    stubServer({
+      ...referenceStubs,
+      "GET /orders": {
+        orders: [{ ...header({ deadline_at: soon(-2) }), creator_id: "u1", creator_name: "Jo" }],
+      },
+      "GET /orders/o1": detail({ deadline_at: soon(-2) }),
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await ordersPage(app);
+
+    // F6.6 makes an expired order read-only for its creator too, so the
+    // controls that would change it are not offered at all.
+    expect(rendered.querySelectorAll(".tile-actions .button-icon").length).toBe(0);
+    // The summary stays: it is what somebody settling up afterwards wants.
+    expect(rendered.querySelector("a[href='/orders/o1/summary']")).not.toBeNull();
   });
 
   it("fades an expired order and says so in words", async () => {
@@ -200,6 +282,48 @@ describe("creating an order", () => {
     deadline.dispatchEvent(new Event("input"));
 
     expect(rendered.textContent).toContain(app.t.t("order.deadline_before_fulfilment"));
+
+    rendered.querySelector("form")?.dispatchEvent(new Event("submit"));
+    await settle();
+    expect(calls.some((call) => call.method === "POST")).toBe(false);
+  });
+
+  it("opens on an hour and two hours from now, and refuses a deadline already past", async () => {
+    const { calls } = stubServer({
+      ...referenceStubs,
+      "GET /restaurants": { restaurants: [restaurant] },
+      "GET /restaurants/r1": restaurant,
+      "POST /orders": { id: "o9" },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await createOrderPage(app);
+    await settle();
+
+    const fulfilment = rendered.querySelector<HTMLInputElement>("input[name='fulfilment_at']");
+    const deadline = rendered.querySelector<HTMLInputElement>("input[name='deadline_at']");
+    if (!fulfilment || !deadline) {
+      throw new Error("the form is missing its times");
+    }
+
+    // Within a minute of an hour and two hours out. The form used to open on
+    // today at 11:00 and 12:00, which after lunch is a deadline in the past --
+    // and an order created with one is closed before it exists.
+    const hour = 60 * 60 * 1000;
+    const minute = 60 * 1000;
+    expect(new Date(deadline.value).getTime() - Date.now()).toBeGreaterThan(hour - minute);
+    expect(new Date(deadline.value).getTime() - Date.now()).toBeLessThan(hour + minute);
+    expect(new Date(fulfilment.value).getTime() - Date.now()).toBeGreaterThan(2 * hour - minute);
+    expect(new Date(fulfilment.value).getTime() - Date.now()).toBeLessThan(2 * hour + minute);
+
+    // And the form says so before the request when the deadline has passed,
+    // rather than letting the server answer 1014.
+    fulfilment.value = "2020-01-01T12:00";
+    deadline.value = "2020-01-01T11:00";
+    deadline.dispatchEvent(new Event("input"));
+
+    expect(rendered.textContent).toContain(app.t.t("error.1014"));
 
     rendered.querySelector("form")?.dispatchEvent(new Event("submit"));
     await settle();

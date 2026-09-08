@@ -108,12 +108,14 @@ falls back to `message` when no translation exists.
 | 1011 | 413  | Uploaded image exceeds the configured maximum size.             |
 | 1012 | 415  | Unsupported image media type.                                   |
 | 1013 | 400  | Unknown currency code.                                          |
+| 1014 | 400  | The deadline is already in the past.                            |
 | 2000 | 401  | Not authenticated.                                              |
 | 2001 | 401  | Invalid user name or password.                                  |
 | 2002 | 401  | Session expired (idle or absolute timeout).                     |
 | 2003 | 401  | Session superseded by a newer login.                            |
 | 2004 | 401  | Invalid or revoked API token.                                   |
 | 2005 | 403  | Missing or invalid CSRF token.                                  |
+| 2006 | 403  | Already logged in; log out before registering another account.  |
 | 3000 | 403  | Administrator privileges required.                              |
 | 3001 | 403  | Only the order creator may change this order.                   |
 | 3002 | 403  | Only the owner may change this order item.                      |

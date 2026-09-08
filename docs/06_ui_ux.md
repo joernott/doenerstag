@@ -28,7 +28,7 @@ Fixed to the top of the viewport on every page. Left to right:
 
 | Element                 | Behaviour                                                                   |
 | ----------------------- | --------------------------------------------------------------------------- |
-| Application logo        | Always links back to the order overview.                                     |
+| Application logo        | Always links back to the order overview. One SVG for both themes: the frame and the calendar text are `currentColor`, so the mark takes the text colour of whatever renders it — white-on-dark and near-black-on-light fall out of the palette rather than out of two asset files. It is inlined into the page rather than referenced with `<img>`, because an image is a separate document and inherits no colour from the page. The same asset serves the tile placeholders and the overview watermark. |
 | Application name        | "doenerstag". Hidden below the small breakpoint.                             |
 | *(spacer)*              |                                                                              |
 | Language selector       | Dropdown listing every translation shipped with the application, each in its own language ("English", "Deutsch"). Not a hardcoded pair — the list is derived from the catalogs present in the build, so adding a translation adds an entry with no change to this component. Hidden entirely when only one translation exists. Writes the `doener_lang` cookie. |
@@ -47,7 +47,7 @@ Fixed to the top of the viewport on every page. Left to right:
 | Version          | everyone        | Version page.                              |
 | Imprint          | everyone        | Imprint page.                              |
 | Legal notes      | everyone        | Legal notes page.                          |
-| API documentation| everyone        | `/tools/swagger`. Hidden when `--no-swagger`. |
+| API documentation| everyone        | `/tools/swagger`, in a new tab: it is Swagger UI rather than a page of this application, and following it in place loses whatever the reader was doing. Hidden when `--no-swagger`. |
 
 ### Breakpoints
 
@@ -72,18 +72,28 @@ The default page. A grid of tiles.
 - **Expired orders** follow, sorted by fulfilment time descending, rendered
   faded (reduced opacity plus a muted border) but fully clickable.
 
-Each tile shows:
+A tile is for choosing between orders, not for reading them. It carries what
+somebody needs in order to decide which one to open, and nothing else; the item
+count, the participant count, the running total and the creator are all on the
+order itself, one click away.
 
 | Element                | Notes                                                                 |
 | ---------------------- | --------------------------------------------------------------------- |
-| Restaurant logo        | Thumbnail. A neutral placeholder when the restaurant has no logo.      |
-| Computed title         | `<restaurant name> — <fulfilment date> <fulfilment time>`, local time. |
+| Restaurant logo        | Thumbnail. The doenerstag mark stands in when the restaurant has no logo of its own — a restaurant without a picture is still a restaurant, not an empty slot. |
+| Computed title         | `<restaurant name> — <fulfilment date> <fulfilment time>`, local time. It is also the tile's link, stretched over the whole card so the card is clickable and can still hold buttons. |
 | Fulfilment type        | Icon plus label: pickup or delivery.                                   |
 | Deadline               | Local date and time, with a relative hint ("in 2 h") for active orders.|
-| Item count             | "9 items". Shown to everyone. The participant count and the order total are shown only to logged-in visitors, since both are item data. |
-| Order total            | Formatted with the order's currency. Logged-in visitors only.          |
-| Creator                | Who opened the order. Logged-in visitors only: an anonymous response names no user at all (F1.2). |
-| Summary button         | Opens the summary page directly, skipping the order page. Shown only to participants of that order (F1.3). |
+| Expired badge          | The word, on an expired order, beside the fading. Opacity is not information. |
+| Summary button         | Opens the summary page directly, skipping the order page. Always present, and disabled with error 3004's own text when the viewer is not one of the people the summary is for (F1.3) -- a control that vanishes leaves somebody wondering whether the feature exists. Expired orders keep it: the summary is what somebody settling up afterwards wants. |
+| Edit and delete        | A pencil and a bin, for the creator of that order and only while it is still open — F6.6 makes an expired order read-only for its creator too. Icons rather than words because a grid has no room for three labels per tile; each carries its name for a screen reader and a tooltip for a pointer. |
+
+The plus tile's sign is sized as a share of the card rather than in fixed units,
+so it stays about three quarters of the tile at every breakpoint.
+
+Both overview pages carry the mark centred behind them, at a few percent
+opacity and scaled to most of the viewport's height. It is `aria-hidden` and
+cannot be clicked, and it disappears entirely under
+`prefers-reduced-transparency`.
 
 ## Order page
 
@@ -101,7 +111,7 @@ administrator.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
-- A **Summary** button, shown only to participants (F1.3).
+
 - A **Delete order** button for the creator and the administrator.
 - The list of order items, grouped by person, each showing quantity, item name,
   the selected modifications, the free-text note and the line total. A visitor's
@@ -110,6 +120,12 @@ administrator.
   the minimum order value.
 - When the deadline has passed, a prominent banner states the order is closed
   and all editing controls disappear.
+
+The **Summary** button is not in this column. It sits on the page title's line,
+right-aligned and primary: it opens a different page rather than doing something
+to this one, and it is the control somebody arrives wanting. It is always there,
+and disabled with the reason when this visitor is not one of the people the
+summary is for (F1.3).
 
 #### The anonymous view of an order
 
@@ -210,31 +226,77 @@ sign and creates a restaurant. When no restaurants exist, the plus tile is the
 only thing on the page.
 
 Each tile shows the logo, name, the first contact entry, opening-hours status
-("open now" / "closed") and the count of menu items.
+("open now" / "closed") and the count of menu items. As on the order overview,
+a restaurant with no logo of its own gets the doenerstag mark rather than an
+empty box.
 
 There is no search and no sorting beyond alphabetical by name. With 3–10
 restaurants expected, neither earns its place.
 
 ## Restaurant page
 
-One page holding three stacked sections. Everything is editable by any
-logged-in user; deletion is administrator-only.
+Four tabbed sections. Everything is editable by any logged-in user; deletion is
+administrator-only.
+
+**Menu is the first tab**, because it is what somebody opening a restaurant
+almost always came for. The sections were stacked in one scrolling column until
+that meant scrolling past three of them to reach it.
+
+**Save and Delete sit on the title's line**, aligned with the right edge of the
+card below. They act on the whole restaurant rather than on whichever tab is
+open, so they belong with its name and stay reachable from every tab. Save is
+disabled until something actually differs from what was loaded — typing a
+character and deleting it again leaves it disabled. Delete is disabled with an
+explanation in its tooltip when it cannot be used, naming which of the two
+reasons applies: the caller is not the administrator, or an order still
+references the restaurant.
 
 1. **Restaurant data** — name, logo upload, currency selector, optional minimum
-   order value and delivery fee, free-text notes. A "Delete restaurant" button
-   for the administrator, disabled with an explanation when orders still
-   reference it.
+   order value and delivery fee, free-text notes.
 2. **Contacts** — a repeatable row of *type / value / label*, with the type
    coming from the seeded contact-type list. At least one row is required; the
    delete button on the last remaining row is disabled.
+
+   Every row is the same grid, the row that adds a new contact included, so the
+   fields line up down the tab. A button behind the value opens what the contact
+   is, with an icon saying which kind before it is pressed: `tel:` for a
+   telephone, a mobile or a fax, `mailto:` for an e-mail address, the site
+   itself for a website, and a Google Maps query for an address. The two that
+   leave the application open in a new tab with `rel="noreferrer"`. "Other" is a
+   free string with nothing sensible to open, so it has no button — but it keeps
+   the column, because a missing button should not shift the row.
 3. **Opening hours** — a row per entry: weekday, start time, end time. Multiple
    entries per weekday are allowed and rendered grouped by day. An entry whose
    end time precedes its start time is shown with a "crosses midnight" hint
    rather than an error.
+
+   Each control is sized to its own content rather than sharing the width of the
+   row, and the "crosses midnight" hint keeps its column whether or not it has
+   anything to say — otherwise the hint appearing as somebody types the times
+   shifts the remove button sideways, and a week of opening hours never settles
+   into a shape. The remove button sits directly after that column, not at the
+   far end of the row, and it is red like every other remove.
 4. **Menu** — categories with their items. Categories can be added, renamed and
    reordered with move-up and move-down controls. Items are added and edited in
    a dialog, including their tags, allergens, additives and predefined
    modifications.
+
+   **"Add an item" and "Add a category" are at the top of the tab**, both
+   primary. They are what somebody comes to this tab meaning to do, and a
+   control below two hundred menu items is a control nobody finds. Adding a
+   category is a dialog rather than a permanent row: one field and a button is a
+   dialog's worth of interface.
+
+   **A category is a heading, not a text box.** A page of input fields reads as
+   a form waiting to be filled in; a menu is a menu. A disclosure in front of
+   the name folds the category's items away, and which categories are folded
+   survives the reloads that a rename or a reorder triggers. The name is changed
+   through an Edit button that opens the same dialog adding one uses.
+
+   That leaves an "Edit" on every category and on every item, so the visible
+   word is no longer an accessible name on its own: the category's button names
+   the category in its `aria-label`. A dozen controls all called "Edit" is
+   ambiguous under a screen reader and unusable by voice.
 
    Reordering is by button rather than by dragging. The accessibility rule below
    requires a keyboard equivalent for any drag, and once the buttons exist for a
@@ -244,10 +306,24 @@ logged-in user; deletion is administrator-only.
 
 ## User page
 
+The same shape as the restaurant page: tabs, with the controls that act on the
+whole account on the title's line.
+
 - **Anonymous visitor**: a combined login / register panel, two tabs.
-- **Logged-in user**: forms for display name, user name, e-mail and password
-  change; a list of API tokens with create and revoke controls; a
-  "Delete my account" button.
+- **Logged-in user**: three tabs — profile, password, API tokens.
+- **Save and Delete my account sit on the title's line**, Save to the left.
+  Save covers the whole account rather than one tab of it, writing whichever of
+  the profile and the password has changed, and it is disabled until one of them
+  has. The forms carry no Save of their own: two buttons with the same name on
+  one page, each covering a different part of it, is a question nobody should
+  have to answer.
+- The administrator sees no delete button at all. Unlike the restaurant's, there
+  is no state in which it becomes available, so there is nothing a disabled one
+  could usefully explain.
+- There is no card warning that deletion cannot be undone. The modal says so at
+  the moment it matters — after the button is pressed and before anything
+  happens — and a permanent warning about something nobody has asked to do is
+  furniture.
 - Deleting the account first calls `GET /users/{id}/deletion-impact` and shows a
   confirmation modal stating exactly what will happen: how many items in active
   orders will be deleted, how many items in expired orders will be reassigned to

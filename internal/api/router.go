@@ -37,6 +37,15 @@ type Options struct {
 	// sends no CORS headers at all, which is the default and the right answer
 	// for a same-origin frontend.
 	CORSOrigins []string
+
+	// RouteServed, if set, is called with a route each time a request matches
+	// it. Production leaves it nil.
+	//
+	// It exists for one assertion: docs/12_testing.md expects every API
+	// operation to have at least one test, and the only way to know that is to
+	// watch which routes the suite actually reaches. Counting operations in the
+	// OpenAPI document proves the opposite thing -- that they are described.
+	RouteServed func(RouteInfo)
 }
 
 // Router builds the application's single router.
@@ -46,6 +55,19 @@ type Options struct {
 type Router struct {
 	mux  *httprouter.Router
 	opts Options
+
+	// routes records every API route registered, so that the OpenAPI document
+	// can be checked against what the server actually serves rather than
+	// against a list somebody maintains by hand.
+	routes []RouteInfo
+}
+
+// RouteInfo is one registered API route, as the router sees it.
+type RouteInfo struct {
+	// Method is the HTTP method.
+	Method string
+	// Path is the path below /api/v1, in httprouter form: /orders/:id.
+	Path string
 }
 
 // NewRouter creates the router and registers everything that does not depend on
@@ -92,7 +114,30 @@ func NewRouter(opts Options) *Router {
 // The path uses httprouter's :name syntax. docs/04_api.md writes {id} for
 // readability; the registered path is :id.
 func (r *Router) Handle(method, path string, handler http.Handler) {
-	r.mux.Handler(method, APIPrefix+path, handler)
+	info := RouteInfo{Method: method, Path: path}
+	r.mux.Handler(method, APIPrefix+path, r.observe(info, handler))
+	r.routes = append(r.routes, info)
+}
+
+// observe wraps a handler so that reaching it is reported, when anything is
+// listening. With no observer the handler is returned unchanged, so the
+// shipped router carries no extra frame per request.
+func (r *Router) observe(info RouteInfo, next http.Handler) http.Handler {
+	if r.opts.RouteServed == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.opts.RouteServed(info)
+		next.ServeHTTP(w, req)
+	})
+}
+
+// Routes lists the API routes registered on this router, in registration
+// order.
+func (r *Router) Routes() []RouteInfo {
+	out := make([]RouteInfo, len(r.routes))
+	copy(out, r.routes)
+	return out
 }
 
 // HandleFunc is Handle for a plain function.
@@ -114,11 +159,29 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // This is the router's NotFound handler rather than a catch-all route because
 // httprouter panics on a catch-all that shares a prefix with anything else.
 func (r *Router) handleNotFound(w http.ResponseWriter, req *http.Request) {
-	if isAPIPath(req.URL.Path) || r.opts.Index == nil {
+	if isAPIPath(req.URL.Path) || looksLikeAFile(req.URL.Path) || r.opts.Index == nil {
 		WriteError(w, req, &Error{Code: CodeNotFound})
 		return
 	}
 	r.opts.Index.ServeHTTP(w, req)
+}
+
+// looksLikeAFile reports whether a path is asking for a file rather than for a
+// page of the application.
+//
+// The fallback exists so that reloading a deep link works: /orders/{id} has to
+// answer with the shell rather than a 404. Nothing the router serves as a page
+// has a file extension, and nothing that asks for one wants HTML.
+//
+// This is not tidiness. Firefox asks every page for /favicon.ico, the fallback
+// answered with the application shell -- a 200 with text/html where an icon was
+// expected -- and Firefox then held the document's load event open until it
+// timed out. Roughly half of all navigations in the browser tests, and a
+// spinner that never stops for a real visitor. A 404 is both the correct answer
+// and the one that does not hang.
+func looksLikeAFile(path string) bool {
+	slash := strings.LastIndexByte(path, '/')
+	return strings.Contains(path[slash+1:], ".")
 }
 
 func (r *Router) handleMethodNotAllowed(w http.ResponseWriter, req *http.Request) {

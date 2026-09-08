@@ -128,20 +128,31 @@ describe("the overview", () => {
 });
 
 describe("the restaurant page", () => {
-  it("stacks the four sections", async () => {
+  it("presents the four sections as tabs, with the menu first", async () => {
     stubServer(restaurantStubs());
 
     const app = mountApp(() => []);
     const rendered = await restaurantPage(app, "r1");
     await settle();
 
-    const titles = [...rendered.querySelectorAll(".card-title")].map((entry) => entry.textContent);
-    expect(titles).toEqual([
+    const tabs = [...rendered.querySelectorAll("[role='tab']")].map((entry) => entry.textContent);
+    expect(tabs).toEqual([
+      app.t.t("restaurant.menu"),
       app.t.t("restaurant.data"),
       app.t.t("restaurant.contacts"),
       app.t.t("restaurant.opening_hours"),
-      app.t.t("menu.items"),
     ]);
+
+    // The menu is the one somebody almost always came for, so it is the one
+    // that is open; the other three are in the document and hidden, which is
+    // what makes them a click away rather than a fetch away.
+    const panels = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")];
+    expect(panels.length).toBe(4);
+    expect(panels.map((panel) => panel.hidden)).toEqual([false, true, true, true]);
+    // The panel is named by its tab, so it carries no heading repeating that
+    // name. What identifies it is what it holds.
+    expect(panels[0]?.textContent).toContain(app.t.t("item.add"));
+    expect(panels[0]?.textContent).toContain(app.t.t("menu.category.add"));
   });
 
   it("shows the money in the restaurant's own currency", async () => {
@@ -224,9 +235,10 @@ describe("the restaurant page", () => {
     const rendered = await restaurantPage(app, "r1");
     await settle();
 
-    const edit = [...rendered.querySelectorAll("button")].find(
-      (control) => control.textContent === app.t.t("action.edit"),
-    );
+    // Scoped to the item row: every category has an Edit button of its own
+    // now, and an unscoped search for the word finds the first category.
+    const edit = rendered.querySelector<HTMLButtonElement>(".menu-item button");
+    expect(edit?.textContent).toBe(app.t.t("action.edit"));
     edit?.click();
     await settle();
 
@@ -249,13 +261,51 @@ describe("the restaurant page", () => {
     const rendered = await restaurantPage(app, "r1");
     await settle();
 
+    // Deleting the restaurant is offered but not available, and says which of
+    // the two reasons it is unavailable for. Showing it disabled rather than
+    // hiding it is deliberate: "you cannot do this, and here is why" is more
+    // use than a button that is silently absent.
+    const remove = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent === app.t.t("restaurant.delete"),
+    );
+    expect(remove?.disabled).toBe(true);
+    expect(remove?.title).toBe(app.t.t("restaurant.delete.admin_only"));
+
     const labels = [...rendered.querySelectorAll("button")].map((control) => control.textContent);
-    expect(labels).not.toContain(app.t.t("restaurant.delete"));
     expect(labels).not.toContain(app.t.t("menu.category.delete"));
     // But the menu is still editable: everything except deletion is any
     // logged-in user's to do.
     expect(labels).toContain(app.t.t("item.add"));
     expect(labels).toContain(app.t.t("menu.category.add"));
+  });
+
+  it("keeps Save quiet until something has changed", async () => {
+    stubServer(restaurantStubs());
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await restaurantPage(app, "r1");
+    await settle();
+
+    const save = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent === app.t.t("action.save"),
+    );
+    expect(save?.disabled).toBe(true);
+
+    const name = rendered.querySelector<HTMLInputElement>("input[name='name']");
+    if (!name || !save) {
+      throw new Error("the restaurant form is missing its name field or its save button");
+    }
+
+    name.value = `${name.value} am Markt`;
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(save.disabled).toBe(false);
+
+    // And back again: dirty means "differs from what was loaded", not
+    // "somebody pressed a key".
+    name.value = restaurant.name;
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(save.disabled).toBe(true);
   });
 
   it("offers the administrator the deletions as well", async () => {

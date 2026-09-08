@@ -5,16 +5,18 @@
 // administrator's, and only the administrator is offered it.
 
 import type { App } from "../app";
-import { api, errorMessage } from "../api";
-import { el, type Child } from "../dom";
+import { api, errorMessage, getList } from "../api";
+import { el, icon } from "../dom";
 import { formatWeekday, moneyInputValue, parseMoney } from "../format";
 import { button, field, form, input, select, textarea } from "../components/forms";
 import { confirmDialog } from "../components/modal";
 import { imageField } from "../components/images";
+import { contactIcon, contactTarget, type Linkable } from "../contacts";
 import { referenceName } from "../i18n";
 import { minorUnitOf, referenceData, type ReferenceData } from "../reference";
+import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, page, section, statusLine } from "./page";
+import { actions, card, page, pageWithActions, section, setPageTitle, statusLine } from "./page";
 
 /** A restaurant as the API sends it. */
 export interface Restaurant {
@@ -72,13 +74,126 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
     return page(t.t("nav.restaurants"), el("p", { class: "field-error", text: errorMessage(t, error) }));
   }
 
-  return page(
+  // Whether anything still points at this restaurant. Deleting one that an
+  // order references is refused with 4003, and finding that out by pressing the
+  // button and reading an error is a worse answer than a button that says so
+  // before it is pressed. The list is small (ADR-0006) and this is one request.
+  const blocking = await getList<{ restaurant_id: string }>("/orders", "orders")
+    .then((orders) => orders.some((order) => order.restaurant_id === restaurant.id))
+    .catch(() => false);
+
+  const data = dataSection(app, reference, restaurant);
+  const hours = hoursSection(app, restaurant);
+  const header = restaurantControls(app, data, hours, blocking);
+
+  const article = pageWithActions(
     restaurant.name,
-    dataSection(app, reference, restaurant),
-    contactsSection(app, reference, restaurant),
-    hoursSection(app, restaurant),
-    menuSection(app, reference, restaurant),
+    header,
+    // The menu first: it is what somebody opening a restaurant almost always
+    // came for, and it used to be the section they had to scroll past three
+    // others to reach.
+    tabs(
+      [
+        { id: "menu", label: t.t("restaurant.menu"), panel: menuSection(app, reference, restaurant) },
+        { id: "data", label: t.t("restaurant.data"), panel: data.element },
+        {
+          id: "contacts",
+          label: t.t("restaurant.contacts"),
+          panel: contactsSection(app, reference, restaurant),
+        },
+        { id: "hours", label: t.t("restaurant.opening_hours"), panel: hours.element },
+      ],
+      { label: t.t("restaurant.sections"), initial: 0 },
+    ),
   );
+
+  data.onRename((next) => setPageTitle(article, next));
+  return article;
+}
+
+/**
+ * Save and Delete, on the title's line.
+ *
+ * Save belongs to the restaurant, not to the tab that happens to hold its
+ * fields, so it sits with the name and stays reachable from any tab. It is
+ * faded until something has actually changed: a Save that is always available
+ * says nothing about whether there is anything to save.
+ *
+ * Delete is faded rather than hidden when it cannot be used, which is a
+ * departure from the rule in docs/06_ui_ux.md about not showing controls that
+ * would be refused. The difference is that this one explains itself: its title
+ * says whether the obstacle is the permission or an order still pointing at the
+ * restaurant, and that is more useful than the button silently not being there.
+ */
+function restaurantControls(
+  app: App,
+  data: DataSection,
+  hours: HoursSection,
+  blocking: boolean,
+): HTMLElement {
+  const { t } = app;
+
+  // One Save for the restaurant, covering its own fields and its opening hours.
+  //
+  // The hours had a Save of their own inside the tab. Two buttons called Save on
+  // one page, each covering a different part of it, is a question nobody should
+  // have to answer -- and the one in the heading was already the one that looks
+  // like it means "save this restaurant". It writes whichever of the two has
+  // actually changed, so pressing it never sends a request that changes
+  // nothing.
+  let dataDirty = false;
+  let hoursDirty = false;
+
+  const save = button({ label: t.t("action.save"), variant: "primary" });
+  save.disabled = true;
+  save.addEventListener("click", () => {
+    void (async (): Promise<void> => {
+      save.disabled = true;
+      try {
+        if (dataDirty) {
+          await data.save();
+        }
+        if (hoursDirty) {
+          await hours.save();
+        }
+      } catch {
+        // Each section reports its own failure in its own status line, which is
+        // in the tab the failure belongs to. Re-enabling the button is all that
+        // is left to do here.
+        save.disabled = false;
+      }
+    })();
+  });
+
+  const update = (): void => {
+    save.disabled = !dataDirty && !hoursDirty;
+  };
+  data.onDirtyChange((dirty) => {
+    dataDirty = dirty;
+    update();
+  });
+  hours.onDirtyChange((dirty) => {
+    hoursDirty = dirty;
+    update();
+  });
+
+  const why = !app.session.isAdmin
+    ? t.t("restaurant.delete.admin_only")
+    : blocking
+      ? t.t("restaurant.delete.in_use")
+      : "";
+
+  const remove = button({
+    label: t.t("restaurant.delete"),
+    variant: "danger",
+    ...(why ? { title: why } : {}),
+    onclick: () => {
+      void data.remove();
+    },
+  });
+  remove.disabled = why !== "";
+
+  return el("div", { class: "page-heading-actions" }, save, remove);
 }
 
 // --- creating ----------------------------------------------------------------
@@ -150,11 +265,29 @@ function createPage(app: App, reference: ReferenceData): HTMLElement {
 
 // --- the restaurant itself ---------------------------------------------------
 
+/**
+ * The restaurant's own fields, and the two operations that act on the whole of
+ * it.
+ *
+ * Save and Delete are handed back rather than rendered here: they live on the
+ * page heading now, so that they are reachable whichever tab is open. What the
+ * section keeps is the knowledge of *when* saving is worth offering, which is
+ * why it reports its dirty state rather than exposing its inputs.
+ */
+interface DataSection {
+  element: HTMLElement;
+  save(): Promise<void>;
+  remove(): Promise<void>;
+  onDirtyChange(listen: (dirty: boolean) => void): void;
+  /** Called with the new name after a save that changed it. */
+  onRename(listen: (name: string) => void): void;
+}
+
 function dataSection(
   app: App,
   reference: ReferenceData,
   restaurant: RestaurantDetail,
-): HTMLElement {
+): DataSection {
   const { t } = app;
   const status = statusLine();
   let minorUnit = minorUnitOf(reference.currencies, restaurant.currency_code);
@@ -188,8 +321,44 @@ function dataSection(
     limits: app.version,
     onChange: (id) => {
       logoImageId = id;
+      touched();
     },
   });
+
+  // --- has anything changed? ---------------------------------------------
+  //
+  // Compared against a snapshot rather than tracked with a flag, so typing a
+  // character and deleting it again leaves Save disabled: "dirty" should mean
+  // the form differs from what was loaded, not that somebody touched a key.
+  const snapshot = (): string =>
+    JSON.stringify([
+      name.value.trim(),
+      currency.value,
+      minimum.value.trim(),
+      fee.value.trim(),
+      notes.value.trim(),
+      logoImageId,
+    ]);
+
+  let saved = snapshot();
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const renameListeners: ((name: string) => void)[] = [];
+  const renamed = (next: string): void => {
+    for (const listen of renameListeners) {
+      listen(next);
+    }
+  };
+  const touched = (): void => {
+    const dirty = snapshot() !== saved;
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+
+  for (const control of [name, currency, minimum, fee, notes]) {
+    control.addEventListener("input", touched);
+    control.addEventListener("change", touched);
+  }
 
   // Changing the currency changes what the two money fields mean, so they are
   // re-rendered in the new currency's minor unit rather than silently keeping
@@ -203,11 +372,8 @@ function dataSection(
     minorUnit = next;
   });
 
-  const submit = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
   async function save(): Promise<void> {
     status.clear();
-    submit.disabled = true;
     try {
       await api.patch(`/restaurants/${restaurant.id}`, {
         name: name.value.trim(),
@@ -218,11 +384,16 @@ function dataSection(
         notes: notes.value.trim(),
       });
       status.say(t.t("state.saved"));
-      document.title = `${name.value.trim()} — doenerstag`;
+      // The heading above the form as well as the browser tab. Setting only the
+      // tab left the page still displaying the old name until it was reloaded,
+      // which reads as a save that did not take.
+      renamed(name.value.trim());
+      // What was just written becomes the new baseline, so Save goes quiet
+      // again until something else changes.
+      saved = snapshot();
+      touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
     }
   }
 
@@ -246,21 +417,10 @@ function dataSection(
     }
   }
 
-  const controls: Child[] = [submit];
-  if (app.session.isAdmin) {
-    controls.push(
-      button({
-        label: t.t("restaurant.delete"),
-        variant: "danger",
-        onclick: () => {
-          void remove();
-        },
-      }),
-    );
-  }
-
-  return section(
-    t.t("restaurant.data"),
+  const element = card(
+    // Still a form, so Enter in a field saves: the button that submits it is on
+    // the page heading rather than in here, which a form is perfectly happy
+    // with.
     form(
       () => {
         void save();
@@ -283,10 +443,21 @@ function dataSection(
         control: notes,
         optionalLabel: t.t("auth.optional"),
       }),
-      actions(...controls),
       status.element,
     ),
   );
+
+  return {
+    element,
+    save,
+    remove,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+    onRename(listen: (name: string) => void): void {
+      renameListeners.push(listen);
+    },
+  };
 }
 
 /** A currency selector, showing each currency's translated name and symbol. */
@@ -311,6 +482,71 @@ function contactTypeSelect(
 }
 
 // --- contacts ----------------------------------------------------------------
+
+/** The code of a contact type, by its id. */
+function codeOf(reference: ReferenceData, id: string): string {
+  return reference.contactTypes.find((type) => type.id === id)?.code ?? "";
+}
+
+/** How a contact type wants to be rendered, by its id. */
+function renderAsOf(reference: ReferenceData, id: string): string {
+  return reference.contactTypes.find((type) => type.id === id)?.render_as ?? "text";
+}
+
+/**
+ * The button behind a contact's value.
+ *
+ * It opens the thing the contact is: a telephone number dials, an address opens
+ * a map, a website opens in a new tab. The icon says which before it is
+ * pressed, so a row of contacts can be scanned rather than read.
+ *
+ * "Other" is a free string with no sensible target, so it gets no button -- but
+ * it keeps the column, so a list of contacts stays a column of fields rather
+ * than a ragged edge. That is why this always returns an element and swaps its
+ * contents, rather than returning null.
+ */
+function contactButton(
+  app: App,
+  read: () => Linkable,
+): { element: HTMLElement; refresh: () => void } {
+  const element = el("span", { class: "contact-open" });
+
+  const refresh = (): void => {
+    const contact = read();
+    const target = contactTarget(contact);
+    const name = contactIcon(contact);
+
+    if (!target || !name) {
+      element.replaceChildren();
+      element.classList.add("contact-open-empty");
+      return;
+    }
+
+    element.classList.remove("contact-open-empty");
+    const label = app.t.t("restaurant.contact.open", {
+      type: referenceName(app.t, "contact_type", contact.contact_type_code),
+    });
+    element.replaceChildren(
+      el(
+        "a",
+        {
+          class: "button button-icon",
+          href: target.href,
+          "aria-label": label,
+          title: label,
+          // A new tab for the two that leave the application, and never
+          // without `noreferrer`: a map query carries the restaurant's address
+          // and there is no reason to tell Google where the reader came from.
+          ...(target.external ? { target: "_blank", rel: "noreferrer" } : {}),
+        },
+        icon(name),
+      ),
+    );
+  };
+
+  refresh();
+  return { element, refresh };
+}
 
 /**
  * The contacts editor.
@@ -344,6 +580,7 @@ function contactsSection(
 
     const save = button({
       label: t.t("action.save"),
+      variant: "primary",
       onclick: () => {
         void store();
       },
@@ -384,11 +621,23 @@ function contactsSection(
       }
     }
 
+    // The button behind the value: what this contact opens. It follows the
+    // type dropdown live, so switching a number from "phone" to "website"
+    // changes what pressing it does without a save in between.
+    const open = contactButton(app, () => ({
+      contact_type_code: codeOf(reference, type.value),
+      render_as: renderAsOf(reference, type.value),
+      value: value.value,
+    }));
+    type.addEventListener("change", open.refresh);
+    value.addEventListener("input", open.refresh);
+
     return el(
       "div",
-      { class: "row" },
+      { class: "row contact-row" },
       field({ label: t.t("restaurant.contact.type"), control: type }),
       field({ label: t.t("restaurant.contact.value"), control: value }),
+      open.element,
       field({
         label: t.t("restaurant.contact.label"),
         control: label,
@@ -405,6 +654,7 @@ function contactsSection(
 
     const add = button({
       label: t.t("restaurant.contact.add"),
+      variant: "primary",
       onclick: () => {
         void create();
       },
@@ -430,11 +680,16 @@ function contactsSection(
       }
     }
 
+    // The same grid as an existing row, including the column the open button
+    // sits in. It is empty here -- there is nothing to open until the contact
+    // exists -- and reserving it is what keeps the new row's fields the same
+    // width as the ones above it rather than spreading into the gap.
     return el(
       "div",
-      { class: "row row-new" },
+      { class: "row row-new contact-row" },
       field({ label: t.t("restaurant.contact.type"), control: type }),
       field({ label: t.t("restaurant.contact.value"), control: value }),
+      el("span", { class: "contact-open contact-open-empty", "aria-hidden": "true" }),
       field({
         label: t.t("restaurant.contact.label"),
         control: label,
@@ -445,7 +700,7 @@ function contactsSection(
   }
 
   render();
-  return section(t.t("restaurant.contacts"), list, status.element);
+  return card(list, status.element);
 }
 
 // --- opening hours -----------------------------------------------------------
@@ -457,7 +712,14 @@ function contactsSection(
  * matches how a person edits them: a lunch break is two rows that only make
  * sense together.
  */
-function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
+interface HoursSection {
+  element: HTMLElement;
+  /** Writes the whole set. Rejects so the caller can leave Save enabled. */
+  save(): Promise<void>;
+  onDirtyChange(listen: (dirty: boolean) => void): void;
+}
+
+function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
   const { t } = app;
   const status = statusLine();
   const list = el("div", { class: "rows" });
@@ -482,7 +744,11 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
 
     // "Crosses midnight" is a hint, not an error: a kebab shop that closes at
     // 02:00 is the normal case, not a mistake (F3.3).
-    const hint = el("span", { class: "hint-inline" });
+    //
+    // Its column is always there, empty or not. The note appearing and
+    // disappearing used to push the row's controls sideways as the times were
+    // typed, so a list of opening hours never settled into a shape.
+    const hint = el("span", { class: "hint-inline hours-hint" });
     const updateHint = (): void => {
       hint.textContent = end.value < start.value ? t.t("restaurant.crosses_midnight") : "";
     };
@@ -496,20 +762,25 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
       end,
       element: el(
         "div",
-        { class: "row" },
+        { class: "row hours-row" },
         field({ label: t.t("restaurant.hours.day"), control: day }),
         field({ label: t.t("restaurant.hours.from"), control: start }),
         field({ label: t.t("restaurant.hours.to"), control: end }),
         hint,
         actions(
           button({
+            // Red, like every other remove in the application. It was the one
+            // that was not, which made it read as the odd one out rather than
+            // as the same action.
             label: t.t("action.remove"),
-            variant: "quiet",
+            variant: "danger",
             onclick: () => {
               const index = rows.indexOf(row);
               if (index >= 0) {
                 rows.splice(index, 1);
                 row.element.remove();
+                // Removing a row is a change: the whole set goes in one PUT.
+                touched();
               }
             },
           }),
@@ -528,44 +799,69 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HTMLElement {
     list.appendChild(el("p", { class: "muted", text: t.t("restaurant.hours.none") }));
   }
 
-  const submit = button({ label: t.t("action.save"), variant: "primary" });
-  submit.addEventListener("click", () => {
-    void save();
-  });
+  // What the rows say, as the API wants it. Also the comparison this section
+  // uses to decide whether anything has changed.
+  const current = (): string =>
+    JSON.stringify(
+      rows.map((row) => ({
+        day_of_week: Number.parseInt(row.day.value, 10),
+        start: row.start.value,
+        end: row.end.value,
+      })),
+    );
+
+  let saved = current();
+  const listeners: ((dirty: boolean) => void)[] = [];
+  const touched = (): void => {
+    const dirty = current() !== saved;
+    for (const listen of listeners) {
+      listen(dirty);
+    }
+  };
+  // One listener on the list rather than one per control, so rows added later
+  // are covered without anything remembering to wire them up.
+  list.addEventListener("input", touched);
+  list.addEventListener("change", touched);
 
   async function save(): Promise<void> {
     status.clear();
-    submit.disabled = true;
     try {
       await api.put(`/restaurants/${restaurant.id}/opening-hours`, {
-        opening_hours: rows.map((row) => ({
-          day_of_week: Number.parseInt(row.day.value, 10),
-          start: row.start.value,
-          end: row.end.value,
-        })),
+        opening_hours: JSON.parse(current()) as unknown,
       });
       status.say(t.t("state.saved"));
+      saved = current();
+      touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
+      throw error;
     }
   }
 
-  return section(
-    t.t("restaurant.opening_hours"),
+  const element = card(
     list,
     actions(
       button({
         label: t.t("restaurant.hours.add"),
+        variant: "primary",
         onclick: () => {
           // The "none" message is not a row and must go when one appears.
           list.querySelector(".muted")?.remove();
           addRow();
+          // Adding an empty row is a change in itself: the whole set is written
+          // in one PUT, so a row nobody has typed into still has to be saved.
+          touched();
         },
       }),
-      submit,
     ),
     status.element,
   );
+
+  return {
+    element,
+    save,
+    onDirtyChange(listen: (dirty: boolean) => void): void {
+      listeners.push(listen);
+    },
+  };
 }

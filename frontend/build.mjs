@@ -6,6 +6,7 @@
 //   static/index.html   the application shell
 //   static/js/app.js    the esbuild bundle
 //   static/css/app.css  the compiled Tailwind stylesheet
+//   static/img/         the mark, served as the favicon
 //   static/swagger/     the vendored Swagger UI, served at /tools/swagger
 //
 // Nothing here reaches the network at runtime. Every asset is copied from a
@@ -52,6 +53,11 @@ async function buildScripts() {
     // TypeScript sources to every visitor.
     sourcemap: watch ? "inline" : false,
     minify: !watch,
+    // The logo is imported as text and parsed into the DOM at runtime, which is
+    // what lets one file serve both themes: `currentColor` needs the mark to be
+    // part of the page, and an <img> is a separate document that inherits no
+    // colour from it. See src/logo.ts.
+    loader: { ".svg": "text" },
     logLevel: "info",
   };
 
@@ -92,6 +98,10 @@ async function buildShell() {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>doenerstag</title>
+    <!-- The mark, as the tab icon. Firefox asks for /favicon.ico on every page
+         whether or not one is declared; naming a real one here means it asks
+         for something that exists. -->
+    <link rel="icon" href="/static/img/doenerstag.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/app.css">
     <script type="module" src="/static/js/theme.js"></script>
   </head>
@@ -115,6 +125,12 @@ if (match) {
 }
 `;
   await writeFile(join(out, "js", "theme.js"), theme, "utf8");
+
+  // The mark as a file as well as inside the bundle. The bundle inlines it so
+  // that `currentColor` can follow the theme; a favicon is a separate document
+  // and needs a URL of its own.
+  await mkdir(join(out, "img"), { recursive: true });
+  await cp(join(here, "assets", "doenerstag.svg"), join(out, "img", "doenerstag.svg"));
 }
 
 /**

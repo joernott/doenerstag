@@ -113,6 +113,42 @@ func TestUnmatchedPathsSplitBetweenTheAppAndTheAPI(t *testing.T) {
 	}
 }
 
+// A request that names a file gets a 404, not the application shell.
+//
+// The fallback answers any unmatched non-API path with index.html so that
+// reloading a deep link works. Applied to /favicon.ico -- which Firefox asks
+// for on every page whether or not one is declared -- that produced a 200 with
+// text/html where an icon was expected. A request for a file that does not
+// exist should say so.
+func TestAFileThatDoesNotExistIsNotTheApplicationShell(t *testing.T) {
+	r := testRouter(t)
+
+	for _, path := range []string{
+		"/favicon.ico",
+		"/robots.txt",
+		"/apple-touch-icon.png",
+		"/orders/logo.svg",
+	} {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, http.NoBody))
+
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404 (body: %s)", path, rec.Code, rec.Body)
+		}
+	}
+
+	// And a page still gets the shell, dots in a *directory* name included:
+	// only the last segment decides.
+	for _, path := range []string{"/orders", "/orders/abc", "/legal-notes", "/v1.2/orders"} {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, http.NoBody))
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s: status %d, want the shell", path, rec.Code)
+		}
+	}
+}
+
 // A 404 under /api must carry the documented envelope, so a client can react to
 // the code rather than parsing prose.
 func TestAPINotFoundUsesTheErrorEnvelope(t *testing.T) {
