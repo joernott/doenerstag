@@ -150,7 +150,7 @@ func TestConfigurationIsWiredBeforeAVerbRuns(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	// update is the verb used here because a pre-release binary refuses it
+	// update is the verb used here because an unreleased binary refuses it
 	// before touching the database, so what this test observes is the startup
 	// sequence rather than a connection attempt.
 	run([]string{"update", "--config", path}, stdout, stderr)
@@ -159,7 +159,7 @@ func TestConfigurationIsWiredBeforeAVerbRuns(t *testing.T) {
 	if !strings.Contains(stdout.String(), "configuration resolved") {
 		t.Errorf("no startup line was logged:\nstdout: %s\nstderr: %s", stdout, stderr)
 	}
-	if !strings.Contains(stderr.String(), "before the first release") {
+	if !strings.Contains(stderr.String(), "unreleased build") {
 		t.Errorf("the verb did not run: %s", stderr)
 	}
 }

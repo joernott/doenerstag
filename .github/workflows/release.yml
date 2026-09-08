@@ -1,0 +1,398 @@
+name: Release
+
+# A tag is the trigger, and the tag is the version. Nothing here reads a
+# version from a file: `make` derives it from `git describe`, so the binary,
+# the packages, the image and the release name cannot disagree with each other
+# or with the tag that produced them.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, for re-running a release"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.6"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The artefacts an operator installs: two archives, four packages, and the
+  # licence file that has to travel with them.
+  artefacts:
+    name: Build the artefacts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+      build_date: ${{ steps.version.outputs.build_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `git describe` needs the tags, and a shallow clone has none.
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the frontend toolchain
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install nfpm and go-licenses
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          go install github.com/google/go-licenses@latest
+
+      # One source for all three stamps. `make version` prints them in the same
+      # form the Makefile hands to -ldflags, so the image, the packages and the
+      # archives cannot disagree about what they are.
+      - name: The version this tag builds
+        id: version
+        run: |
+          read -r version commit build_date <<<"$(make version | tr -d '()')"
+          {
+            echo "version=$version"
+            echo "commit=$commit"
+            echo "build_date=$build_date"
+          } >> "$GITHUB_OUTPUT"
+          echo "building $version ($commit) $build_date"
+
+      - name: The licence file is current
+        run: ./scripts/licenses.sh --check
+
+      - name: Archives
+        run: make archives
+
+      - name: Packages
+        run: make packages
+
+      - name: What was built
+        run: ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artefacts
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+          retention-days: 7
+
+  # Installing the package is the only test that answers the question an
+  # operator asks. Each format goes into its own distribution, in a job
+  # container rather than a nested `docker run`, so the steps read as the
+  # commands an operator would type. The same checks run on every push in
+  # ci.yml; they run again here against the artefacts this tag actually
+  # publishes.
+  package-deb:
+    name: Install the .deb (Debian 13)
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    container:
+      image: debian:13
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Install
+        run: |
+          apt-get update -qq
+          # apt-get and not `dpkg -i`: the package depends on the PostgreSQL
+          # client tools, and only apt resolves that.
+          apt-get install -y -qq ./dist/doenerstag_*_amd64.deb
+
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
+
+      - name: It reports the version this tag builds
+        run: /usr/bin/doenerstag --version | grep -q "${{ needs.artefacts.outputs.version }}"
+
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          apt-get install -y -qq --reinstall ./dist/doenerstag_*_amd64.deb
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          apt-get remove -y -qq doenerstag
+          test ! -e /usr/bin/doenerstag
+          # dpkg leaves a modified config file exactly where it was.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+          test -f /var/log/doenerstag/doenerstag.log
+
+  package-rpm:
+    name: Install the .rpm (Fedora)
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Install
+        run: |
+          # dnf and not `rpm -ivh`: the package depends on the PostgreSQL
+          # client tools, and rpm alone fails on the unmet dependency rather
+          # than resolving it.
+          dnf install -y -q ./dist/doenerstag-*.x86_64.rpm
+
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
+
+      - name: It reports the version this tag builds
+        run: /usr/bin/doenerstag --version | grep -q "${{ needs.artefacts.outputs.version }}"
+
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          dnf reinstall -y -q ./dist/doenerstag-*.x86_64.rpm
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          dnf remove -y -q doenerstag
+          test ! -e /usr/bin/doenerstag
+          # rpm renames a modified config file rather than leaving it in place.
+          # Different from dpkg, and documented as such in 10_operations.md.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml.rpmsave
+          test -f /var/log/doenerstag/doenerstag.log
+
+  # The image, for both architectures. It is run before it is pushed, against a
+  # real database: an image nobody has started is not an image anybody should
+  # pull. The amd64 build is loaded locally and exercised first; the push then
+  # reuses that build's cache, so proving it works costs a cache hit rather
+  # than a second compile.
+  #
+  # Pushed only for a real tag: a workflow_dispatch rehearsal builds, runs and
+  # throws it away.
+  image:
+    name: Build, run and publish the image
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: release-root-password
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build for this architecture, to run it
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: doenerstag:candidate
+          build-args: |
+            VERSION=${{ needs.artefacts.outputs.version }}
+            COMMIT=${{ needs.artefacts.outputs.commit }}
+            BUILD_DATE=${{ needs.artefacts.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: It reports the version this tag builds
+        run: |
+          set -eux
+          docker run --rm doenerstag:candidate --version
+          docker run --rm doenerstag:candidate --version \
+            | grep -q "${{ needs.artefacts.outputs.version }}"
+
+      - name: A configuration directory the unprivileged user can write
+        run: |
+          set -eux
+          mkdir -p config
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+            -keyout config/server.key -out config/server.crt
+          chmod 0644 config/server.crt
+          chmod 0600 config/server.key
+          sudo chown -R 65532:65532 config
+
+      - name: Provision a database and serve from it
+        env:
+          DOENER_DATABASE_ROOT_PASSWORD: release-root-password
+          DOENER_DATABASE_ADMIN_PASSWORD: release-root-password
+          DOENER_DATABASE_PASSWORD: release-runtime-password
+          DOENER_ROOT_PASSWORD: Release-Root-Passw0rd
+        run: |
+          set -eux
+          docker run --rm --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -e DOENER_DATABASE_ROOT_PASSWORD \
+            -e DOENER_DATABASE_ADMIN_PASSWORD \
+            -e DOENER_DATABASE_PASSWORD \
+            -e DOENER_ROOT_PASSWORD \
+            -v "$PWD/config:/config" \
+            doenerstag:candidate \
+            install -o /config/doenerstag.yaml -R postgres -A postgres --non-interactive
+
+          docker run -d --name doenerstag --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -v "$PWD/config:/config:ro" \
+            doenerstag:candidate server -c /config/doenerstag.yaml
+
+          for _ in $(seq 1 30); do
+            if curl -skf https://localhost:8443/api/v1/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -sk https://localhost:8443/api/v1/version
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:8443/)" = "200"
+
+      - name: The container's log, when something failed
+        if: failure()
+        run: docker logs doenerstag || true
+
+      - name: Log in to Docker Hub
+        # Secrets, never a literal. Settings → Secrets and variables → Actions:
+        # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push both architectures
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}
+            docker.io/joernott/doenerstag:latest
+          build-args: |
+            VERSION=${{ needs.artefacts.outputs.version }}
+            COMMIT=${{ needs.artefacts.outputs.commit }}
+            BUILD_DATE=${{ needs.artefacts.outputs.build_date }}
+          cache-from: type=gha
+          provenance: false
+
+      - name: What was published is what was tested
+        run: |
+          set -eux
+          docker run --rm --pull=always \
+            docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }} --version
+
+  # The release itself, last: it is the thing that announces all of the above,
+  # so it waits until every one of them has passed.
+  release:
+    name: Publish the release
+    runs-on: ubuntu-latest
+    needs: [artefacts, package-deb, package-rpm, image]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Collect what the release carries
+        run: |
+          # The Dockerfile travels with the release so that the recipe for the
+          # published image is readable, and buildable, without hunting through
+          # the repository for the revision that produced it. It COPYs the
+          # source tree, so building it needs a checkout of this tag -- it is
+          # not a standalone recipe, and the release notes say so.
+          cp Dockerfile dist/Dockerfile
+          ls -la dist/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: doenerstag ${{ needs.artefacts.outputs.version }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            The first iteration. It provides the minimal functionality described
+            in the documentation and has had barely any use, which is why this
+            is 0.1.0 and marked as a pre-release rather than 1.0.0.
+
+            **Install**
+
+            - Debian and Ubuntu: `apt install ./doenerstag_${{ needs.artefacts.outputs.version }}-1_amd64.deb`
+            - RHEL and Fedora: `dnf install ./doenerstag-${{ needs.artefacts.outputs.version }}-1.x86_64.rpm`
+            - Anything else: the `.tar.gz` or the `.zip`
+            - Container: `docker pull docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }}`
+
+            Then run `doenerstag install` and start the service. See
+            `docs/10_operations.md`, which also carries a `docker compose` stack
+            that this release was tested with.
+
+            `Dockerfile` is here so the recipe for the published image is
+            readable alongside it. It builds from a checkout of this tag rather
+            than on its own.
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/Dockerfile

@@ -185,28 +185,39 @@ binary plus the config file, the TLS certificate and its key.
 
 The `Makefile` is the entry point. All of it runs locally.
 
-| Target           | Does                                                                    |
-| ---------------- | ----------------------------------------------------------------------- |
-| `make deps`      | `go mod download` and `npm ci` in `frontend/`.                           |
-| `make frontend`  | esbuild the TypeScript, compile Tailwind, copy fonts and images into `static/`. |
-| `make dev`       | Frontend in watch mode plus a plain `go build`. Assets served from disk. |
-| `make build`     | `make frontend` then `go build` without the embed tag.                   |
-| `make release`   | `make frontend` then `go build -tags embedstatic -ldflags "-X main.version=…"`. |
-| `make test`      | `go test ./...` and the frontend type check.                             |
-| `make lint`      | `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.                     |
-| `make e2e`       | Playwright against a running server, named by `DOENER_E2E_URL`.          |
-| `make migrate`   | Applies migrations against the configured database, for development.     |
-| `make packages`  | `make release`, then `nfpm` builds the `.deb` and the `.rpm` from one shared configuration. |
-| `make image`     | Builds the container image for `linux/amd64` and `linux/arm64`.          |
-| `make licenses`  | Regenerates `THIRD_PARTY_LICENSES` from `go.mod` and `package.json`.     |
+| Target            | Does                                                                    |
+| ----------------- | ----------------------------------------------------------------------- |
+| `make deps`       | `go mod download` and `npm ci` in `frontend/`.                           |
+| `make frontend`   | esbuild the TypeScript, compile Tailwind, copy fonts and images into `static/`. |
+| `make dev`        | Frontend in watch mode plus a plain `go build`. Assets served from disk. |
+| `make build`      | `go build` without the embed tag. Assets come from `--static-dir`.       |
+| `make release`    | `make frontend` then `go build -tags embedstatic`, stamping the version into `internal/version`. |
+| `make test`       | `go test ./...` plus the frontend type check and unit tests.             |
+| `make test-race`  | The Go tests under the race detector.                                    |
+| `make cover`      | Coverage across `./cmd/...` and `./internal/...`, written per platform.  |
+| `make lint`       | `gofmt -l`, `go vet`, `golangci-lint`, `tsc --noEmit`, `eslint`.         |
+| `make vuln`       | `govulncheck`, when it is installed.                                     |
+| `make e2e`        | Playwright against a running server, named by `DOENER_E2E_URL`.          |
+| `make dist-linux` | Cross-compiles the embedded Linux binaries for amd64 and arm64.          |
+| `make dist-windows` | The same for Windows on amd64.                                        |
+| `make archives`   | Wraps those binaries as the release carries them: a `.tar.gz` and a `.zip`. |
+| `make packages`   | `make dist-linux`, then `nfpm` builds the `.deb` and the `.rpm` for both architectures from one shared description. |
+| `make image`      | Builds the container image for this machine's architecture. The two-architecture build is buildx, in the release workflow. |
+| `make licenses`   | Regenerates `THIRD_PARTY_LICENSES` with `go-licenses`, plus the frontend packages whose files ship. |
+
+There is no `make migrate`. Migrations are applied by `doenerstag install` and
+`doenerstag update`, which is the only path an operator has and therefore the
+only path worth having.
 
 `make packages` uses `nfpm` so that both package formats come from a single
 declarative description; keeping a `debian/` tree and a `.spec` file in step by
 hand is exactly the sort of duplication that drifts. The packaged files are
 listed in [10_operations.md](10_operations.md).
 
-The container image is a two-stage build ending in `scratch`, which only works
-because the release binary is static and self-contained.
+The container image is a three-stage build -- the frontend, the Go
+cross-compile, then `scratch` -- which only works because the release binary
+is static and self-contained. It is 26.8MB, runs as uid 65532, and contains no
+shell at all.
 
 The application version is compiled in with `-ldflags -X` and must match the row
 that `install`/`update` writes to `app_version`. A mismatch between the binary's

@@ -292,39 +292,52 @@ func populate(cfg *Config, v *viper.Viper, flags *pflag.FlagSet, scope Scope,
 	}
 	cfg.Log = LogConfig{Level: level, File: str("log-file")}
 
-	if scope.Has(ScopeServer) {
-		cfg.Server = ServerConfig{
-			Port:               num("port"),
-			BindAddress:        str("bind-address"),
-			NoHTTPS:            boolean("no-https"),
-			TLSCert:            str("tls-cert"),
-			TLSKey:             str("tls-key"),
-			NoSwagger:          boolean("no-swagger"),
-			StaticDir:          str("static-dir"),
-			HTTPReadTimeout:    dur("http-read-timeout"),
-			HTTPWriteTimeout:   dur("http-write-timeout"),
-			HTTPIdleTimeout:    dur("http-idle-timeout"),
-			ShutdownGrace:      dur("shutdown-grace"),
-			MaxImageSize:       size("max-image-size"),
-			CORSAllowedOrigins: str("cors-allowed-origins"),
-		}
-		cfg.Session = SessionConfig{
-			JWTSecret:            str("jwt-secret"),
-			IdleTimeout:          dur("idle-timeout"),
-			AbsoluteTimeout:      dur("absolute-timeout"),
-			LoginRateLimitUser:   num("login-rate-limit-user"),
-			LoginRateLimitIP:     num("login-rate-limit-ip"),
-			LoginRateLimitWindow: dur("login-rate-limit-window"),
-		}
+	// Every section is populated, whatever the verb. Scope decides which flags
+	// exist, not which settings were resolved: the file and the environment are
+	// read the same way regardless, and a verb that cannot see a section is a
+	// verb that destroys it.
+	//
+	// update is what made this concrete. Running under the install scope it
+	// never populated Server or Session, so the file it rewrote carried the
+	// declared defaults for both: an operator's port and timeouts silently
+	// reverted, and session.jwt_secret was written empty, leaving a
+	// configuration the server refuses to start from. install's own "keep the
+	// existing secret so a re-run does not log everyone out" branch was
+	// unreachable for exactly the same reason.
+	cfg.Server = ServerConfig{
+		Port:               num("port"),
+		BindAddress:        str("bind-address"),
+		NoHTTPS:            boolean("no-https"),
+		TLSCert:            str("tls-cert"),
+		TLSKey:             str("tls-key"),
+		NoSwagger:          boolean("no-swagger"),
+		StaticDir:          str("static-dir"),
+		HTTPReadTimeout:    dur("http-read-timeout"),
+		HTTPWriteTimeout:   dur("http-write-timeout"),
+		HTTPIdleTimeout:    dur("http-idle-timeout"),
+		ShutdownGrace:      dur("shutdown-grace"),
+		MaxImageSize:       size("max-image-size"),
+		CORSAllowedOrigins: str("cors-allowed-origins"),
+	}
+	cfg.Session = SessionConfig{
+		JWTSecret:            str("jwt-secret"),
+		IdleTimeout:          dur("idle-timeout"),
+		AbsoluteTimeout:      dur("absolute-timeout"),
+		LoginRateLimitUser:   num("login-rate-limit-user"),
+		LoginRateLimitIP:     num("login-rate-limit-ip"),
+		LoginRateLimitWindow: dur("login-rate-limit-window"),
 	}
 
-	if scope.Has(ScopeCleanup) {
-		cfg.Cleanup = CleanupConfig{
-			Retention: dur("retention"),
-			DryRun:    flagBool(flags, "dry-run"),
-		}
+	cfg.Cleanup = CleanupConfig{
+		Retention: dur("retention"),
+		// The only flag-only value here, and absent unless cleanup registered
+		// it; flagBool answers false for a flag that does not exist.
+		DryRun: flagBool(flags, "dry-run"),
 	}
 
+	// cfg.Install stays behind its scope. Nothing in it is written to the
+	// configuration file, and it reads privileged credentials out of the
+	// environment -- which a verb that has no use for them should not do.
 	if scope.Has(ScopeInstall) {
 		cfg.Install = installConfig(flags, getenv)
 	}

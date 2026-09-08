@@ -1,0 +1,29 @@
+# The unit the packages install, and the one docs/10_operations.md documents.
+#
+# ExecStart points at /usr/bin because that is where the packages put the
+# binary. A plain-binary install puts it in /usr/local/bin and has to say so.
+[Unit]
+Description=doenerstag food order coordination
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=doenerstag
+Group=doenerstag
+WorkingDirectory=/etc/doenerstag
+ExecStart=/usr/bin/doenerstag server -c /etc/doenerstag/doenerstag.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/doenerstag
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

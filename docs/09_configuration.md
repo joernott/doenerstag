@@ -185,10 +185,12 @@ tables and nothing else — no `CREATE`, no `DROP`.
 
 Accepts every flag of `install`.
 
-Until the first release ships, `update` prints a message that updating is not
-yet possible and exits with status 1.
+An untagged development build reports `0.0.0`, has no released version it could
+be updating from, and so prints a message saying that and exits with status 1.
+The test is `0.0.0` exactly, not "below 1.0.0": the first release is `0.1.0`, and
+a major-version test would refuse every upgrade within the 0.x line.
 
-From the first release on, it:
+From a released build on, it:
 
 - Applies outstanding `golang-migrate` migrations using the admin identity.
 - Rewrites the configuration file, adding settings introduced by the new

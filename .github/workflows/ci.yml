@@ -80,6 +80,38 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
+  # A dependency added without its licence fails here, on the pull request that
+  # adds it, rather than at release time when the artefacts are already being
+  # built. docs/12_testing.md promises this; it did not exist until the release
+  # workflow needed the same check.
+  licences:
+    name: Licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The script reads the licence files of the frontend packages whose own
+      # files ship, so the toolchain has to be installed for it to see them.
+      - name: Install the frontend toolchain
+        run: npm ci
+        working-directory: frontend
+
+      - name: THIRD_PARTY_LICENSES is current
+        run: |
+          go install github.com/google/go-licenses@latest
+          ./scripts/licenses.sh --check
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -381,3 +413,289 @@ jobs:
             exit 1
           fi
           chmod 0600 doenerstag.yaml
+
+  # --- packaging -------------------------------------------------------------
+  #
+  # Sprint 15 built the packages and the image, and both were broken in ways
+  # only running them could show: the .rpm named a Debian dependency and could
+  # not be installed at all, and the configuration file install wrote refused
+  # to start the server it had just installed. Neither was visible to any test
+  # that reads code. So the artefacts are built and used on every push, not
+  # only on a tag.
+
+  artefacts:
+    name: Artefacts
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `git describe` needs the tags: a shallow clone has none and every
+          # artefact would be stamped 0.0.0-dev.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the frontend toolchain
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install nfpm and go-licenses
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          go install github.com/google/go-licenses@latest
+
+      - name: Archives
+        run: make archives
+
+      - name: Packages
+        run: make packages
+
+      - name: What was built
+        run: ls -la dist/
+
+      # The tar.gz must contain a file called doenerstag, and the zip
+      # doenerstag.exe. Extracting a release should give you the command you
+      # are about to run.
+      - name: The archives contain what their names promise
+        run: |
+          set -eux
+          tar -tzf dist/*.tar.gz | grep -qx "doenerstag"
+          unzip -l dist/*.zip | grep -q "doenerstag.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+          retention-days: 3
+
+  # Installing the package is the only test that answers the question an
+  # operator asks. Each format is installed in its own distribution, in a job
+  # container rather than a nested `docker run`, so the steps read as the
+  # commands an operator would type.
+  package-deb:
+    name: Package (deb, Debian 13)
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    container:
+      image: debian:13
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+
+      - name: Install
+        run: |
+          apt-get update -qq
+          # apt-get and not `dpkg -i`: the package depends on the PostgreSQL
+          # client tools, and only apt resolves that.
+          apt-get install -y -qq ./dist/doenerstag_*_amd64.deb
+
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          /usr/bin/doenerstag --version
+          # The unit file must point at where the package actually put the
+          # binary. Those two drifted apart once already.
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
+
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          apt-get install -y -qq --reinstall ./dist/doenerstag_*_amd64.deb
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          apt-get remove -y -qq doenerstag
+          test ! -e /usr/bin/doenerstag
+          # dpkg leaves a modified config file exactly where it was.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+          test -f /var/log/doenerstag/doenerstag.log
+
+  package-rpm:
+    name: Package (rpm, Fedora)
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+
+      - name: Install
+        run: |
+          # dnf and not `rpm -ivh`: the package depends on the PostgreSQL
+          # client tools, and rpm alone fails on the unmet dependency rather
+          # than resolving it.
+          dnf install -y -q ./dist/doenerstag-*.x86_64.rpm
+
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          /usr/bin/doenerstag --version
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
+
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          dnf reinstall -y -q ./dist/doenerstag-*.x86_64.rpm
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          dnf remove -y -q doenerstag
+          test ! -e /usr/bin/doenerstag
+          # rpm renames a modified config file rather than leaving it in place.
+          # Different from dpkg, and documented as such in 10_operations.md.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml.rpmsave
+          test -f /var/log/doenerstag/doenerstag.log
+
+  # The image, built and then actually used. Provisioning a database and
+  # serving over HTTPS is the only thing that proves the image works, and it is
+  # what caught install writing a configuration file the server refused.
+  image:
+    name: Image
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: ci-root-password
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # One architecture, loaded into the local daemon, because this job
+          # runs the image. The two-architecture build belongs to the release
+          # workflow, which pushes only what its twin of this job has run.
+          load: true
+          tags: doenerstag:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: It is what it claims to be
+        run: |
+          set -eux
+          docker run --rm doenerstag:ci --version
+          # scratch has no shell. If this ever succeeds, the runtime stage grew
+          # a base image and a promise in 10_operations.md stopped being true.
+          if docker run --rm --entrypoint /bin/sh doenerstag:ci -c true 2>/dev/null; then
+            echo "the image has a shell, which it must not"
+            exit 1
+          fi
+          test "$(docker inspect doenerstag:ci --format '{{.Config.User}}')" = "65532:65532"
+
+      - name: A configuration directory the unprivileged user can write
+        run: |
+          set -eux
+          mkdir -p config
+          # The TLS defaults are the relative paths server.crt and server.key,
+          # and the working directory inside the image is /config, so these
+          # names need no configuration at all.
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+            -keyout config/server.key -out config/server.crt
+          chmod 0644 config/server.crt
+          chmod 0600 config/server.key
+          sudo chown -R 65532:65532 config
+
+      - name: Provision the database from inside the image
+        env:
+          DOENER_DATABASE_ROOT_PASSWORD: ci-root-password
+          DOENER_DATABASE_ADMIN_PASSWORD: ci-root-password
+          DOENER_DATABASE_PASSWORD: ci-runtime-password
+          DOENER_ROOT_PASSWORD: Ci-Root-Passw0rd
+        run: |
+          set -eux
+          docker run --rm --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -e DOENER_DATABASE_ROOT_PASSWORD \
+            -e DOENER_DATABASE_ADMIN_PASSWORD \
+            -e DOENER_DATABASE_PASSWORD \
+            -e DOENER_ROOT_PASSWORD \
+            -v "$PWD/config:/config" \
+            doenerstag:ci \
+            install -o /config/doenerstag.yaml -R postgres -A postgres --non-interactive
+
+      - name: Serve, and answer
+        run: |
+          set -eux
+          # Mounted read-only, the way the compose stack does it: the server
+          # must never need to write its own configuration file.
+          docker run -d --name doenerstag --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -v "$PWD/config:/config:ro" \
+            doenerstag:ci server -c /config/doenerstag.yaml
+          for _ in $(seq 1 30); do
+            if curl -skf https://localhost:8443/api/v1/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -sk https://localhost:8443/api/v1/version
+          # The application, not only the API. A scratch image has no files on
+          # disk to serve, so this also proves the assets really are embedded.
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:8443/)" = "200"
+
+      - name: The account the installer created can log in
+        run: |
+          set -eux
+          code=$(curl -sk -o /dev/null -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            --data-binary '{"name":"root","password":"Ci-Root-Passw0rd"}' \
+            https://localhost:8443/api/v1/auth/login)
+          test "$code" = "200"
+
+      - name: The container's log, when something failed
+        if: failure()
+        run: docker logs doenerstag || true

@@ -19,7 +19,7 @@ Every release is published in four forms, all built from the same binary:
 | `doenerstag_<ver>_<arch>.deb`     | Debian, Ubuntu and derivatives.                 |
 | `doenerstag-<ver>-1.<arch>.rpm`   | RHEL, Fedora, Rocky, Alma, openSUSE.            |
 | `doenerstag-<ver>-<os>-<arch>`    | Bare binary for everything else.                |
-| `ghcr.io/joernott/doenerstag:<ver>` | Container image, `amd64` and `arm64`.         |
+|  `docker.io/joernott/doenerstag:<ver>` | Container image, `amd64` and `arm64`.         |
 
 ## Installation
 
@@ -29,13 +29,13 @@ container. Step 2 is the same in every case.
 ### Step 1a — Debian and Ubuntu package (preferred)
 
 ```sh
-apt install ./doenerstag_1.0.0_amd64.deb
+apt install ./doenerstag_0.1.0-1_amd64.deb
 ```
 
 ### Step 1b — RHEL, Fedora, Rocky, Alma and openSUSE package (preferred)
 
 ```sh
-dnf install ./doenerstag-1.0.0-1.x86_64.rpm
+dnf install ./doenerstag-0.1.0-1.x86_64.rpm
 ```
 
 Both packages are built from the same source with `nfpm`, so their contents stay
@@ -55,18 +55,34 @@ They install:
 | `/var/log/doenerstag/`                         | Log directory, owned by the service user.                     |
 
 The packages also create the system user and group `doenerstag` with no login
-shell and no home directory, and they declare a dependency on
-`postgresql-client` for the convenience of `psql` on the host. They do **not**
-depend on a PostgreSQL server — the database usually lives elsewhere.
+shell and no home directory, and they depend on the PostgreSQL client tools so
+that `psql` and `pg_dump` — which the backup, restore and troubleshooting
+sections below tell you to use — are present. That package is
+`postgresql-client` on Debian and Ubuntu and `postgresql` on the RPM
+distributions; nothing on an RPM distribution provides the Debian name. Neither
+package depends on a PostgreSQL **server**: the database usually lives
+elsewhere.
 
 Neither package starts or enables the service. It cannot work until step 2 has
 run, so the post-install script prints the next command instead of failing a
 service start.
 
-Removing the package leaves `/etc/doenerstag/doenerstag.yaml`, the log directory
-and the database untouched. `apt purge` / `dnf remove` plus an explicit
-`rm -rf /etc/doenerstag` is the full uninstall; the database is never dropped by
-a package operation.
+Removal never touches the database, and never destroys evidence or a password
+you chose. What exactly survives differs between the two formats, because the
+two packaging systems differ:
+
+| Removing…                       | `.deb`                                  | `.rpm`                                              |
+| ------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| A modified `doenerstag.yaml`    | left in place, unchanged                | renamed to `doenerstag.yaml.rpmsave`                |
+| An unmodified `doenerstag.yaml` | left in place                           | removed, along with `/etc/doenerstag`               |
+| `/var/log/doenerstag` with logs | kept                                    | kept                                                |
+| `/var/log/doenerstag` when empty | removed                                | removed                                             |
+
+A real installation always has a modified configuration file, because
+`doenerstag install` writes it. So on an RPM distribution, expect to find your
+settings in `doenerstag.yaml.rpmsave` after a removal. `apt purge` / `dnf
+remove` plus an explicit `rm -rf /etc/doenerstag` is the full uninstall; the
+database is never dropped by a package operation.
 
 ### Step 1c — plain binary
 
@@ -144,7 +160,7 @@ Type=simple
 User=doenerstag
 Group=doenerstag
 WorkingDirectory=/etc/doenerstag
-ExecStart=/usr/local/bin/doenerstag server -c /etc/doenerstag/doenerstag.yaml
+ExecStart=/usr/bin/doenerstag server -c /etc/doenerstag/doenerstag.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5s
@@ -160,6 +176,10 @@ AmbientCapabilities=
 [Install]
 WantedBy=multi-user.target
 ```
+
+`ExecStart` points at `/usr/bin/doenerstag`, which is where the packages put
+the binary. A plain-binary install ([step 1c](#step-1c--plain-binary)) puts it
+in `/usr/local/bin` and has to change that one line.
 
 Port 8443 is above 1024, so no capability to bind a privileged port is needed.
 If port 443 is wanted, put a reverse proxy in front rather than granting
@@ -196,7 +216,7 @@ runtime.
 
 | Property         | Value                                                          |
 | ---------------- | -------------------------------------------------------------- |
-| Image            | `ghcr.io/joernott/doenerstag:<version>`, plus `:latest`         |
+| Image            | `docker.io/joernott/doenerstag:<version>`, plus `:latest`         |
 | Architectures    | `linux/amd64`, `linux/arm64`                                    |
 | User             | `65532:65532`, non-root                                          |
 | Entrypoint       | `/doenerstag`                                                    |
@@ -212,67 +232,74 @@ instead.
 
 ### docker compose
 
-```yaml
-services:
-  db:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_DB: doenerstag
-      POSTGRES_USER: doener
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets: [db_password]
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U doener -d doenerstag"]
-      interval: 5s
-      retries: 10
+The stack is [`packaging/docker-compose.yml`](../packaging/docker-compose.yml)
+with [`packaging/docker-compose.env`](../packaging/docker-compose.env) next to
+it as `.env`. It is not a sketch: the release is tested by running exactly these
+files through the sequence below. It defines four services — `db`, a one-shot
+`install`, the `doenerstag` server, and `cleanup` behind a profile.
 
-  doenerstag:
-    image: ghcr.io/joernott/doenerstag:1.0.0
-    depends_on:
-      db: { condition: service_healthy }
-    command: ["server", "-c", "/config/doenerstag.yaml"]
-    environment:
-      DOENER_DATABASE_SERVER: db
-    ports:
-      - "8443:8443"
-    volumes:
-      - ./config:/config:ro
-    restart: unless-stopped
+Two things about it are easy to get wrong and are worth stating:
 
-  cleanup:
-    image: ghcr.io/joernott/doenerstag:1.0.0
-    depends_on:
-      db: { condition: service_healthy }
-    command: ["cleanup", "-c", "/config/doenerstag.yaml"]
-    environment:
-      DOENER_DATABASE_SERVER: db
-    volumes:
-      - ./config:/config:ro
-    profiles: ["cleanup"]
+- **The database container gets no `POSTGRES_DB` or `POSTGRES_USER`.** Only the
+  superuser password. `doenerstag install` creates the `doenerstag` database and
+  the `doener` runtime role itself, and cannot do that if the image has already
+  created them.
+- **The volume is mounted at `/var/lib/postgresql`, not `/var/lib/postgresql/data`.**
+  From PostgreSQL 18 the official image keeps the cluster in a version-named
+  subdirectory, and refuses to start when a volume covers the old path.
 
-secrets:
-  db_password:
-    file: ./secrets/db_password
-
-volumes:
-  pgdata:
-```
-
-First run, once the database is up:
+#### First run
 
 ```sh
+mkdir -p /srv/doenerstag && cd /srv/doenerstag
+cp …/packaging/docker-compose.yml .
+cp …/packaging/docker-compose.env .env
+mkdir -p config secrets
+
+# The database superuser password, read by the db container as a secret and
+# handed to install as DOENER_DATABASE_ROOT_PASSWORD.
+openssl rand -base64 24 | tr -d '\n' > secrets/db_password
+chmod 0600 secrets/db_password
+
+# TLS. The defaults are the relative paths server.crt and server.key, and the
+# container's working directory is /config, so these names need no configuration
+# at all. Replace the self-signed pair with the real certificate when there is
+# one.
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -subj "/CN=doenerstag.example" -keyout config/server.key -out config/server.crt
+chmod 0644 config/server.crt && chmod 0600 config/server.key
+
+# install runs as 65532 and writes into config/.
+chown -R 65532:65532 config
+
 docker compose up -d db
-docker compose run --rm \
-  -e DOENER_DATABASE_ROOT_PASSWORD \
-  -v "$PWD/config:/config" \
-  doenerstag install -o /config/doenerstag.yaml
+DOENER_DATABASE_ROOT_PASSWORD="$(cat secrets/db_password)" \
+  docker compose run --rm -e DOENER_DATABASE_ROOT_PASSWORD install
 docker compose up -d doenerstag
 ```
 
-The `cleanup` service sits behind a compose profile so it never starts with the
-stack. Run it from the host's `cron`:
+The `install` service mounts `config/` writable and runs
+`install -o /config/doenerstag.yaml -R postgres`; every other service mounts it
+read-only. Run interactively it asks for the remaining passwords. To script it,
+pass them as environment variables and spell the whole command out:
+
+```sh
+docker compose run --rm \
+  -e DOENER_DATABASE_ROOT_PASSWORD -e DOENER_DATABASE_ADMIN_PASSWORD \
+  -e DOENER_DATABASE_PASSWORD -e DOENER_ROOT_PASSWORD \
+  install \
+  install -o /config/doenerstag.yaml -R postgres --non-interactive
+```
+
+The verb is repeated because `docker compose run SERVICE ARGS…` **replaces** the
+service's command rather than appending to it. `docker compose run --rm install
+--non-interactive` fails with `unknown flag`, which is confusing until you know
+that rule.
+
+#### The cleanup job
+
+`cleanup` sits behind a compose profile so it never starts with the stack. Run
+it from the host's `cron`:
 
 ```
 17 3 * * *  cd /srv/doenerstag && docker compose run --rm cleanup
@@ -284,19 +311,18 @@ image with the same command.
 
 ### Things to get right
 
+- **`config/` must belong to uid 65532.** The container runs unprivileged, and
+  `install` writes the configuration file as that user. Without the `chown` the
+  install step fails with a permission error and nothing else works.
 - **The config file must be mode `0600` or `0400`**, or the application exits
-  FATAL ([09_configuration.md](09_configuration.md)). Mounting `./config` from a
-  host directory means the host's permissions are what count. `chmod 0600
-  config/doenerstag.yaml` before the first start.
-- **The config file is mounted read-only** for `server` and `cleanup`, and must
-  be writable for `install` and `update`. The commands above differ in exactly
-  that.
-- **`install` is interactive.** Use `docker compose run` — not `up` — so that
-  stdin is attached, or pass every value through `DOENER_*` variables and
-  `--non-interactive`.
-- **TLS.** Put the certificate and key in the mounted `/config` directory and
-  point `--tls-cert` / `--tls-key` at them. `--no-https` is acceptable only when
-  a TLS-terminating proxy sits in front, and it logs a WARN.
+  FATAL ([09_configuration.md](09_configuration.md)). `install` writes it that
+  way; a file copied in by hand may not be.
+- **The config file is mounted read-only** for `doenerstag` and `cleanup`, and
+  writable only for `install`. That is the whole difference between the service
+  definitions.
+- **TLS.** The certificate and key go in `config/` as `server.crt` and
+  `server.key`, the names the defaults already use. `--no-https` is acceptable
+  only when a TLS-terminating proxy sits in front, and it logs a WARN.
 - **Logs go to stdout.** Leave `--log-file` unset in a container so the runtime's
   logging driver collects them; `logrotate` has no place here.
 - **Database data lives in the `pgdata` volume**, so back it up with
@@ -380,8 +406,12 @@ systemctl start doenerstag
 Container:
 
 ```sh
+# The tag lives in .env, so an upgrade starts by editing one line there.
+sed -i 's/^DOENERSTAG_VERSION=.*/DOENERSTAG_VERSION=0.2.0/' .env
 docker compose pull
-docker compose run --rm -v "$PWD/config:/config" doenerstag update -c /config/doenerstag.yaml
+# The install service is the one with the writable config mount, and update
+# needs to write. Naming the verb replaces that service's command.
+docker compose run --rm install update -c /config/doenerstag.yaml
 docker compose up -d doenerstag
 ```
 
