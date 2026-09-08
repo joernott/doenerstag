@@ -21,6 +21,17 @@ type SystemHandlers struct {
 	// Shutdown begins a graceful shutdown. Nil disables the endpoint, which is
 	// what the tests use.
 	Shutdown func()
+
+	// Swagger says whether /tools/swagger is served, and is reported by the
+	// version endpoint.
+	//
+	// The frontend's menu hides the API documentation entry when it is not
+	// (docs/06_ui_ux.md), and nothing else can tell it: --no-swagger omits the
+	// route rather than answering 404, and an omitted route falls through to
+	// the SPA fallback, which answers every path with the application shell.
+	// So the server has to say so, and this is the endpoint that already
+	// answers "what is this server".
+	Swagger bool
 }
 
 // Register adds the system routes to a router.
@@ -110,6 +121,7 @@ type versionBody struct {
 	Version   string `json:"version"`
 	Commit    string `json:"commit"`
 	BuildDate string `json:"build_date"`
+	Swagger   bool   `json:"swagger"`
 }
 
 // version reports what the binary is.
@@ -122,6 +134,7 @@ func (h *SystemHandlers) version(w http.ResponseWriter, _ *http.Request) {
 		Version:   version.Version(),
 		Commit:    version.Commit(),
 		BuildDate: version.BuildDate(),
+		Swagger:   h.Swagger,
 	})
 }
 

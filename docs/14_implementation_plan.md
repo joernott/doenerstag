@@ -360,17 +360,19 @@ remove, and a real run removes exactly that.
 
 | ID   | Task                                                                                  | Size | Spec |
 | ---- | --------------------------------------------------------------------------------------- | :--: | ---- |
-| 10.1 | Full esbuild and Tailwind pipeline with a watch mode                                     | M | [08](08_technologies.md) |
-| 10.2 | Client-side router, page shell, dark and light themes with the cookie                     | M | [06](06_ui_ux.md) |
-| 10.3 | i18n runtime: catalog loading, the `_meta` registry generated at build time, precedence     | L | [07](07_i18n.md) |
-| 10.4 | `en.json` and `de.json` including every reference-data key                                 | M | [07](07_i18n.md) |
-| 10.5 | Catalog completeness, registry and reference-data coverage tests                            | M | [12](12_testing.md) |
-| 10.6 | `Intl` formatting helpers for dates, times, relative times, numbers and money               | M | [07](07_i18n.md) |
-| 10.7 | API client: fetch wrapper, CSRF header, error code to message mapping, session state         | M | [04](04_api.md) |
-| 10.8 | Title bar, dropdown menu, language selector driven by the registry, login/logout states       | M | [06](06_ui_ux.md) |
-| 10.9 | Base components: tile grid, modal with focus trap, form controls, confirmation dialog         | L | [06](06_ui_ux.md) |
-| 10.10| Responsive breakpoints and the print stylesheet foundation                                     | M | [06](06_ui_ux.md) |
-| 10.11| Vitest setup and the first unit tests                                                          | S | [12](12_testing.md) |
+| ✅ 10.1 | Full esbuild and Tailwind pipeline with a watch mode                                     | M | [08](08_technologies.md) |
+| ✅ 10.2 | Client-side router, page shell, dark and light themes with the cookie                     | M | [06](06_ui_ux.md) |
+| ✅ 10.3 | i18n runtime: catalog loading, the `_meta` registry generated at build time, precedence     | L | [07](07_i18n.md) |
+| ✅ 10.4 | `en.json` and `de.json` including every reference-data key                                 | M | [07](07_i18n.md) |
+| ✅ 10.5 | Catalog completeness, registry and reference-data coverage tests                            | M | [12](12_testing.md) |
+| ✅ 10.6 | `Intl` formatting helpers for dates, times, relative times, numbers and money               | M | [07](07_i18n.md) |
+| ✅ 10.7 | API client: fetch wrapper, CSRF header, error code to message mapping, session state         | M | [04](04_api.md) |
+| ✅ 10.8 | Title bar, dropdown menu, language selector driven by the registry, login/logout states       | M | [06](06_ui_ux.md) |
+| ✅ 10.8.1 | `/version` reports whether Swagger UI is served. The menu must hide the API documentation entry under `--no-swagger`, and nothing told the frontend: the route is omitted rather than answering 404, so a probe gets the SPA fallback and sees a Swagger UI that is not there | S | [04](04_api.md) |
+| ✅ 10.9 | Base components: tile grid, modal with focus trap, form controls, confirmation dialog         | L | [06](06_ui_ux.md) |
+| ✅ 10.10| Responsive breakpoints and the print stylesheet foundation                                     | M | [06](06_ui_ux.md) |
+| ✅ 10.11| Vitest setup and the first unit tests                                                          | S | [12](12_testing.md) |
+| ✅ 10.11.1 | eslint with typescript-eslint, wired into `make lint` and CI. [08](08_technologies.md) and [11](11_nonfunctional.md) both promise the frontend passes eslint; until this sprint there was no frontend to lint | S | [08](08_technologies.md) |
 
 **Exit criteria:** the shell renders in both themes and both languages, the
 language selector is populated from the catalogs present in the build rather than

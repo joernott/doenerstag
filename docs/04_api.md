@@ -379,6 +379,24 @@ the `cleanup` verb.
 | `GET`  | `/version`  | public | Application version and applied schema version.                  |
 | `POST` | `/shutdown` | admin  | Begin a graceful shutdown. Responds 202 before shutting down.    |
 
+`/version` returns:
+
+```json
+{
+  "version": "1.0.0",
+  "commit": "7c81636",
+  "build_date": "2026-09-06T09:12:44Z",
+  "swagger": true
+}
+```
+
+`swagger` says whether `/tools/swagger` is served. It is there for the frontend,
+whose main menu hides the API documentation entry when it is not
+([06_ui_ux.md](06_ui_ux.md)), and nothing else can tell it: `--no-swagger` omits
+the route rather than answering 404, and an omitted non-`/api` path falls
+through to the SPA fallback, which serves the application shell. A probe would
+therefore report a Swagger UI that is not there.
+
 `/metrics` returns:
 
 ```json

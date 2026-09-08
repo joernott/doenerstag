@@ -512,3 +512,11 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 27
 
 > Please continue with sprint 9
+
+---
+
+## Sprint 10
+
+### Prompt 28
+
+> Please start sprint 10

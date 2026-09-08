@@ -16,6 +16,11 @@ coverage.html
 /frontend/node_modules/
 /frontend/.cache/
 
+# Generated from the catalogs beside it by scripts/i18n.mjs, on every build and
+# before every test run. Committing it would make it possible for the language
+# list to disagree with the catalogs actually present.
+/frontend/src/i18n/registry.generated.ts
+
 # Local configuration and secrets.
 # doenerstag.yaml holds the database password and the JWT secret; never commit it.
 /doenerstag.yaml

@@ -7,9 +7,12 @@
     <link rel="stylesheet" href="/static/css/app.css">
     <script type="module" src="/static/js/theme.js"></script>
   </head>
-  <body class="min-h-screen bg-neutral-900 text-neutral-100 light:bg-white light:text-neutral-900">
+  <body>
     <noscript>doenerstag needs JavaScript.</noscript>
-    <main id="app" class="mx-auto max-w-3xl p-6"></main>
+    <!-- The application renders its whole chrome into this element. The lang
+         attribute above is corrected to the resolved interface language as
+         soon as the bundle runs. -->
+    <div id="app"></div>
     <script type="module" src="/static/js/app.js"></script>
   </body>
 </html>

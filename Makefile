@@ -78,8 +78,19 @@ dev: build ## Frontend watch mode plus a development binary
 # --- quality -----------------------------------------------------------------
 
 .PHONY: test
-test: ## Run the Go tests
+test: test-frontend ## Run the Go and frontend tests
 	$(GO) test $(GOFLAGS) ./...
+
+# Skipped rather than failed when the toolchain is absent, the same way lint
+# handles a missing golangci-lint: a machine that can build a development
+# binary is not required to have Node, and CI has both.
+.PHONY: test-frontend
+test-frontend: ## Type-check and unit-test the frontend
+	@if [ -d frontend/node_modules ]; then \
+		cd frontend && npm run typecheck && npm test; \
+	else \
+		echo "test-frontend: frontend/node_modules missing, run make deps-frontend (skipping)"; \
+	fi
 
 .PHONY: test-race
 test-race: ## Run the Go tests with the race detector
@@ -93,13 +104,21 @@ cover: ## Run the tests and write <os>-coverage.out and <os>-coverage.html
 	@echo "wrote $(COVERAGE_OUT) and $(COVERAGE_HTML)"
 
 .PHONY: lint
-lint: fmt-check vet ## Run every linter
+lint: fmt-check vet lint-frontend ## Run every linter
 	@# An `a && b || c` chain here would swallow b's exit status: a linter that
 	@# ran and found problems would take the || branch and report success.
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
 	else \
 		echo "lint: golangci-lint not installed, skipping (see docs/12_testing.md)"; \
+	fi
+
+.PHONY: lint-frontend
+lint-frontend: ## Type-check and lint the frontend
+	@if [ -d frontend/node_modules ]; then \
+		cd frontend && npm run typecheck && npm run lint; \
+	else \
+		echo "lint-frontend: frontend/node_modules missing, run make deps-frontend (skipping)"; \
 	fi
 
 .PHONY: vet

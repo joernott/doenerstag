@@ -84,7 +84,11 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		shutdown: make(chan struct{}, 1),
 	}
 
-	system := &SystemHandlers{Pool: opts.Pool, Shutdown: s.beginShutdown}
+	system := &SystemHandlers{
+		Pool:     opts.Pool,
+		Shutdown: s.beginShutdown,
+		Swagger:  routerOptions.Swagger != nil,
+	}
 	system.Register(router)
 
 	// The signer is built here rather than per request: an unusable secret must
