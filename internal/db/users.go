@@ -254,3 +254,13 @@ func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
+
+// isForeignKeyViolation reports whether err is PostgreSQL's 23503.
+//
+// It means a referenced row does not exist -- an unknown currency code, or an
+// image id that was never uploaded -- which the API answers as 4000 rather than
+// as a server error.
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+}

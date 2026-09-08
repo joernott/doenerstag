@@ -472,3 +472,11 @@ recorded on the branch of the sprint it belongs to.
 
 > I have tested the above endpoints and things work as expected. You can stop
 > the application and start implementing sprint 5
+
+---
+
+## Sprint 6
+
+### Prompt 23
+
+> Please start with implementing sprint 6

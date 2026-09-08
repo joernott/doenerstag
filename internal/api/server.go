@@ -111,6 +111,15 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	userHandlers := &UserHandlers{Pool: opts.Pool, Secure: secure}
 	userHandlers.Register(router)
 
+	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
+	restaurantHandlers.Register(router)
+
+	imageHandlers := &ImageHandlers{
+		Pool:           opts.Pool,
+		MaxUploadBytes: cfg.Server.MaxImageSize,
+	}
+	imageHandlers.Register(router)
+
 	authenticator := &Authenticator{
 		Pool:        opts.Pool,
 		Signer:      signer,
