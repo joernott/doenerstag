@@ -60,6 +60,16 @@ otherwise from `DOENER_TEST_DATABASE_URL` pointing at a database the developer
 provides. Tests skip with a clear message when neither is available, so
 `go test ./...` never fails merely because Docker is not installed.
 
+Setting `DOENER_TEST_SKIP_DOCKER` to a non-empty value stops the harness
+attempting a container at all. The Windows CI job sets it: that runner has a
+Docker daemon, but one serving Windows containers, so a Linux PostgreSQL image
+can never run there.
+
+The harness must never fail a suite because the environment lacks a usable
+database — only provide one or skip. A panic raised while a third-party library
+probes for Docker is therefore caught and reported as unavailability, with the
+panic value carried into the skip message.
+
 Each test runs in a transaction that is rolled back, except migration tests,
 which need their own database.
 

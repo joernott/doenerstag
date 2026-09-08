@@ -12,6 +12,18 @@ permissions:
 env:
   GO_VERSION: "1.26.6"
 
+# bash everywhere, including on the Windows runner, whose default is PowerShell.
+#
+# PowerShell mangles an argument of the form -flag=value.ext: it split
+# `-coverprofile=windows-coverage.out` and handed `.out` to go test as a package
+# path, which failed with "no required module provides package .out" while the
+# identical command passed on Linux and on a Windows workstation. One shell
+# dialect for both platforms means a step is either right everywhere or wrong
+# everywhere, rather than silently differing.
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -116,13 +128,38 @@ jobs:
       # No -race here: the Windows runner has no cgo toolchain by default,
       # which is the same limitation the developer workstation has. The Linux
       # job is where the race detector runs.
+      #
+      # DOENER_TEST_SKIP_DOCKER stops the harness attempting to start a
+      # container. This runner serves Windows containers, so a Linux PostgreSQL
+      # image cannot run here and trying costs CI minutes for a guaranteed
+      # skip. The database tests are covered by the Linux job.
+      #
+      # It was first added while chasing the shell bug described at the top of
+      # this file, on the mistaken theory that Docker was the difference. It is
+      # kept on its own merits.
+      #
+      # On failure the output is echoed as a workflow error annotation as well
+      # as to the log. Job logs need admin rights on the repository and
+      # annotations do not, so a Windows-only failure stays diagnosable by
+      # whoever is looking at the run.
       - name: Test
-        run: go test -coverprofile=windows-coverage.out ./...
+        env:
+          DOENER_TEST_SKIP_DOCKER: "1"
+        run: |
+          set +e
+          output="$(go test -coverprofile=windows-coverage.out ./... 2>&1)"
+          status=$?
+          echo "$output"
+          if [ "$status" -ne 0 ]; then
+            encoded="$(printf '%s' "$output" | head -c 3000 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            echo "::error title=go test failed::$encoded"
+          fi
+          exit "$status"
 
       - name: Coverage report
         run: |
           go tool cover -html=windows-coverage.out -o windows-coverage.html
-          go tool cover -func=windows-coverage.out | Select-Object -Last 1
+          go tool cover -func=windows-coverage.out | tail -1
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

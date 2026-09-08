@@ -373,3 +373,34 @@ recorded on the branch of the sprint it belongs to.
 > - When running the coverage tests,, preserve both results from Windows and
 >   Linux as <OS>-coverage.out and run  go tool cover -html=<OS>coverage.out -o
 >   <OS>coverage.html
+
+## Sprint 2
+
+### Prompt 9
+
+> Please push the sprint-1 branch and continue implementation with Sprint2
+
+### Prompt 10
+
+> please create a sprint-0 branch from the last commit before the first commit
+> belonging to sprint 1. Please rename the curent sprint-1 branch as sprint-2 and
+> create a new sprint-1 branch that only contain all the commits belonging to
+> sprint 1. In the future, always create a sprint-<number> branch for every
+> sprint.
+
+### Prompt 11
+
+> govulncheck fails in the CI:
+> https://github.com/joernott/doenerstag/actions/runs/34015733078/job/101439063700
+> The  Test (Windows)  check also fails in the CI:
+> https://github.com/joernott/doenerstag/actions/runs/34015733078/job/101439063710
+>
+> Create an additional task in sprint 2 to fix those CI errors and execute that
+> task
+
+### Prompt 12
+
+> The file docs/zz_prompts.md seems to be missing the last few prompts. Please
+> add the prompts belonging to sprint 1 to the sprint-1 branch, merge that into
+> sprint-2 and then add the prompts belonging to sprint 2 there as well. I'd like
+> to keep a history of all prompts in that file to document the process.

@@ -17,6 +17,29 @@ that follows dependency order.
 - A task is done when it is implemented, tested to the standard in
   [12_testing.md](12_testing.md), and CI is green.
 
+## Branching
+
+**Every sprint gets its own branch, named `sprint-<number>`.** A sprint's branch
+starts from the tip of the previous sprint's branch and ends at that sprint's
+last commit, so each branch is exactly the work of one sprint and the whole
+history reads as a sequence of them.
+
+| Branch     | Contains                                              |
+| ---------- | ----------------------------------------------------- |
+| `sprint-0` | The specification and this plan. No code.              |
+| `sprint-1` | Tasks 1.1 – 1.15.                                      |
+| `sprint-2` | Tasks 2.1 – 2.14.                                      |
+| `sprint-n` | The tasks of sprint n, branched from `sprint-(n-1)`.   |
+
+Commit messages carry the task number they implement, in the form
+`Task <n.m>: <description>`, so a commit can be traced to the plan entry it
+satisfies. A commit that closes several tasks names all of them.
+
+Work that belongs to no task — a defect found while running a later sprint's
+code, for instance — is committed on the branch of the sprint that found it,
+not retrofitted into the earlier one, and says in its message which sprint's
+artefacts it corrects.
+
 ## Milestones
 
 | After     | You can                                                                     |
@@ -118,20 +141,21 @@ anything depends on it is the cheapest ordering there is.
 
 | ID   | Task                                                                                       | Size | Spec |
 | ---- | ------------------------------------------------------------------------------------------ | :--: | ---- |
-| 2.1  | pgx pool: connection string assembly, `sslmode`, `--max-connection-pool`, UTC session         | M | [08](08_technologies.md) |
-| 2.2  | golang-migrate integration with embedded migration files                                     | M | [08](08_technologies.md) |
-| 2.3  | Audit column convention and the `updated_at` trigger                                          | S | [03](03_data_model.md) |
-| 2.4  | Migration: `app_user`, `session`, `api_token`; deleted-user placeholder with its fixed UUID    | M | [03](03_data_model.md) |
-| 2.5  | Migration: `currency`, `contact_type`, `tag`, `allergen`, `additive` seeds with source comments | M | [03](03_data_model.md) |
-| 2.6  | Migration: `restaurant`, `restaurant_contact`, `opening_hours`                                | M | [03](03_data_model.md) |
-| 2.7  | Migration: `menu_category`, `menu_item`, `menu_item_modification`, the three link tables       | M | [03](03_data_model.md) |
-| 2.8  | Migration: `food_order`, `order_item`, `order_item_modification`                              | M | [03](03_data_model.md) |
-| 2.9  | Migration: `image`, `content_page`, `app_version`                                             | S | [03](03_data_model.md) |
-| 2.10 | Indexes, `CHECK` constraints, partial unique indexes, foreign key actions                     | M | [03](03_data_model.md) |
-| 2.11 | Test harness: testcontainers-go, `DOENER_TEST_DATABASE_URL` fallback, clean skip when neither   | M | [12](12_testing.md) |
-| 2.12 | Migration tests: up and down from empty and from each intermediate version                     | M | [12](12_testing.md) |
-| 2.13 | Seed verification tests, asserting each `code` individually                                    | M | [12](12_testing.md) |
-| 2.14 | Constraint tests: `deadline_at < fulfilment_at`, `quantity >= 1`, uniqueness, day-of-week range | M | [12](12_testing.md) |
+| ✅ 2.1 | pgx pool: connection string assembly, `sslmode`, `--max-connection-pool`, UTC session       | M | [08](08_technologies.md) |
+| ✅ 2.2 | golang-migrate integration with embedded migration files                                    | M | [08](08_technologies.md) |
+| ✅ 2.3 | Audit column convention and the `updated_at` trigger                                        | S | [03](03_data_model.md) |
+| ✅ 2.4 | Migration: `app_user`, `session`, `api_token`; deleted-user placeholder with its fixed UUID | M | [03](03_data_model.md) |
+| ✅ 2.5 | Migration: `currency`, `contact_type`, `tag`, `allergen`, `additive` seeds with source comments | M | [03](03_data_model.md) |
+| ✅ 2.6 | Migration: `restaurant`, `restaurant_contact`, `opening_hours`                              | M | [03](03_data_model.md) |
+| ✅ 2.7 | Migration: `menu_category`, `menu_item`, `menu_item_modification`, the three link tables    | M | [03](03_data_model.md) |
+| ✅ 2.8 | Migration: `food_order`, `order_item`, `order_item_modification`                            | M | [03](03_data_model.md) |
+| ✅ 2.9 | Migration: `image`, `content_page`, `app_version`                                           | S | [03](03_data_model.md) |
+| ✅ 2.10 | Indexes, `CHECK` constraints, partial unique indexes, foreign key actions                  | M | [03](03_data_model.md) |
+| ✅ 2.11 | Test harness: testcontainers-go, `DOENER_TEST_DATABASE_URL` fallback, clean skip when neither | M | [12](12_testing.md) |
+| ✅ 2.12 | Migration tests: up and down from empty and from each intermediate version                | M | [12](12_testing.md) |
+| ✅ 2.13 | Seed verification tests, asserting each `code` individually                               | M | [12](12_testing.md) |
+| ✅ 2.14 | Constraint tests: `deadline_at < fulfilment_at`, `quantity >= 1`, uniqueness, day-of-week range | M | [12](12_testing.md) |
+| ✅ 2.15 | Fix the CI failures the sprint 2 dependencies introduced: `govulncheck` and the Windows test job | M | [12](12_testing.md) |
 
 **Exit criteria:** migrations apply and roll back cleanly at every version. The
 14 allergens, 14 additives, currencies, contact types and default tags are
