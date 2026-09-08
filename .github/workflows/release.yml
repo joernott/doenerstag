@@ -97,89 +97,140 @@ jobs:
           retention-days: 7
 
   # Installing the package is the only test that answers the question an
-  # operator asks. A container per format, from a clean image each time.
-  packages:
-    name: Install the packages
+  # operator asks. Each format goes into its own distribution, in a job
+  # container rather than a nested `docker run`, so the steps read as the
+  # commands an operator would type. The same checks run on every push in
+  # ci.yml; they run again here against the artefacts this tag actually
+  # publishes.
+  package-deb:
+    name: Install the .deb (Debian 13)
     runs-on: ubuntu-latest
     needs: [artefacts]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: debian:13
-            format: deb
-          - image: fedora:41
-            format: rpm
+    container:
+      image: debian:13
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: release-artefacts
           path: dist
 
-      - name: Install, reinstall and remove
+      - name: Install
         run: |
-          docker run --rm -v "$PWD/dist:/dist:ro" ${{ matrix.image }} sh -eux -c '
-            if [ "${{ matrix.format }}" = "deb" ]; then
-              apt-get update -qq
-              # The package depends on the PostgreSQL client, so a real install
-              # has to resolve it: `dpkg -i` alone would not.
-              apt-get install -y -qq /dist/doenerstag_*_amd64.deb
-            else
-              dnf install -y -q /dist/doenerstag-*.x86_64.rpm
-            fi
+          apt-get update -qq
+          # apt-get and not `dpkg -i`: the package depends on the PostgreSQL
+          # client tools, and only apt resolves that.
+          apt-get install -y -qq ./dist/doenerstag_*_amd64.deb
 
-            # Everything the package promised is where it said it would be.
-            test -x /usr/bin/doenerstag
-            test -f /etc/doenerstag/doenerstag.yaml
-            test -f /etc/logrotate.d/doenerstag
-            test -f /etc/cron.d/doenerstag
-            test -f /usr/lib/systemd/system/doenerstag.service
-            test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
-            test -d /var/log/doenerstag
-            getent passwd doenerstag >/dev/null
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
 
-            # The binary runs, and reports the version the tag asked for.
-            /usr/bin/doenerstag --version
+      - name: It reports the version this tag builds
+        run: /usr/bin/doenerstag --version | grep -q "${{ needs.artefacts.outputs.version }}"
 
-            # A modified configuration file survives reinstalling over the top,
-            # which is what marking it as a config file is for. A log file is
-            # created too: what removal must not destroy is evidence, and an
-            # empty directory is not evidence.
-            echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
-            touch /var/log/doenerstag/doenerstag.log
-            if [ "${{ matrix.format }}" = "deb" ]; then
-              apt-get install -y -qq --reinstall /dist/doenerstag_*_amd64.deb
-            else
-              dnf reinstall -y -q /dist/doenerstag-*.x86_64.rpm
-            fi
-            grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          apt-get install -y -qq --reinstall ./dist/doenerstag_*_amd64.deb
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
 
-            if [ "${{ matrix.format }}" = "deb" ]; then
-              apt-get remove -y -qq doenerstag
-            else
-              dnf remove -y -q doenerstag
-            fi
-            test ! -e /usr/bin/doenerstag
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          apt-get remove -y -qq doenerstag
+          test ! -e /usr/bin/doenerstag
+          # dpkg leaves a modified config file exactly where it was.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+          test -f /var/log/doenerstag/doenerstag.log
 
-            # The log file survives both formats. The configuration file does
-            # too, but under a different name: rpm renames a modified config
-            # file to .rpmsave on erase, and dpkg leaves it in place. Asserting
-            # one rule for both would either be wrong or too weak to be worth
-            # running.
-            test -f /var/log/doenerstag/doenerstag.log
-            if [ "${{ matrix.format }}" = "deb" ]; then
-              grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
-            else
-              grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml.rpmsave
-            fi
-          '
-
-  # The image, for both architectures. Pushed only for a real tag: a
-  # workflow_dispatch rehearsal builds it and throws it away.
-  image:
-    name: Build and publish the image
+  package-rpm:
+    name: Install the .rpm (Fedora)
     runs-on: ubuntu-latest
     needs: [artefacts]
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artefacts
+          path: dist
+
+      - name: Install
+        run: |
+          # dnf and not `rpm -ivh`: the package depends on the PostgreSQL
+          # client tools, and rpm alone fails on the unmet dependency rather
+          # than resolving it.
+          dnf install -y -q ./dist/doenerstag-*.x86_64.rpm
+
+      - name: Everything the package promised is where it said it would be
+        run: |
+          set -eux
+          test -x /usr/bin/doenerstag
+          test -f /etc/doenerstag/doenerstag.yaml
+          test -f /etc/logrotate.d/doenerstag
+          test -f /etc/cron.d/doenerstag
+          test -f /usr/lib/systemd/system/doenerstag.service
+          test -f /usr/share/doc/doenerstag/THIRD_PARTY_LICENSES
+          test -d /var/log/doenerstag
+          getent passwd doenerstag >/dev/null
+          grep -q "^ExecStart=/usr/bin/doenerstag " /usr/lib/systemd/system/doenerstag.service
+
+      - name: It reports the version this tag builds
+        run: /usr/bin/doenerstag --version | grep -q "${{ needs.artefacts.outputs.version }}"
+
+      - name: A modified configuration file survives a reinstall
+        run: |
+          set -eux
+          echo "# edited by the operator" >> /etc/doenerstag/doenerstag.yaml
+          touch /var/log/doenerstag/doenerstag.log
+          dnf reinstall -y -q ./dist/doenerstag-*.x86_64.rpm
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml
+
+      - name: Removal destroys neither the configuration nor the logs
+        run: |
+          set -eux
+          dnf remove -y -q doenerstag
+          test ! -e /usr/bin/doenerstag
+          # rpm renames a modified config file rather than leaving it in place.
+          # Different from dpkg, and documented as such in 10_operations.md.
+          grep -q "edited by the operator" /etc/doenerstag/doenerstag.yaml.rpmsave
+          test -f /var/log/doenerstag/doenerstag.log
+
+  # The image, for both architectures. It is run before it is pushed, against a
+  # real database: an image nobody has started is not an image anybody should
+  # pull. The amd64 build is loaded locally and exercised first; the push then
+  # reuses that build's cache, so proving it works costs a cache hit rather
+  # than a second compile.
+  #
+  # Pushed only for a real tag: a workflow_dispatch rehearsal builds, runs and
+  # throws it away.
+  image:
+    name: Build, run and publish the image
+    runs-on: ubuntu-latest
+    needs: [artefacts]
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: release-root-password
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
         with:
@@ -189,16 +240,81 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
+      - name: Build for this architecture, to run it
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: doenerstag:candidate
+          build-args: |
+            VERSION=${{ needs.artefacts.outputs.version }}
+            COMMIT=${{ needs.artefacts.outputs.commit }}
+            BUILD_DATE=${{ needs.artefacts.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: It reports the version this tag builds
+        run: |
+          set -eux
+          docker run --rm doenerstag:candidate --version
+          docker run --rm doenerstag:candidate --version \
+            | grep -q "${{ needs.artefacts.outputs.version }}"
+
+      - name: A configuration directory the unprivileged user can write
+        run: |
+          set -eux
+          mkdir -p config
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+            -keyout config/server.key -out config/server.crt
+          chmod 0644 config/server.crt
+          chmod 0600 config/server.key
+          sudo chown -R 65532:65532 config
+
+      - name: Provision a database and serve from it
+        env:
+          DOENER_DATABASE_ROOT_PASSWORD: release-root-password
+          DOENER_DATABASE_ADMIN_PASSWORD: release-root-password
+          DOENER_DATABASE_PASSWORD: release-runtime-password
+          DOENER_ROOT_PASSWORD: Release-Root-Passw0rd
+        run: |
+          set -eux
+          docker run --rm --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -e DOENER_DATABASE_ROOT_PASSWORD \
+            -e DOENER_DATABASE_ADMIN_PASSWORD \
+            -e DOENER_DATABASE_PASSWORD \
+            -e DOENER_ROOT_PASSWORD \
+            -v "$PWD/config:/config" \
+            doenerstag:candidate \
+            install -o /config/doenerstag.yaml -R postgres -A postgres --non-interactive
+
+          docker run -d --name doenerstag --network host \
+            -e DOENER_DATABASE_SERVER=127.0.0.1 \
+            -v "$PWD/config:/config:ro" \
+            doenerstag:candidate server -c /config/doenerstag.yaml
+
+          for _ in $(seq 1 30); do
+            if curl -skf https://localhost:8443/api/v1/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -sk https://localhost:8443/api/v1/version
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:8443/)" = "200"
+
+      - name: The container's log, when something failed
+        if: failure()
+        run: docker logs doenerstag || true
+
       - name: Log in to Docker Hub
-        # Secrets, never a literal. Add them under Settings → Secrets and
-        # variables → Actions: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
+        # Secrets, never a literal. Settings → Secrets and variables → Actions:
+        # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
         uses: docker/login-action@v3
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Push both architectures
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -211,10 +327,12 @@ jobs:
             VERSION=${{ needs.artefacts.outputs.version }}
             COMMIT=${{ needs.artefacts.outputs.commit }}
             BUILD_DATE=${{ needs.artefacts.outputs.build_date }}
+          cache-from: type=gha
           provenance: false
 
-      - name: The image runs
+      - name: What was published is what was tested
         run: |
+          set -eux
           docker run --rm --pull=always \
             docker.io/joernott/doenerstag:${{ needs.artefacts.outputs.version }} --version
 
@@ -223,7 +341,7 @@ jobs:
   release:
     name: Publish the release
     runs-on: ubuntu-latest
-    needs: [artefacts, packages, image]
+    needs: [artefacts, package-deb, package-rpm, image]
     permissions:
       contents: write
     steps:

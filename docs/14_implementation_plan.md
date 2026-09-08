@@ -543,6 +543,8 @@ fully operable by keyboard. The coverage targets are met, in particular 90% on
 | ✅ 15.8.3 | `08_technologies.md` documented a `make migrate` that does not exist, described `make packages` and `make image` as doing things they do not, and called the image a two-stage build. Found in sprint 15 | S | [08](08_technologies.md) |
 | ✅ 15.8.4 | `12_testing.md` promised a `go-licenses` check on every push. There was none: the check existed only in the release workflow, so a dependency added without its licence would have been caught after the artefacts were built. It is now a CI job. Found in sprint 15 | S | [12](12_testing.md) |
 | ✅ 15.8.5 | `make archives` produced a `.tar.gz` whose single file was named `doenerstag-linux-amd64`. Extracting a release should give you the command you are about to run. Found in sprint 15 | S | [10](10_operations.md) |
+| 15.12 | CI builds the packages on every push and installs each one in its own distribution container, using a job `container:` rather than a nested `docker run` | M | [12](12_testing.md) |
+| 15.13 | CI builds the container image on every push and runs it: `--version`, then `install` and `server` against a PostgreSQL service, answering over HTTPS | M | [12](12_testing.md) |
 | 15.9 | Tag 0.1.0. Not 1.0.0: this is the first iteration, it provides the minimal functionality and has had barely any use | S | — |
 | 15.10 | Publish the container image to `docker.io/joernott/doenerstag`, as `0.1.0` and `latest`. The credentials are repository secrets; nothing about them is committed | M | [10](10_operations.md) |
 | 15.11 | A GitHub release for 0.1.0 carrying the Windows executable in a `.zip`, the Linux executable in a `.tar.gz`, the `.deb`, the `.rpm` and the `Dockerfile` | M | [10](10_operations.md) |

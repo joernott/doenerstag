@@ -355,11 +355,15 @@ another's output:
 | Frontend         | `tsc --noEmit`, `eslint`, Vitest, the esbuild build, and a check that the committed `static/` matches its sources. |
 | End-to-end       | The release binary against a provisioned database, driven by Playwright in Chromium and Firefox, with the axe accessibility scans. |
 | Build            | The development and the embedded builds, then a smoke test: `--version`, a secret on the command line is refused, a world-readable configuration file is refused. |
+| Artefacts        | `make archives` and `make packages`, then a check that the `.tar.gz` holds a file called `doenerstag` and the `.zip` holds `doenerstag.exe`. |
+| Package (deb)    | The `.deb` installed in a `debian:13` job container: every promised path, the unit file's `ExecStart`, a reinstall over a modified config, and what removal leaves behind. |
+| Package (rpm)    | The same for the `.rpm` in `fedora:latest`, asserting rpm's own removal behaviour rather than dpkg's. |
+| Image            | The container image built and then used: `--version`, no shell, uid 65532, then `install` and `server` against a PostgreSQL service, answering over HTTPS and serving the SPA out of the binary. |
 
 A merge is blocked on all of them. Coverage is reported but does not block.
 
-A release tag runs [`release.yml`](../.github/workflows/release.yml) instead,
-which is described in [10_operations.md](10_operations.md). It builds the
-archives and the four packages, installs each package in a throwaway
-`debian:13` and `fedora:41` container and checks what removal leaves behind,
-builds and pushes the two-architecture image, and publishes the release.
+A release tag runs [`release.yml`](../.github/workflows/release.yml)
+instead, which is described in [10_operations.md](10_operations.md). It
+repeats the package and image jobs above against the artefacts that tag
+actually publishes, and it runs the image before pushing it: an image
+nobody has started is not an image anybody should pull.
