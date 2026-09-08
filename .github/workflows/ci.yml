@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.6"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Steps run fastest-first so that a formatting slip fails in seconds rather
+  # than after the whole test suite. See docs/12_testing.md.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go mod tidy is up to date
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+  vulnerabilities:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Test with the race detector
+        # Development happens on Windows, where cgo and therefore -race is
+        # usually unavailable. Linux CI is where the race detector actually
+        # runs, so it must not be optional here.
+        run: go test -race -coverprofile=linux-coverage.out ./...
+
+      - name: Coverage report
+        run: |
+          go tool cover -html=linux-coverage.out -o linux-coverage.html
+          go tool cover -func=linux-coverage.out | tail -1
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: |
+            linux-coverage.out
+            linux-coverage.html
+          retention-days: 14
+
+  # The permission check in task 1.7 is skipped on Windows and the SIGHUP log
+  # reopen does not exist there, so both platforms are exercised. The developer
+  # machine is Windows; CI must not be the place that discovers it broke.
+  test-windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      # No -race here: the Windows runner has no cgo toolchain by default,
+      # which is the same limitation the developer workstation has. The Linux
+      # job is where the race detector runs.
+      - name: Test
+        run: go test -coverprofile=windows-coverage.out ./...
+
+      - name: Coverage report
+        run: |
+          go tool cover -html=windows-coverage.out -o windows-coverage.html
+          go tool cover -func=windows-coverage.out | Select-Object -Last 1
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-windows
+          path: |
+            windows-coverage.out
+            windows-coverage.html
+          retention-days: 14
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Development build
+        run: make build
+
+      # Both build configurations must compile. The embedded build is what a
+      # release ships, and it is the one nobody exercises during development.
+      # It is expected to fail until task 4.7 creates the static assets and
+      # task 4.6 adds the embed directives, so it is not yet a blocker.
+      - name: Embedded build
+        continue-on-error: true
+        run: go build -tags embedstatic ./...
+
+      - name: Smoke test the binary
+        run: |
+          ./doenerstag --version
+          ./doenerstag --help
+          # Every verb must fail cleanly rather than crash.
+          for verb in server install update cleanup version; do
+            if ./doenerstag "$verb"; then
+              echo "$verb unexpectedly succeeded"
+              exit 1
+            fi
+          done
+
+      - name: A secret on the command line must be refused
+        run: |
+          if ./doenerstag server --jwt-secret leaked; then
+            echo "a secret on the command line was accepted"
+            exit 1
+          fi
+
+      - name: A world-readable configuration file must be refused
+        run: |
+          printf 'log:\n  level: INFO\n' > doenerstag.yaml
+          chmod 0644 doenerstag.yaml
+          if ./doenerstag server --config doenerstag.yaml; then
+            echo "a world-readable configuration file was accepted"
+            exit 1
+          fi
+          chmod 0600 doenerstag.yaml

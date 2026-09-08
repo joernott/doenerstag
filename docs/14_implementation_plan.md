@@ -59,21 +59,52 @@ Sprint 3 needs configuration and logging to already work.
 
 | ID  | Task                                                                                          | Size | Spec |
 | --- | --------------------------------------------------------------------------------------------- | :--: | ---- |
-| 1.1 | `go mod init`, repository layout, `.gitignore`, `.editorconfig`, `golangci-lint` config        | S | [08](08_technologies.md) |
-| 1.2 | `Makefile` with `deps`, `build`, `test`, `lint`; frontend targets stubbed                       | S | [08](08_technologies.md) |
-| 1.3 | cobra command tree: root plus `server`, `install`, `update`, `cleanup`, `version` as stubs      | S | [09](09_configuration.md) |
-| 1.4 | viper wiring: defaults → config file → `DOENER_*` → flags, with the nested-key mapping           | M | [09](09_configuration.md) |
-| 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                   | S | [09](09_configuration.md) |
-| 1.6 | Secret-on-the-command-line rule: FATAL for each of the four settings                            | S | [09](09_configuration.md) |
-| 1.7 | Config file permission check: `0600`/`0400` pass, anything else FATAL, skipped on Windows        | S | [09](09_configuration.md) |
-| 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields                | M | [08](08_technologies.md) |
-| 1.9 | Redaction deny-list for the DEBUG parameter logging                                             | S | [08](08_technologies.md) |
-| 1.10| Unit tests: precedence, secret rule, permission check, redaction, level mapping                  | M | [12](12_testing.md) |
-| 1.11| CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                                | M | [12](12_testing.md) |
+| ✅ 1.1 | `go mod init`, repository layout, `.gitignore`, `.editorconfig`, `golangci-lint` config     | S | [08](08_technologies.md) |
+| ✅ 1.1.1 | `.gitattributes` normalising line endings to LF. Added because development happens on Windows, where a checkout would otherwise reintroduce CRLF and break `gofmt -l` in CI. | S | — |
+| ✅ 1.2 | `Makefile` with `deps`, `build`, `test`, `lint`; frontend targets stubbed                    | S | [08](08_technologies.md) |
+| ✅ 1.3 | cobra command tree: root plus `server`, `install`, `update`, `cleanup`, `version` as stubs   | S | [09](09_configuration.md) |
+| ✅ 1.4 | viper wiring: defaults → config file → `DOENER_*` → flags, with the nested-key mapping        | M | [09](09_configuration.md) |
+| ✅ 1.4.1 | Duration parser extending `time.ParseDuration` with day and week units. Added because the documented defaults `7d` and `14d` are rejected outright by the standard library, which stops at hours. | S | [09](09_configuration.md) |
+| ✅ 1.4.2 | Byte-size parser for `--max-image-size`. Added because `5MiB` has no parser in the standard library. | S | [09](09_configuration.md) |
+| ✅ 1.5 | Global flags; `--version` with the build-time version injected via `-ldflags`                | S | [09](09_configuration.md) |
+| ✅ 1.6 | Secret-on-the-command-line rule: FATAL for each of the four settings                         | S | [09](09_configuration.md) |
+| ✅ 1.7 | Config file permission check: `0600`/`0400` pass, anything else FATAL, skipped on Windows     | S | [09](09_configuration.md) |
+| ✅ 1.8 | zerolog: five levels, JSON output, `--log-file`, `SIGHUP` reopen, standard fields             | M | [08](08_technologies.md) |
+| ✅ 1.9 | Redaction deny-list for the DEBUG parameter logging                                          | S | [08](08_technologies.md) |
+| ✅ 1.10 | Unit tests: precedence, secret rule, permission check, redaction, level mapping             | M | [12](12_testing.md) |
+| ✅ 1.11 | CI pipeline: `lint`, `vet`, `test`, `govulncheck`                                           | M | [12](12_testing.md) |
+| ✅ 1.12 | Extend `contrib/setup_dev_pipeline.sh` with everything the build and test pipeline needs at this stage | M | [08](08_technologies.md) |
+| ✅ 1.13 | Add the tools later sprints are already known to need to the same script                    | S | [08](08_technologies.md) |
+| ✅ 1.14 | Run the build and test pipeline on the Linux VM                                             | M | [12](12_testing.md) |
+| ✅ 1.15 | Keep the Windows and Linux coverage results side by side as `<os>-coverage.out`, and render each to `<os>-coverage.html` | S | [12](12_testing.md) |
 
 **Exit criteria:** `doenerstag --version` prints the version. Every verb runs and
 exits with a clear "not implemented". Passing a password on the command line is
-fatal. A `0644` config file is fatal. CI is green.
+fatal. A `0644` config file is fatal. CI is green. The pipeline runs on a Linux
+machine provisioned solely by `contrib/setup_dev_pipeline.sh`.
+
+### The development VM
+
+`contrib/setup_dev_pipeline.sh` provisions a Debian machine with everything the
+project needs. It is the definition of the development environment: a tool the
+pipeline needs and the script does not install is a defect in the script.
+
+It is deliberately close to what CI installs. The Windows workstation cannot run
+`go test -race`, which needs cgo, so the Linux VM is where the race detector and
+the Docker-dependent database tests from sprint 2 onwards actually run before
+they reach CI.
+
+### Coverage is per platform
+
+The two platforms do not execute the same code. The configuration file
+permission check is skipped on Windows and the `SIGHUP` log reopen does not
+exist there, so a single coverage number is an average of two different runs and
+hides which lines are actually unexercised on each.
+
+Coverage is therefore kept separately as `linux-coverage.out` and
+`windows-coverage.out`, each rendered to a matching `.html`, and both uploaded
+by CI. When a line looks uncovered, the question worth asking is *on which
+platform* — and that is only answerable if the two are never merged.
 
 ---
 
