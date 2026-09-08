@@ -799,3 +799,51 @@ recorded on the branch of the sprint it belongs to.
 > expected behaviour would be to either show an error page that allows a relogin
 > or show the main page as anonymous user with a modal dialog that I have been
 > logged out.
+
+---
+
+### Prompt 47
+
+> Some more tasks:
+> - Add the installation of mokapi to the setup_dev_pipeline.sh script and
+>   install it on the VM. Also maske sure, it is configured for Mail (SMTP and
+>   IMAP) and LDAP. This can be used to test the email functionality.
+> - Add support for sending EMails to the application and add a "Forgot
+>   password?" option in the login dialog beind the Login button. That should
+>   generate a unique reset-password ID, that is kept in memory for one hour. It
+>   should also trigger sending an email to the email address of the user. The
+>   email should contain a link to a password reset page with the unique ID and
+>   allow the user to reset their password. After completing and submitting the
+>   form, the user should be redirected to the login page.
+> - Add the new verb "user" with the following subcommands
+>   - list lists all users with their id
+>   - add adds a user with the following parameters --username (-u),
+>     --displayname (-d), --email (-e): That command should generate a 20
+>     character password using the compleyity rules, set it and print it out
+>   - delete deletes a user, either --id (-i) or --username (-u) must be provided
+>     to identify the user
+>   - password resets the password for a user, either --id (-i) or --username
+>     (-u) must be provided to identify the user. If --set-pasword is provided,
+>     the application will ask for the new password, otherwise it will generate a
+>     reset password link for the user
+> - For the administrator user, there should be a menu entry "Users" that shows a
+>   list of users with an edit, reset password and delete button for each user.
+>   The edit button should open the user dialog for the respective user, the
+>   reset password button should trigger the same password reset functionality as
+>   if the user had clicked on the "reset password" link on the login page.
+> - Add a new verb "restaurant that has the following subcommands
+>   - list lists all restaurants with their ID
+>   - delete deletes a restaurant and depending menu items, orders, opening hours
+>     etc.,  --id (-i) must be specified
+>   - export exports a restaurant with opening hours, contacts menus and
+>     associated tags. --id (-i) must be provided, --format (-F) specifies the
+>     file format. It can either be yaml or json. If -i is provided multiple
+>     times, multipüle restaurants are exported. if --all (-a) is specified, all
+>     restaurants are exported.
+>   - import imports a restaurant, --file (-f) specifies the file, the
+>     application tries to guess the format by looking at the content, not the
+>     file suffix, this can be overridden by providing the --format (-F)
+>     parameter. A file can contain multiple restaurants. If a restaurant with the
+>     given uuid already exists, it will hnot be imported. this can be overridenn
+>     by providing the --overwrite (-o) option. In that case, the existing
+>     restaurant with that ID is deleted before the new restaurant is imported

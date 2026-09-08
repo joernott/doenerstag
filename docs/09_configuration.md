@@ -26,6 +26,7 @@ up in shell history.
 | `database-admin-password`   | Environment, interactive prompt                         |
 | `root-password`             | Environment, interactive prompt                         |
 | `jwt-secret`                | Config file, environment                                |
+| `mail-password`             | Config file, environment                                |
 
 `root-password` is the doenerstag `root` administrator's password, not a
 database one. Every database identity carries a `database-` prefix; this is the

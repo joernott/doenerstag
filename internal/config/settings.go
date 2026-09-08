@@ -264,6 +264,68 @@ var Settings = []Setting{
 		Scopes: ScopeServer,
 	},
 
+	// --- outgoing mail -----------------------------------------------------
+	//
+	// Mail is optional. With no host configured the application sends nothing
+	// and says so where it matters, rather than failing at the moment somebody
+	// asks for a password reset. An intranet tool in a company that has no
+	// internal mail relay is a reasonable thing to run.
+	{
+		Flag: "mail-host", Key: "mail.host",
+		Kind: KindString, Default: "",
+		Usage:  "SMTP host for outgoing mail; empty disables sending",
+		Scopes: ScopeServer,
+	},
+	{
+		Flag: "mail-port", Key: "mail.port",
+		Kind: KindInt, Default: 25,
+		Usage:  "SMTP port",
+		Scopes: ScopeServer,
+	},
+	{
+		Flag: "mail-username", Key: "mail.username",
+		Kind: KindString, Default: "",
+		Usage:  "user name for SMTP authentication; empty sends unauthenticated",
+		Scopes: ScopeServer,
+	},
+	{
+		Flag: "mail-password", Key: "mail.password",
+		Kind: KindString, Default: "", Secret: true,
+		Usage:  "password for SMTP authentication (config file or environment only)",
+		Scopes: ScopeServer,
+	},
+	{
+		Flag: "mail-from", Key: "mail.from",
+		Kind: KindString, Default: "",
+		Usage:  "envelope and header From address; defaults to doenerstag@<hostname>",
+		Scopes: ScopeServer,
+	},
+	{
+		// none, starttls or tls. Not a bool, because there are three answers
+		// and the third -- implicit TLS on port 465 -- is not "more" or "less"
+		// of the second.
+		Flag: "mail-encryption", Key: "mail.encryption",
+		Kind: KindString, Default: "starttls",
+		Usage:  "transport security for SMTP: none, starttls or tls",
+		Scopes: ScopeServer,
+	},
+	{
+		Flag: "mail-timeout", Key: "mail.timeout",
+		Kind: KindDuration, Default: "10s",
+		Usage:  "how long to wait for the mail server before giving up",
+		Scopes: ScopeServer,
+	},
+	{
+		// Sending a message with a link in it means knowing the address this
+		// installation answers on, which nothing else in the configuration
+		// says: --port and --bind-address describe the socket, not the name a
+		// person types, and a reverse proxy makes the two different.
+		Flag: "base-url", Key: "server.base_url",
+		Kind: KindString, Default: "",
+		Usage:  "public address of this installation, for links in mail, e.g. https://doener.example",
+		Scopes: ScopeGlobal,
+	},
+
 	// --- install and update ------------------------------------------------
 	// These are never written to the configuration file, so they have no Key.
 	{

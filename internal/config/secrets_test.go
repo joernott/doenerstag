@@ -15,6 +15,7 @@ var forbiddenOnCommandLine = []string{
 	"database-admin-password",
 	"jwt-secret",
 	"root-password",
+	"mail-password",
 }
 
 func TestExactlyTheDocumentedSettingsAreSecret(t *testing.T) {

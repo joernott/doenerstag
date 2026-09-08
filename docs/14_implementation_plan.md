@@ -569,10 +569,19 @@ by a plan written in advance.
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
 | ✅ 16.1 | A stale session cookie makes the whole application unreachable: every request, including the page itself and every public endpoint, answers 401 with a JSON error envelope. The browser shows raw JSON and there is no way out of it short of clearing cookies by hand. Reported by the user after leaving a session open overnight | M | [05](05_auth_and_permissions.md) |
+| 16.2 | `mokapi` in `contrib/setup_dev_pipeline.sh` and on the VM, configured as a Mail server (SMTP and IMAP) and an LDAP server, so the mail path can be tested against something that behaves like the real thing | M | [12](12_testing.md) |
+| 16.3 | Outgoing mail: SMTP settings, a sender the application can use, and the operational questions that come with it — what happens when the mail server is down, and what is never put in a message | M | [09](09_configuration.md) |
+| 16.4 | "Forgot password?" behind the login button. A reset identifier held in memory for one hour, a mail carrying a link to a reset page, and a redirect to the login page once the new password is set | L | [05](05_auth_and_permissions.md) |
+| 16.5 | The `user` verb: `list`, `add` (generating a 20-character password and printing it), `delete` and `password` (either setting one interactively or issuing a reset link) | L | [09](09_configuration.md) |
+| 16.6 | A "Users" entry for the administrator: every user with edit, reset-password and delete, the reset doing exactly what the login page's link does | M | [06](06_ui_ux.md) |
+| 16.7 | The `restaurant` verb: `list`, `delete`, `export` (one, several or `--all`, as YAML or JSON) and `import` (format guessed from the content, `--overwrite` replacing an existing id) | L | [09](09_configuration.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about
 loads the application, is told once that it was logged out, and can log in
-again without clearing anything by hand.
+again without clearing anything by hand. Somebody who has forgotten their
+password can set a new one from a mail the application sent, and an
+administrator can do the same for them from either the command line or the
+browser. A restaurant can be carried from one installation to another as a file.
 
 ---
 

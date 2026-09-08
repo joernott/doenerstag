@@ -15,7 +15,7 @@ const GeneratedHeader = "doenerstag configuration"
 // sectionOrder is the order the generated file lists its sections in. A setting
 // whose key has a prefix not listed here would be dropped, so the writer checks
 // for that rather than silently losing it.
-var sectionOrder = []string{"database", "server", "session", "log", "cleanup"}
+var sectionOrder = []string{"database", "server", "session", "mail", "log", "cleanup"}
 
 // Values supplies the value for each setting the file records.
 //
@@ -52,6 +52,15 @@ func ValuesFrom(cfg *Config) Values {
 		"shutdown-grace":       FormatDuration(cfg.Server.ShutdownGrace),
 		"max-image-size":       FormatByteSize(cfg.Server.MaxImageSize),
 		"cors-allowed-origins": cfg.Server.CORSAllowedOrigins,
+		"base-url":             cfg.Server.BaseURL,
+
+		"mail-host":       cfg.Mail.Host,
+		"mail-port":       strconv.Itoa(cfg.Mail.Port),
+		"mail-username":   cfg.Mail.Username,
+		"mail-password":   cfg.Mail.Password,
+		"mail-from":       cfg.Mail.From,
+		"mail-encryption": cfg.Mail.Encryption,
+		"mail-timeout":    FormatDuration(cfg.Mail.Timeout),
 
 		"jwt-secret":              cfg.Session.JWTSecret,
 		"idle-timeout":            FormatDuration(cfg.Session.IdleTimeout),
