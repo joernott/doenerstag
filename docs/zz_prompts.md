@@ -754,3 +754,33 @@ recorded on the branch of the sprint it belongs to.
 > docs/10_operations.md; the value was supplied in chat and is not stored in
 > this repository]" I created for you. Please censor the token when you store
 > the prompt in the document zz_prompts.md
+
+---
+
+### Prompt 45
+
+> I have addes the two secrets. Please squash merge all sprint branches up to
+> sprint-14 in ascending order into the main branch but without removing these
+> branches from the repository.
+> To test the installation of the RPM package, you can use something like
+>
+> ```yaml
+> jobs:
+>   rpm-job:
+>     # Uses the free standard Ubuntu runner
+>     runs-on: ubuntu-latest
+>
+>     # Forces the job to run inside a Fedora environment
+>     container:
+>       image: fedora:latest
+>     steps:
+>       - name: install RPM
+>         run: |
+>           rpm -ivh doenerstag-$VERSION.rpm
+> ```
+>
+> Please add tasks in sprint 15 to test the package building and installation as
+> well as building and running the docker container in the ci and the release
+> workflow.
+> After that, you can squash-merge the sprint-15 baranch into main as well and
+> tag the version v0.1.0 there
