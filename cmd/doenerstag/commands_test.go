@@ -15,6 +15,7 @@ var expectedVerbs = map[string]bool{
 	"update":  true,
 	"cleanup": true,
 	"version": true,
+	"user":    true,
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {

@@ -46,6 +46,7 @@ It does not take payments and does not place orders with restaurants.`,
 		newUpdateCommand(app),
 		newCleanupCommand(app),
 		newVersionCommand(app),
+		newUserCommand(app),
 	)
 
 	// Resolve configuration and start logging before any verb runs. The root
@@ -55,7 +56,7 @@ It does not take payments and does not place orders with restaurants.`,
 		if cmd == root {
 			return nil
 		}
-		return app.setup(cmd, verbScopes[cmd.Name()])
+		return app.setup(cmd, verbScopes[topLevelVerb(cmd)])
 	}
 	root.PersistentPostRun = func(*cobra.Command, []string) {
 		app.Close()

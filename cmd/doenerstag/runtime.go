@@ -44,6 +44,7 @@ var verbScopes = map[string]config.Scope{
 	"update":  config.ScopeInstall,
 	"cleanup": config.ScopeCleanup,
 	"version": config.ScopeGlobal,
+	"user":    config.ScopeGlobal,
 }
 
 // setup resolves the configuration and starts logging for the verb being run.
@@ -138,4 +139,17 @@ func reportFatal(cmd *cobra.Command, err error) {
 		Str(logging.FieldComponent, "config").
 		Err(err).
 		Msg("cannot start")
+}
+
+// topLevelVerb names the verb a command belongs to.
+//
+// A subcommand's own name is not enough: `user list` and `restaurant list` are
+// both called "list", and keying the scope table on that would make the two
+// share an entry and collide the moment they wanted different settings. The
+// scope belongs to the verb, so the lookup walks up to it.
+func topLevelVerb(cmd *cobra.Command) string {
+	for cmd.HasParent() && cmd.Parent().HasParent() {
+		cmd = cmd.Parent()
+	}
+	return cmd.Name()
 }
