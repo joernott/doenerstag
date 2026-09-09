@@ -82,7 +82,7 @@ context:
 | Processing                          | Likely basis                                                          |
 | ----------------------------------- | --------------------------------------------------------------------- |
 | Account and order data              | Art. 6(1)(a) consent — registration is voluntary and the tool is for the user's own benefit. Art. 6(1)(f) legitimate interest is the alternative. |
-| Session cookies, CSRF token         | Strictly necessary for a service the user requested — § 25(2) TDDDG, no consent banner required. |
+| Session cookies, CSRF token, the five-minute `doener_session_ended` note | Strictly necessary for a service the user requested — § 25(2) TDDDG, no consent banner required. The note holds one error code and no identifier; it exists so that somebody whose session ended is told why rather than shown a logged-out page with no explanation. |
 | Language, theme and name cookies    | Set only as a direct result of the user's own choice. Same exemption in the operator's view; confirm. |
 | Logs including IP addresses         | Art. 6(1)(f) legitimate interest in operating and securing the service. |
 

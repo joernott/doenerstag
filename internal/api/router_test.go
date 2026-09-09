@@ -6,6 +6,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/joernott/doenerstag/internal/auth"
 )
 
 // httprouter panics at registration time on a conflicting route, so simply
@@ -300,5 +305,32 @@ func TestWrongMethodAnswers405(t *testing.T) {
 	}
 	if body.Error.Code != CodeMethodNotAllowed {
 		t.Errorf("code is %d, want %d", body.Error.Code, CodeMethodNotAllowed)
+	}
+}
+
+// A password reset link must load the application.
+//
+// It very nearly did not. A reset token is a path segment, and the SPA fallback
+// treats a final segment containing a dot as a request for a file, so a token
+// that used a dot between its payload and its signature turned every reset link
+// in every mail into a JSON 404. The token separator was changed; this is the
+// test that says why it may not change back.
+func TestAPasswordResetLinkLoadsTheApplication(t *testing.T) {
+	r := testRouter(t)
+
+	signer, err := auth.NewResetSigner(strings.Repeat("s", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := signer.IssueReset(uuid.New(), time.Now())
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/reset-password/"+token, http.NoBody))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a reset link answered %d, want the application: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "<!doctype html>") {
+		t.Errorf("a reset link was not served the application:\n%s", rec.Body.String())
 	}
 }

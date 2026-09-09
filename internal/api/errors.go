@@ -42,6 +42,8 @@ const (
 	CodeImageUnsupportedType   Code = 1012
 	CodeUnknownCurrency        Code = 1013
 	CodeDeadlineInThePast      Code = 1014
+	CodeResetInvalid           Code = 1015
+	CodeResetExpired           Code = 1016
 
 	// Authentication.
 	CodeNotAuthenticated  Code = 2000
@@ -103,6 +105,8 @@ var registry = map[Code]definition{
 	CodeImageUnsupportedType:   {http.StatusUnsupportedMediaType, "unsupported image media type"},
 	CodeUnknownCurrency:        {http.StatusBadRequest, "unknown currency code"},
 	CodeDeadlineInThePast:      {http.StatusBadRequest, "the deadline is already in the past"},
+	CodeResetInvalid:           {http.StatusBadRequest, "this password reset link is not valid"},
+	CodeResetExpired:           {http.StatusBadRequest, "this password reset link has expired"},
 
 	CodeNotAuthenticated:  {http.StatusUnauthorized, "not authenticated"},
 	CodeInvalidLogin:      {http.StatusUnauthorized, "invalid user name or password"},

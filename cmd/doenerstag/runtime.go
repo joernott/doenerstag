@@ -39,11 +39,14 @@ func (a *appContext) Close() {
 // verbScopes maps each verb to the settings it understands. update takes the
 // same flags as install.
 var verbScopes = map[string]config.Scope{
-	"server":  config.ScopeServer,
-	"install": config.ScopeInstall,
-	"update":  config.ScopeInstall,
-	"cleanup": config.ScopeCleanup,
-	"version": config.ScopeGlobal,
+	"server":     config.ScopeServer,
+	"install":    config.ScopeInstall,
+	"update":     config.ScopeInstall,
+	"cleanup":    config.ScopeCleanup,
+	"version":    config.ScopeGlobal,
+	"user":       config.ScopeGlobal,
+	"restaurant": config.ScopeGlobal,
+	"order":      config.ScopeGlobal,
 }
 
 // setup resolves the configuration and starts logging for the verb being run.
@@ -70,7 +73,17 @@ func (a *appContext) setup(cmd *cobra.Command, scope config.Scope) error {
 		// Write to the command's own output stream rather than reaching for
 		// os.Stdout directly. In production cobra hands back os.Stdout, so the
 		// behaviour is identical, and it lets a test capture the log.
-		logOptions.Output = cmd.OutOrStdout()
+		//
+		// Unless the verb's own output is data. `restaurant export` writes a
+		// document to standard output, and a log line in the middle of it is not
+		// a cosmetic problem: it is the first line of the file, and the file no
+		// longer parses. For those verbs the log goes to standard error, which is
+		// what standard error is for.
+		if writesDataToStdout(cmd) {
+			logOptions.Output = cmd.ErrOrStderr()
+		} else {
+			logOptions.Output = cmd.OutOrStdout()
+		}
 	}
 
 	logger, err := logging.New(logOptions)
@@ -138,4 +151,32 @@ func reportFatal(cmd *cobra.Command, err error) {
 		Str(logging.FieldComponent, "config").
 		Err(err).
 		Msg("cannot start")
+}
+
+// topLevelVerb names the verb a command belongs to.
+//
+// A subcommand's own name is not enough: `user list` and `restaurant list` are
+// both called "list", and keying the scope table on that would make the two
+// share an entry and collide the moment they wanted different settings. The
+// scope belongs to the verb, so the lookup walks up to it.
+func topLevelVerb(cmd *cobra.Command) string {
+	for cmd.HasParent() && cmd.Parent().HasParent() {
+		cmd = cmd.Parent()
+	}
+	return cmd.Name()
+}
+
+// writesDataToStdout reports whether this command's standard output is a
+// document rather than a report for a person.
+//
+// Only `restaurant export` without --output, today. It is asked as a question
+// about the command rather than answered by a flag on appContext so that adding
+// another such verb is one line here rather than a new mechanism.
+func writesDataToStdout(cmd *cobra.Command) bool {
+	if topLevelVerb(cmd) != "restaurant" || cmd.Name() != "export" {
+		return false
+	}
+	// With --output the document goes to a file and standard output is free
+	// for the log again.
+	return cmd.Flags().Lookup("output") == nil || cmd.Flags().Lookup("output").Value.String() == ""
 }

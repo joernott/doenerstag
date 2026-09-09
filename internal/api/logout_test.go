@@ -40,9 +40,9 @@ func TestLogoutEndsTheSession(t *testing.T) {
 		t.Error("the session row survived logout")
 	}
 
-	// And the same cookie no longer authenticates.
-	again := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, again, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	// And the same cookie no longer authenticates. It is anonymity rather than
+	// an error, and /auth/session is where the reason is reported.
+	f.expectEnded(api.CodeSessionSuperseded, cookies...)
 }
 
 // Both cookies must be expired, with attributes matching the ones they were set
@@ -103,11 +103,18 @@ func TestLogoutIsIdempotent(t *testing.T) {
 		t.Fatalf("the first logout failed: %s", first.Body.String())
 	}
 
-	// The second carries a cookie whose row is gone, which the authentication
-	// middleware rejects before the handler is reached. That is the documented
-	// behaviour for any endpoint, and logout is not special enough to exempt.
+	// The second carries a cookie whose row is gone. That is anonymity, not an
+	// error, so the handler is reached and answers 200 -- logout is a request
+	// for a state, and the state holds. It used to be refused by the
+	// authentication middleware, which meant the one action that clears a dead
+	// cookie was the one action a dead cookie prevented.
 	second := f.do(request{method: http.MethodPost, path: "/auth/logout", cookies: cookies})
-	expectError(t, second, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	if second.Code != http.StatusOK {
+		t.Fatalf("the second logout answered %d, want 200: %s", second.Code, second.Body.String())
+	}
+	if cleared := cookie(second, api.SessionCookieName); cleared == nil || cleared.MaxAge >= 0 {
+		t.Error("the second logout did not clear the dead cookie")
+	}
 }
 
 // Only the caller's own session ends.

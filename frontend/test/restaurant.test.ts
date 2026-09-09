@@ -56,6 +56,9 @@ function restaurantStubs(): Record<string, unknown> {
 
 beforeEach(() => {
   document.body.replaceChildren();
+  // A page test that moves the address moves it for the whole file otherwise,
+  // and pages read the address when they build their login links.
+  history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -88,10 +91,15 @@ describe("the overview", () => {
   it("sends an anonymous visitor to the login page instead of the create form", async () => {
     stubServer({ "GET /restaurants": { restaurants: [] } });
 
+    // ...and back to this page afterwards, which the link says by carrying it.
+    history.replaceState(null, "", "/restaurants");
+
     const app = mountApp(() => []);
     const rendered = await restaurantsPage(app);
 
-    expect(rendered.querySelector("a")?.getAttribute("href")).toBe("/account");
+    expect(rendered.querySelector("a")?.getAttribute("href")).toBe(
+      "/account?next=%2Frestaurants",
+    );
   });
 
   it("shows the first contact, the item count and the opening state on a tile", async () => {

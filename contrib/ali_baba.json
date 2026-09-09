@@ -1,0 +1,1555 @@
+{
+  "version": 1,
+  "restaurants": [
+    {
+      "id": "01a0ba6a-0000-7000-8000-000000000001",
+      "name": "Ali Baba",
+      "currency": "EUR",
+      "notes": "Italienische Nudeln gibt es Freitag bis Sonntag ab 17 Uhr. Fuer jede weitere Zutat berechnet Ali Baba zusaetzlich ab 1,00 EUR. Beim Kebap kostet Scheibenfleisch aus der Ruinder-Hochrippe 1,50 EUR Aufpreis.",
+      "contacts": [
+        {
+          "type": "phone",
+          "value": "+497474955331",
+          "label": "07474 95 53 31",
+          "sort_order": 10
+        },
+        {
+          "type": "address",
+          "value": "Oberstadtstr. 49, 72401 Haigerloch",
+          "sort_order": 20
+        },
+        {
+          "type": "mobile",
+          "value": "+4915202631694",
+          "label": "0152 02 63 16 94",
+          "sort_order": 30
+        }
+      ],
+      "opening_hours": [
+        {
+          "day": 2,
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "day": 3,
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "day": 4,
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "day": 5,
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "day": 6,
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "day": 7,
+          "start": "12:00",
+          "end": "22:00"
+        }
+      ],
+      "categories": [
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Kebap",
+          "sort_order": 10
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000002",
+          "name": "Pide · Lahmacun",
+          "sort_order": 20
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000003",
+          "name": "Seelen",
+          "sort_order": 30
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Salate",
+          "sort_order": 40
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizzen",
+          "sort_order": 50
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Nudeln",
+          "sort_order": 60
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000007",
+          "name": "Fleischgerichte",
+          "sort_order": 70
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000008",
+          "name": "Portion Pommes",
+          "sort_order": 80
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Alkoholfreie Getränke",
+          "sort_order": 90
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Heiße Getränke",
+          "sort_order": 100
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Bier aus der Flasche",
+          "sort_order": 110
+        },
+        {
+          "id": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Weine",
+          "sort_order": 120
+        }
+      ],
+      "items": [
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000036",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Ali Baba Nudeln",
+          "description": "Spaghetti, Rigatoni, Pilze, Paprika, Zwiebeln, Brokkoli, Käse, Tomatensoße. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000017",
+          "category": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Ali Baba Salat",
+          "description": "Eisbergsalat, Gurken, Peperoni, Tomaten, Mais, Zwiebeln, Oliven, Dönerfleisch, Salatsoße",
+          "price_cents": 1200,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000053",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Alkoholfreies Hefeweizen",
+          "description": "0,50 l",
+          "price_cents": 410,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000045",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Apfelsaftschorle",
+          "description": "0,30 l",
+          "price_cents": 360,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003e",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Ayran",
+          "description": "0,25 l",
+          "price_cents": 200,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000014",
+          "category": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Bauernsalat",
+          "description": "mit frischem Fladenbrot",
+          "price_cents": 800,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004d",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Cappuccino",
+          "price_cents": 380,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003c",
+          "category": "01a0ba6a-0001-7000-8000-000000000007",
+          "name": "Chicken Nuggets (aus Hähnchenbrust)",
+          "description": "6 Stück mit Pommes Frites und einem gemischten Salat",
+          "price_cents": 1350,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy"
+          ],
+          "additives": [
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000041",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Cola / Cola Light / Zero",
+          "description": "0,30 l",
+          "price_cents": 320,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000a",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Box",
+          "description": "mit Pommes, Knoblauchsoße",
+          "price_cents": 850,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000002",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap",
+          "description": "mit frischem Fladenbrot, Salat, Knoblauchsoße",
+          "price_cents": 800,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000007",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap Big",
+          "description": "mit frischem Fladenbrot, Salat, Knoblauchsoße",
+          "price_cents": 1450,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000005",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap Falafel",
+          "description": "mit frischem Fladenbrot, Salat, Knoblauchsoße",
+          "price_cents": 800,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000003",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap klein",
+          "description": "mit frischem Fladenbrot, Salat, Knoblauchsoße",
+          "price_cents": 750,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000006",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap Special",
+          "description": "mit frischem Fladenbrot, Salat, Weichkäse, Knoblauchsoße",
+          "price_cents": 900,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000004",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner Kebap vegetarisch",
+          "description": "mit frischem Fladenbrot, Salat, Weichkäse, Knoblauchsoße",
+          "price_cents": 750,
+          "available": true,
+          "tags": [
+            "vegetarian"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000b",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner-Teller",
+          "description": "mit Salat, Knoblauchsoße",
+          "price_cents": 1350,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000c",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Döner-Teller mit Pommes",
+          "description": "mit Pommes, Salat, Knoblauchsoße",
+          "price_cents": 1450,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003f",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Dosen",
+          "description": "0,33 l. Coca-Cola, Light, Mezzo Mix, Fanta, Sprite",
+          "price_cents": 250,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000008",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Dürüm Kebap",
+          "description": "mit frischem Fladenbrot, Salat, Knoblauchsoße",
+          "price_cents": 850,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000009",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Dürüm Kebap Special",
+          "description": "mit frischem Fladenbrot, Salat, Weichkäse, Knoblauchsoße",
+          "price_cents": 950,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004c",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Espresso",
+          "price_cents": 320,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000055",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Export",
+          "description": "0,50 l",
+          "price_cents": 410,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000016",
+          "category": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Falafel Salat",
+          "description": "5 Falafel, Gemischter Salat, Weichkäse, Mais, Oliven, Salatsoße",
+          "price_cents": 1200,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000043",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Fanta",
+          "description": "0,30 l",
+          "price_cents": 320,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000001",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Frisches Fladenbrot",
+          "description": "24 cm Durchmesser",
+          "price_cents": 250,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000013",
+          "category": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Gemischter Salat",
+          "description": "mit frischem Fladenbrot",
+          "price_cents": 700,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003b",
+          "category": "01a0ba6a-0001-7000-8000-000000000007",
+          "name": "Hähnchen Schnitzel (paniert)",
+          "description": "mit Pommes Frites und einem gemischten Salat",
+          "price_cents": 1450,
+          "available": true,
+          "allergens": [
+            "soy",
+            "milk"
+          ],
+          "additives": [
+            "antioxidant",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000052",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Hefeweizen",
+          "description": "0,50 l",
+          "price_cents": 410,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004e",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Heiße Schokolade",
+          "price_cents": 380,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000d",
+          "category": "01a0ba6a-0001-7000-8000-000000000001",
+          "name": "Iskender Kebap",
+          "description": "mit frischem Fladenbrot, Knoblauchsoße und geschmolzener Butter",
+          "price_cents": 1450,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ],
+          "modifications": [
+            {
+              "name": "Scheibenfleisch",
+              "price_delta_cents": 150,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000048",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Johannisbeersaft",
+          "description": "0,30 l",
+          "price_cents": 360,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004b",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Kaffee",
+          "price_cents": 320,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000054",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Kristallweizen",
+          "description": "0,50 l",
+          "price_cents": 410,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000011",
+          "category": "01a0ba6a-0001-7000-8000-000000000002",
+          "name": "Lahmacun mit Kebap",
+          "description": "mit Dönerfleisch, Salat, Knoblauchsoße",
+          "price_cents": 1200,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000050",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Latte Macchiato",
+          "price_cents": 380,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003a",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Melle Nudeln",
+          "description": "mit Thunfisch, Tomatensoße, Sahne, Weißwein. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "fish",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000039",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Memo Nudeln",
+          "description": "mit Dönerfleisch, Tomatensoße, Sahne, Knoblauch. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000042",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Mezzo Mix",
+          "description": "0,30 l",
+          "price_cents": 320,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004f",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Milchkaffee",
+          "price_cents": 380,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000040",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Mineralwasser",
+          "description": "0,30 l",
+          "price_cents": 320,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000047",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Multivitaminsaft",
+          "description": "0,30 l",
+          "price_cents": 360,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000046",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Orangensaft",
+          "description": "0,30 l",
+          "price_cents": 360,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000038",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Pasta Mista 3",
+          "description": "Verschiedene Nudelsorten, Pilze, Hinterschinken, Bolognese- und Sahnesoße, mit Käse überbacken. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000f",
+          "category": "01a0ba6a-0001-7000-8000-000000000002",
+          "name": "Pide-Hackfleisch",
+          "price_cents": 1100,
+          "available": true,
+          "modifications": [
+            {
+              "name": "mit Ei",
+              "price_delta_cents": 50,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000010",
+          "category": "01a0ba6a-0001-7000-8000-000000000002",
+          "name": "Pide-Spinat",
+          "price_cents": 1100,
+          "available": true,
+          "modifications": [
+            {
+              "name": "mit Ei",
+              "price_delta_cents": 50,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000000e",
+          "category": "01a0ba6a-0001-7000-8000-000000000002",
+          "name": "Pide-Weichkäse",
+          "price_cents": 1100,
+          "available": true,
+          "modifications": [
+            {
+              "name": "mit Ei",
+              "price_delta_cents": 50,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000051",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Pils",
+          "description": "0,33 l",
+          "price_cents": 390,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,50 l",
+              "price_delta_cents": 20,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002b",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza 4 Jahreszeiten",
+          "description": "Tomaten, Käse, Hinterschinken, Salami, Pilze, Artischocken",
+          "price_cents": 1200,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002e",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Ali Baba",
+          "description": "Tomaten, Käse, vier Beilagen nach Wunsch",
+          "price_cents": 1300,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002a",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza al Tonno",
+          "description": "Tomaten, Käse, Thunfisch, Zwiebeln",
+          "price_cents": 1200,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "fish",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002d",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Caprese",
+          "description": "Tomaten, Käse, Salami, Oliven, Sardellen, Artischocken",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000027",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Cipolla",
+          "description": "Tomaten, Käse, Hinterschinken, Salami, Pilze",
+          "price_cents": 1150,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002f",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Frutti di Mare",
+          "description": "Tomaten, Käse, Knoblauchöl, Meeresfrüchte",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "crustaceans",
+            "eggs",
+            "fish",
+            "milk",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001d",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Funghi",
+          "description": "Tomaten, Käse, Pilze",
+          "price_cents": 1000,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk"
+          ],
+          "additives": [
+            "colouring"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000025",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Hatun",
+          "description": "Tomaten, Käse, Mozzarella, frische Tomaten, Oliven",
+          "price_cents": 1150,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000029",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Hawaii",
+          "description": "Tomaten, Käse, Hinterschinken, Ananas, Pilze",
+          "price_cents": 1150,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000023",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Kebap",
+          "description": "Tomaten, Käse, Dönerfleisch",
+          "price_cents": 1100,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000019",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Mais",
+          "description": "Tomaten, Käse, Mais",
+          "price_cents": 1000,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000018",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Margherita",
+          "description": "Tomaten, Käse",
+          "price_cents": 900,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk"
+          ],
+          "additives": [
+            "colouring"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000026",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Meggi",
+          "description": "Tomaten, Käse, Hinterschinken, Pilze, Kräuterbutter",
+          "price_cents": 1150,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001f",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Oliven",
+          "description": "Tomaten, Käse, Oliven, Zwiebeln",
+          "price_cents": 1100,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001a",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Paprika",
+          "description": "Tomaten, Käse, Paprika",
+          "price_cents": 1000,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk"
+          ],
+          "additives": [
+            "colouring"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001b",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Peperoni",
+          "description": "Tomaten, Käse, Peperoni",
+          "price_cents": 1000,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk"
+          ],
+          "additives": [
+            "colouring"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001e",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Prosciutto",
+          "description": "Tomaten, Käse, Hinterschinken",
+          "price_cents": 1000,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000020",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Quattro Gusti",
+          "description": "Tomaten, Käse, Hinterschinken, Salami",
+          "price_cents": 1100,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000021",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Romana",
+          "description": "Tomaten, Käse, Hinterschinken, Pilze",
+          "price_cents": 1100,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000001c",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Salami",
+          "description": "Tomaten, Käse, Salami",
+          "price_cents": 1000,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000022",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Sofia Loren",
+          "description": "Tomaten, Käse, Hinterschinken, Ei",
+          "price_cents": 1100,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000002c",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Spezial",
+          "description": "Tomaten, Käse, Hinterschinken, Salami, Pilze, Peperoni, Zwiebeln",
+          "price_cents": 1200,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000024",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Sucuk",
+          "description": "Tomaten, Käse, Türkische Knoblauchwurst",
+          "price_cents": 1150,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000028",
+          "category": "01a0ba6a-0001-7000-8000-000000000005",
+          "name": "Pizza Vegetarisch",
+          "description": "Tomaten, Käse, Paprika, Artischocken, Peperoni",
+          "price_cents": 1150,
+          "available": true,
+          "tags": [
+            "vegetarian"
+          ],
+          "allergens": [
+            "gluten",
+            "eggs",
+            "milk"
+          ],
+          "additives": [
+            "colouring"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000003d",
+          "category": "01a0ba6a-0001-7000-8000-000000000008",
+          "name": "Pommes Frites",
+          "description": "mit Ketchup oder Mayonnaise",
+          "price_cents": 500,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000056",
+          "category": "01a0ba6a-0001-7000-8000-00000000000b",
+          "name": "Radler",
+          "description": "0,50 l",
+          "price_cents": 410,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000049",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Redbull",
+          "description": "0,25 l",
+          "price_cents": 350,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000034",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Rigatoni 4 Formaggi",
+          "description": "Rigatoni mit Sahne und 4 Käsesorten. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000032",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Rigatoni al Forno",
+          "description": "Rigatoni mit Bolognesesoße, Pilze, mit Käse überbacken. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000035",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Rigatoni Arrabbiata",
+          "description": "Rigatoni mit Bolognesesoße, Hinterschinken, Pilze, scharfe Peperoni und Sahnesoße. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "tags": [
+            "spicy"
+          ],
+          "allergens": [
+            "gluten",
+            "eggs",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000037",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Rigatoni Brokkoli Gorgonzola",
+          "description": "Rigatoni mit Broccoli und Gorgonzola-Sahnesoße. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000005b",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Roséwein",
+          "description": "0,25 l",
+          "price_cents": 440,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000005c",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Roséweinschorle",
+          "description": "0,25 l",
+          "price_cents": 420,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000059",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Rotwein",
+          "description": "0,25 l",
+          "price_cents": 520,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000005a",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Rotweinschorle",
+          "description": "0,25 l",
+          "price_cents": 500,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000004a",
+          "category": "01a0ba6a-0001-7000-8000-00000000000a",
+          "name": "Schwarztee, Pfefferminztee u. v. m.",
+          "price_cents": 300,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000012",
+          "category": "01a0ba6a-0001-7000-8000-000000000003",
+          "name": "Seele Spezial",
+          "description": "Tomaten, Käse, Dönerfleisch",
+          "price_cents": 1350,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000033",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Spaghetti al Forno",
+          "description": "Spaghetti mit Bolognesesoße, Hinterschinken, Pilze, Knoblauch, mit Käse überbacken. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1300,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000030",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Spaghetti alla Bolognese",
+          "description": "Spaghetti mit Bolognesesoße. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1100,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "soy",
+            "milk"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "flavour_enh"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000031",
+          "category": "01a0ba6a-0001-7000-8000-000000000006",
+          "name": "Spaghetti alla Carbonara",
+          "description": "Spaghetti mit Hinterschinken, Ei, Sahnesoße. Nur Freitag bis Sonntag ab 17 Uhr.",
+          "price_cents": 1200,
+          "available": true,
+          "allergens": [
+            "gluten",
+            "eggs",
+            "soy",
+            "milk",
+            "celery",
+            "mustard"
+          ],
+          "additives": [
+            "colouring",
+            "preservative",
+            "antioxidant",
+            "flavour_enh",
+            "phosphate"
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-00000000005d",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Spirituosen",
+          "description": "ab 3,00 EUR",
+          "price_cents": 300,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000044",
+          "category": "01a0ba6a-0001-7000-8000-000000000009",
+          "name": "Sprite",
+          "description": "0,30 l",
+          "price_cents": 320,
+          "available": true,
+          "modifications": [
+            {
+              "name": "0,40 l",
+              "price_delta_cents": 40,
+              "sort_order": 10
+            }
+          ]
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000015",
+          "category": "01a0ba6a-0001-7000-8000-000000000004",
+          "name": "Thunfischsalat",
+          "description": "mit frischem Fladenbrot",
+          "price_cents": 850,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000057",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Weißwein",
+          "description": "0,25 l",
+          "price_cents": 520,
+          "available": true
+        },
+        {
+          "id": "01a0ba6a-0002-7000-8000-000000000058",
+          "category": "01a0ba6a-0001-7000-8000-00000000000c",
+          "name": "Weißweinschorle",
+          "description": "0,25 l",
+          "price_cents": 500,
+          "available": true
+        }
+      ]
+    }
+  ]
+}

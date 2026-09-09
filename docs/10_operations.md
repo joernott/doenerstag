@@ -29,13 +29,13 @@ container. Step 2 is the same in every case.
 ### Step 1a — Debian and Ubuntu package (preferred)
 
 ```sh
-apt install ./doenerstag_0.1.0-1_amd64.deb
+apt install ./doenerstag_0.2.0-1_amd64.deb
 ```
 
 ### Step 1b — RHEL, Fedora, Rocky, Alma and openSUSE package (preferred)
 
 ```sh
-dnf install ./doenerstag-0.1.0-1.x86_64.rpm
+dnf install ./doenerstag-0.2.0-1.x86_64.rpm
 ```
 
 Both packages are built from the same source with `nfpm`, so their contents stay

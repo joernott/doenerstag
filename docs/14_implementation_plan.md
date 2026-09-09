@@ -560,6 +560,51 @@ artefacts, and `docker.io/joernott/doenerstag:0.1.0` can be pulled.
 
 ---
 
+## Sprint 16 — Bug fixes and minor improvements
+
+**Goal:** fix what real use finds. The first release shipped with barely any of
+that, so this sprint is driven by what breaks in front of somebody rather than
+by a plan written in advance.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 16.1 | A stale session cookie makes the whole application unreachable: every request, including the page itself and every public endpoint, answers 401 with a JSON error envelope. The browser shows raw JSON and there is no way out of it short of clearing cookies by hand. Reported by the user after leaving a session open overnight | M | [05](05_auth_and_permissions.md) |
+| ✅ 16.2 | `mokapi` in `contrib/setup_dev_pipeline.sh` and on the VM, configured as a Mail server (SMTP and IMAP) and an LDAP server, so the mail path can be tested against something that behaves like the real thing | M | [12](12_testing.md) |
+| ✅ 16.3 | Outgoing mail: SMTP settings, a sender the application can use, and the operational questions that come with it — what happens when the mail server is down, and what is never put in a message | M | [09](09_configuration.md) |
+| ✅ 16.4 | "Forgot password?" behind the login button. A reset identifier held in memory for one hour, a mail carrying a link to a reset page, and a redirect to the login page once the new password is set | L | [05](05_auth_and_permissions.md) |
+| ✅ 16.5 | The `user` verb: `list`, `add` (generating a 20-character password and printing it), `delete` and `password` (either setting one interactively or issuing a reset link) | L | [09](09_configuration.md) |
+| ✅ 16.6 | A "Users" entry for the administrator: every user with edit, reset-password and delete, the reset doing exactly what the login page's link does | M | [06](06_ui_ux.md) |
+| ✅ 16.4.1 | A reset link 404ed instead of loading the application. The token used a dot between its payload and its signature, and 16.1's SPA fallback treats a final path segment containing a dot as a request for a file. Every reset link in every mail would have landed on a JSON error envelope. Found in sprint 16, by walking the journey in a browser -- no unit test on either side could have seen it, because each half was behaving as designed | S | [05](05_auth_and_permissions.md) |
+| ✅ 16.7 | The `restaurant` verb: `list`, `delete`, `export` (one, several or `--all`, as YAML or JSON) and `import` (format guessed from the content, `--overwrite` replacing an existing id) | L | [09](09_configuration.md) |
+| ✅ 16.7.1 | `restaurant export` wrote the document to standard output and the logger wrote to standard output, so "database connected" was the first line of every exported file and none of them parsed. The log goes to standard error for a verb whose output is data. Found in sprint 16, by exporting a restaurant and reading the file | S | [09](09_configuration.md) |
+| ✅ 16.7.2 | `restaurant import --file -f` and `restaurant delete --force -f` both claimed a shorthand that `--log-file` owns globally. pflag refuses that by panicking when the flags are merged, which is when somebody runs the command or asks for help -- so both subcommands were unusable and nothing caught it. Both are long-form only now, and a test walks the tree forcing the merge. Found in sprint 16, by running the command | S | [09](09_configuration.md) |
+| ✅ 16.7.3 | An imported contact without a label violated a check constraint: the column is nullable and refuses the empty string, so an absent label has to arrive as NULL rather than as "". Found in sprint 16, by a round trip | S | [03](03_data_model.md) |
+| ✅ 16.8 | `--log-file` moves to `-L`, which gives `-f` back to `restaurant import --file` and `restaurant delete --force` | S | [09](09_configuration.md) |
+| ✅ 16.9 | The `order` verb: `list` with `--verbose`, and `delete` | M | [09](09_configuration.md) |
+| ✅ 16.10 | A reference page for every verb and every flag, so `--help` is not the only place they are written down | M | — |
+| ✅ 16.11 | The browser tests clear the orders, restaurants and accounts left by previous runs before they start. The development database had accumulated 500 restaurants, 78 orders and 792 accounts | S | [12](12_testing.md) |
+| ✅ 16.11.1 | That cleanup matched test data by the shape of its name -- a word, an underscore, a timestamp -- and deleted an account the user had created that happened to look like one. Every name the fixtures invent now carries an `e2e-` prefix and only that prefix is deleted. Reported by the user, after it had already happened | S | [12](12_testing.md) |
+| ✅ 16.12 | A Cleanup button on the order overview, on the heading line and only for the administrator | M | [06](06_ui_ux.md) |
+| ✅ 16.13 | A check that the packages install the binary to `/usr/bin` and to nowhere else. They already did; what was in `/usr/local/bin` on the development VM was a hand-installed build, which is the confusion the assertion now prevents | S | [10](10_operations.md) |
+| ✅ 16.14 | `contrib/ali_baba.json`: a real menu, transcribed from four photographs, as an import file. The allergen and additive letters had to be translated rather than copied, because the restaurant's numbering and doenerstag's do not agree | M | [09](09_configuration.md) |
+| ✅ 16.15 | The order page folded its menu categories with a plus and a cross; the restaurant page's Menu tab uses a disclosure chevron. The order page now uses the chevron too -- on a page where every other plus adds an item and every cross removes one, those two symbols were saying the wrong thing | S | [06](06_ui_ux.md) |
+| ✅ 16.16 | A login link carries the page it was pressed on, so logging in returns there. Registering still ends on the account page, which is where a new account has a display name and an address to fill in. The return path is validated as a path on this site, because a login page that navigates wherever a query parameter says is an open redirect | M | [06](06_ui_ux.md) |
+| ✅ 16.16.1 | Four page tests and a browser test asserted the login link's address exactly, as `/account`, and 16.16 gave it a return parameter. They were written before there was one, and running the new test rather than the whole suite is what let them reach CI broken. They now put the page at its own address and assert the link that belongs there | S | [12](12_testing.md) |
+| ✅ 16.17 | `contrib/ali_baba.json` re-exported after the user filled in the contacts, the opening hours and the notes, and the four photographs removed now that the data is in the file | S | — |
+| ✅ 16.18 | `install` appeared to ignore `DOENER_DATABASE_ROOT_PASSWORD` under `docker compose`. It did not: an ordinary question shows its default in brackets, a secret question showed nothing at all, so a prompt for a value already supplied was indistinguishable from one being ignored. Secret prompts now name the variable the value came from. Reported by the user | S | [09](09_configuration.md) |
+| ✅ 16.19 | Version references moved to 0.2.0, and the release notes in the workflow stopped calling every release "the first iteration" | S | — |
+| ✅ 16.20 | Sprint 16 squashed into `main` and released as 0.2.0 | S | [10](10_operations.md) |
+
+**Exit criteria:** a browser holding a session the server no longer knows about
+loads the application, is told once that it was logged out, and can log in
+again without clearing anything by hand. Somebody who has forgotten their
+password can set a new one from a mail the application sent, and an
+administrator can do the same for them from either the command line or the
+browser. A restaurant can be carried from one installation to another as a file.
+Sprint 16 is on `main` and released as 0.2.0.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

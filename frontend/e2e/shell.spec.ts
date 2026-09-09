@@ -113,10 +113,10 @@ test.describe("what an anonymous visitor is offered", () => {
     await page.goto("/restaurants");
     await expect(page.getByText(fixture.restaurantName)).toBeVisible();
     // The plus tile leads to the login page rather than to a form that would
-    // refuse to save.
+    // refuse to save, and carries this page so that logging in comes back to it.
     await expect(page.getByRole("link", { name: "New restaurant" })).toHaveAttribute(
       "href",
-      "/account",
+      "/account?next=%2Frestaurants",
     );
   });
 });

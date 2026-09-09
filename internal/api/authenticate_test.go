@@ -67,22 +67,16 @@ func TestAForeignTokenIsNotAuthenticated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rec := f.do(request{
-		method: http.MethodGet, path: "/probe",
-		cookies: []*http.Cookie{{Name: api.SessionCookieName, Value: forged}},
-	})
-	expectError(t, rec, http.StatusUnauthorized, api.CodeNotAuthenticated)
+	f.expectEnded(api.CodeNotAuthenticated,
+		&http.Cookie{Name: api.SessionCookieName, Value: forged})
 }
 
 func TestGarbageInTheCookieIsNotAuthenticated(t *testing.T) {
 	f := newAPIFixture(t)
 
 	for _, value := range []string{"not-a-token", "a.b.c", "...."} {
-		rec := f.do(request{
-			method: http.MethodGet, path: "/probe",
-			cookies: []*http.Cookie{{Name: api.SessionCookieName, Value: value}},
-		})
-		expectError(t, rec, http.StatusUnauthorized, api.CodeNotAuthenticated)
+		f.expectEnded(api.CodeNotAuthenticated,
+			&http.Cookie{Name: api.SessionCookieName, Value: value})
 	}
 }
 
@@ -99,8 +93,7 @@ func TestASupersededSessionIsRejected(t *testing.T) {
 		t.Fatalf("the second login failed: %s", rec.Body.String())
 	}
 
-	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: first})
-	expectError(t, rec, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	f.expectEnded(api.CodeSessionSuperseded, first...)
 }
 
 // Rule 3: the absolute lifetime.
@@ -129,8 +122,7 @@ func TestAnActiveSessionStillEndsAtItsAbsoluteLifetime(t *testing.T) {
 	// One more step carries it past the absolute expiry, and no amount of
 	// activity saves it.
 	f.advance(step)
-	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, rec, http.StatusUnauthorized, api.CodeSessionExpired)
+	f.expectEnded(api.CodeSessionExpired, cookies...)
 }
 
 // Rule 4: the idle timeout, and the row goes with it. Leaving the row would let
@@ -150,8 +142,7 @@ func TestAnIdleSessionLapsesAndItsRowIsRemoved(t *testing.T) {
 	}
 
 	f.advance(fixtureIdleTimeout + time.Minute)
-	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, rec, http.StatusUnauthorized, api.CodeSessionExpired)
+	f.expectEnded(api.CodeSessionExpired, cookies...)
 
 	if _, err := db.SessionByID(context.Background(), f.pool, claims.SessionID); err == nil {
 		t.Error("the lapsed session row was left behind")
@@ -159,8 +150,7 @@ func TestAnIdleSessionLapsesAndItsRowIsRemoved(t *testing.T) {
 
 	// And the next request on the same cookie is now "superseded", because
 	// there is no row at all.
-	again := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, again, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	f.expectEnded(api.CodeSessionSuperseded, cookies...)
 }
 
 // Activity resets the idle clock, which is what makes it an idle timeout rather
@@ -262,8 +252,7 @@ func TestASessionDiesWithItsAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rec := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, rec, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	f.expectEnded(api.CodeSessionSuperseded, cookies...)
 }
 
 // The middleware runs on every path, so a public endpoint must still answer for
@@ -275,4 +264,67 @@ func TestAnonymousCallersReachPublicRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("an anonymous request was refused: %d %s", rec.Code, rec.Body.String())
 	}
+}
+
+// The bug this all exists to prevent, stated as directly as it can be.
+//
+// A browser holding a session the server no longer knows about sent that cookie
+// with everything: the page, the script, the stylesheet, every public endpoint.
+// The middleware refused each one with a JSON error envelope, so navigating to
+// the application produced raw JSON in the browser window and there was no way
+// out of it short of clearing cookies by hand. Reported after a session was
+// left open overnight.
+func TestAStaleCookieDoesNotMakeTheApplicationUnreachable(t *testing.T) {
+	f := newAPIFixture(t)
+	cookies := f.register("gustav")
+
+	// The session goes away underneath the browser, which is what a second
+	// login, a logout elsewhere, or the cleanup job all look like from here.
+	claims, err := f.signer().Parse(f.sessionCookie(cookies).Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.DeleteSession(context.Background(), f.pool, claims.SessionID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Public endpoints still answer. /version is the sharpest case: it needs no
+	// credentials at all, and it was returning 401 because of a cookie nobody
+	// asked to send.
+	for _, path := range []string{"/version", "/auth/session", "/probe"} {
+		rec := f.do(request{method: http.MethodGet, path: path, cookies: cookies})
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s answered %d for a stale cookie, want 200: %s",
+				path, rec.Code, rec.Body.String())
+		}
+	}
+
+	// And the reason is told once, with the cookie cleared so it is not told
+	// again on every subsequent page view.
+	f.expectEnded(api.CodeSessionSuperseded, cookies...)
+}
+
+// Anonymity is anonymity: a request with no cookie at all must not be told that
+// a session ended, or the frontend would announce a logout to somebody who was
+// never logged in.
+func TestAnAnonymousRequestIsNotToldASessionEnded(t *testing.T) {
+	f := newAPIFixture(t)
+
+	body, _ := f.endedReason()
+	if body.Ended != nil {
+		t.Errorf("an anonymous caller was told a session ended: %+v", body.Ended)
+	}
+}
+
+// A Bearer token is explicit, and still fails loudly. Downgrading it to
+// anonymity would turn a clear 401 into a confusing 403 or an empty list for a
+// script that named the credential it wanted used.
+func TestABadBearerTokenIsStillRejected(t *testing.T) {
+	f := newAPIFixture(t)
+
+	rec := f.do(request{
+		method: http.MethodGet, path: "/probe",
+		headers: map[string]string{"Authorization": "Bearer not-a-real-token"},
+	})
+	expectError(t, rec, http.StatusUnauthorized, api.CodeInvalidToken)
 }

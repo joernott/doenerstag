@@ -292,6 +292,12 @@ export interface SessionUser {
 interface SessionBody {
   user: SessionUser | null;
   expires_at?: string;
+  /**
+   * Present when the browser arrived holding a session the server would not
+   * accept. Reported exactly once: the server clears the note when it hands it
+   * over, so a later page view is plain anonymity.
+   */
+  ended?: { code: number; message: string };
 }
 
 /** What `/version` reports. */
@@ -329,10 +335,20 @@ export class Session {
     return this.current?.is_admin === true;
   }
 
+  /**
+   * Why the last session ended, if the server said so, and only once.
+   *
+   * Read by the entry point after the first load: somebody whose session
+   * lapsed overnight is shown a logged-out page they did not ask for, and this
+   * is what lets the application say why instead of leaving them to guess.
+   */
+  private ended: { code: number; message: string } | null = null;
+
   /** Asks the server who we are. Anonymous is an answer, not a failure. */
   async load(): Promise<SessionUser | null> {
     try {
       const body = await api.get<SessionBody>("/auth/session");
+      this.ended = body.ended ?? null;
       this.set(body.user ?? null);
     } catch {
       // An unreachable server is not evidence of being logged out, but there
@@ -340,6 +356,18 @@ export class Session {
       this.set(null);
     }
     return this.current;
+  }
+
+  /**
+   * Takes the "your session ended" notice, if there is one, and forgets it.
+   *
+   * Taking rather than reading, so that it cannot be shown twice by two
+   * callers who both wanted to be helpful.
+   */
+  takeEndedNotice(): { code: number; message: string } | null {
+    const ended = this.ended;
+    this.ended = null;
+    return ended;
   }
 
   /** Ends the session. */

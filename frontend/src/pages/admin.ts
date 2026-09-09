@@ -6,10 +6,11 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, form, input, textarea } from "../components/forms";
-import { openModal } from "../components/modal";
+import { confirmDialog, openModal } from "../components/modal";
 import { actions, page, section, statusLine } from "./page";
 
 interface AdminUser {
@@ -39,7 +40,7 @@ function forbidden(app: App): HTMLElement {
       el("p", { text: t.t("error.3000") }),
       app.session.isAuthenticated
         ? null
-        : el("p", {}, el("a", { class: "link", href: "/account", text: t.t("auth.login") })),
+        : el("p", {}, el("a", { class: "link", href: loginHref(currentPath()), text: t.t("auth.login") })),
     ),
   );
 }
@@ -93,18 +94,132 @@ export async function usersPage(app: App): Promise<HTMLElement> {
             : t.t("admin.never_logged_in"),
         }),
       ),
-      // The one administrator cannot be deleted, and neither can the account
-      // doing the deleting: both refusals belong to the server, and offering a
-      // button for them would only invite the error.
-      user.is_admin || own
-        ? null
-        : button({
-            label: t.t("action.delete"),
-            variant: "danger",
-            onclick: () => {
-              void remove(user);
-            },
-          }),
+      el(
+        "div",
+        { class: "actions user-actions" },
+        button({
+          label: t.t("action.edit"),
+          onclick: () => {
+            edit(user);
+          },
+        }),
+        // The same thing the login page's link does, and deliberately the same
+        // thing: an administrator pressing this is standing next to somebody
+        // who cannot log in, and the account holder still chooses their own
+        // password rather than being told one.
+        button({
+          label: t.t("admin.reset_password"),
+          onclick: () => {
+            void resetPassword(user);
+          },
+        }),
+        // The one administrator cannot be deleted, and neither can the account
+        // doing the deleting: both refusals belong to the server, and offering
+        // a button for them would only invite the error.
+        user.is_admin || own
+          ? null
+          : button({
+              label: t.t("action.delete"),
+              variant: "danger",
+              onclick: () => {
+                void remove(user);
+              },
+            }),
+      ),
+    );
+  }
+
+  /**
+   * Editing somebody else's account.
+   *
+   * Name, display name and e-mail. Not the password: an administrator who sets
+   * one knows it, and a password two people know is not a password. The button
+   * next to this is how a password gets changed.
+   */
+  function edit(user: AdminUser): void {
+    const name = input({ name: "name", required: true, value: user.name });
+    const displayName = input({ name: "display_name", value: user.display_name });
+    const email = input({ name: "email", type: "email", value: user.email ?? "" });
+    const problem = el("p", { class: "field-error", role: "alert" });
+
+    const save = button({
+      label: t.t("action.save"),
+      variant: "primary",
+      onclick: () => {
+        void perform();
+      },
+    });
+    const cancel = button({ label: t.t("action.cancel"), onclick: () => modal.close() });
+
+    const modal = openModal({
+      title: t.t("admin.edit_user"),
+      closeLabel: t.t("action.close"),
+      className: "modal-narrow",
+      body: [
+        field({ label: t.t("auth.name"), control: name }),
+        field({ label: t.t("auth.display_name"), control: displayName }),
+        field({ label: t.t("auth.email"), control: email }),
+        problem,
+      ],
+      actions: [save, cancel],
+    });
+    name.focus();
+
+    async function perform(): Promise<void> {
+      problem.textContent = "";
+      save.disabled = true;
+      try {
+        await api.patch(`/users/${user.id}`, {
+          name: name.value.trim(),
+          display_name: displayName.value.trim(),
+          email: email.value.trim(),
+        });
+        modal.close();
+        await reload();
+      } catch (error) {
+        problem.textContent = errorMessage(t, error);
+      } finally {
+        save.disabled = false;
+      }
+    }
+  }
+
+  /**
+   * Sending somebody a reset link.
+   *
+   * This calls the same endpoint the login page's "Forgot your password?" does,
+   * which means it inherits that endpoint's rule: the answer says nothing about
+   * whether the account exists or has an address. Here the administrator can
+   * see both on the row in front of them, so the confirmation says what will
+   * actually have happened rather than the careful wording the login page needs.
+   */
+  async function resetPassword(user: AdminUser): Promise<void> {
+    status.clear();
+
+    const confirmed = await confirmDialog({
+      t,
+      title: t.t("admin.reset_password"),
+      message: user.email
+        ? t.t("admin.reset_password_confirm", { name: user.name, email: user.email })
+        : t.t("admin.reset_password_no_email", { name: user.name }),
+      confirmLabel: t.t("admin.reset_password"),
+      danger: false,
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.post("/auth/password-reset", { name: user.name });
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+      return;
+    }
+
+    status.say(
+      user.email
+        ? t.t("admin.reset_password_sent", { email: user.email })
+        : t.t("admin.reset_password_not_sent"),
     );
   }
 

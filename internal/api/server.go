@@ -16,6 +16,7 @@ import (
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/config"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/mail"
 	"github.com/joernott/doenerstag/internal/sse"
 	"github.com/joernott/doenerstag/internal/static"
 )
@@ -91,6 +92,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Pool:         opts.Pool,
 		Shutdown:     s.beginShutdown,
 		Swagger:      routerOptions.Swagger != nil,
+		Retention:    cfg.Cleanup.Retention,
 		MaxImageSize: cfg.Server.MaxImageSize,
 	}
 	system.Register(router)
@@ -119,6 +121,23 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	}
 	authHandlers.Limiter = limiter
 	authHandlers.Register(router)
+
+	// Password reset. The sender is built here rather than per request so that
+	// an installation with no mail server has decided that once, at startup,
+	// rather than on every attempt.
+	resetSigner, err := auth.NewResetSigner(cfg.Session.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+	resetHandlers := &ResetHandlers{
+		Pool:    opts.Pool,
+		Signer:  resetSigner,
+		Sender:  mail.New(mailOptionsFrom(cfg)),
+		BaseURL: cfg.Server.BaseURL,
+		Used:    NewUsedResets(),
+		Logger:  opts.Logger,
+	}
+	resetHandlers.Register(router)
 
 	userHandlers := &UserHandlers{Pool: opts.Pool, Secure: secure}
 	userHandlers.Register(router)
@@ -150,6 +169,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Pool:        opts.Pool,
 		Signer:      signer,
 		IdleTimeout: cfg.Session.IdleTimeout,
+		Secure:      secure,
 	}
 
 	// The request ID is outermost because every line inside carries it. Recovery
@@ -382,4 +402,24 @@ func (s *Server) Shutdown() error {
 
 	s.logger.Info().Msg("stopped")
 	return nil
+}
+
+// mailOptionsFrom turns the configuration into what the mail package wants.
+func mailOptionsFrom(cfg *config.Config) mail.Options {
+	// An unparseable encryption is caught at startup by the configuration
+	// check; falling back to the safest of the three here means a typo cannot
+	// silently downgrade the connection to plaintext.
+	encryption, err := mail.ParseEncryption(cfg.Mail.Encryption)
+	if err != nil {
+		encryption = mail.EncryptionSTARTTLS
+	}
+	return mail.Options{
+		Host:       cfg.Mail.Host,
+		Port:       cfg.Mail.Port,
+		Username:   cfg.Mail.Username,
+		Password:   cfg.Mail.Password,
+		From:       cfg.Mail.From,
+		Encryption: encryption,
+		Timeout:    cfg.Mail.Timeout,
+	}
 }

@@ -262,3 +262,67 @@ func CreateRestaurantWithContacts(
 	}
 	return created, nil
 }
+
+// HardDeleteRestaurant removes a restaurant and everything that depends on it,
+// orders included.
+//
+// This is not what DELETE /restaurants/{id} does, and the difference is the
+// point. That is a soft delete which refuses while any order still points at
+// the restaurant, because a person clicking delete in a browser must not be
+// able to destroy what other people ordered last Thursday. This is for an
+// administrator at a terminal who has said, in as many words, that they want
+// the restaurant and its history gone -- for a test fixture, a duplicate
+// imported by mistake, or a restaurant that closed years ago.
+//
+// The orders go first. Everything else -- contacts, opening hours, categories,
+// items, modifications, tags -- is ON DELETE CASCADE from restaurant, but
+// food_order is ON DELETE RESTRICT, and order_item holds menu_item with
+// RESTRICT as well. Removing the orders first turns both of those into a
+// cascade the database is willing to perform.
+//
+// The caller supplies the transaction. An import that replaces a restaurant
+// needs the delete and the insert to be one operation, and a delete that
+// removed the orders and then failed would be the worst outcome available.
+func HardDeleteRestaurant(ctx context.Context, q Querier, id uuid.UUID) error {
+	if _, err := q.Exec(ctx, `DELETE FROM food_order WHERE restaurant_id = $1`, id); err != nil {
+		return fmt.Errorf("removing the orders of restaurant %s: %w", id, err)
+	}
+
+	tag, err := q.Exec(ctx, `DELETE FROM restaurant WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("removing restaurant %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// RestaurantDependents is what a hard delete would destroy.
+//
+// Counted before the confirmation, so that the person about to answer knows
+// what they are answering about: "and 34 orders" is the part that matters.
+type RestaurantDependents struct {
+	Orders     int
+	OrderItems int
+	Categories int
+	MenuItems  int
+	Contacts   int
+	Hours      int
+}
+
+// CountRestaurantDependents counts what HardDeleteRestaurant would remove.
+func CountRestaurantDependents(ctx context.Context, q Querier, id uuid.UUID) (RestaurantDependents, error) {
+	var d RestaurantDependents
+	err := q.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM food_order WHERE restaurant_id = $1),
+			(SELECT count(*) FROM order_item oi
+			  JOIN food_order o ON o.id = oi.order_id WHERE o.restaurant_id = $1),
+			(SELECT count(*) FROM menu_category WHERE restaurant_id = $1),
+			(SELECT count(*) FROM menu_item WHERE restaurant_id = $1),
+			(SELECT count(*) FROM restaurant_contact WHERE restaurant_id = $1),
+			(SELECT count(*) FROM opening_hours WHERE restaurant_id = $1)`,
+		id).Scan(&d.Orders, &d.OrderItems, &d.Categories, &d.MenuItems, &d.Contacts, &d.Hours)
+	return d, err
+}

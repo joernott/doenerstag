@@ -254,8 +254,7 @@ func TestDeletingYourOwnAccountEndsTheSession(t *testing.T) {
 		t.Error("the session cookie was not cleared")
 	}
 
-	after := f.do(request{method: http.MethodGet, path: "/probe", cookies: cookies})
-	expectError(t, after, http.StatusUnauthorized, api.CodeSessionSuperseded)
+	f.expectEnded(api.CodeSessionSuperseded, cookies...)
 }
 
 func TestOneUserCannotDeleteAnother(t *testing.T) {

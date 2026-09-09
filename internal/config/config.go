@@ -24,6 +24,7 @@ type Config struct {
 	Log      LogConfig
 	Cleanup  CleanupConfig
 	Install  InstallConfig
+	Mail     MailConfig
 }
 
 // DatabaseConfig holds the connection settings shared by every verb.
@@ -52,7 +53,29 @@ type ServerConfig struct {
 	ShutdownGrace      time.Duration
 	MaxImageSize       int64
 	CORSAllowedOrigins string
+
+	// BaseURL is the address this installation answers on, as a person types
+	// it. Only mail needs it: a link in a message cannot be relative.
+	BaseURL string
 }
+
+// MailConfig holds the outgoing mail settings.
+//
+// Host empty means the application sends nothing. That is a supported way to
+// run it, not a misconfiguration: an intranet tool in a company with no
+// internal relay still works, it just cannot offer a password reset by mail.
+type MailConfig struct {
+	Host       string
+	Port       int
+	Username   string
+	Password   string `log:"-"`
+	From       string
+	Encryption string
+	Timeout    time.Duration
+}
+
+// Enabled reports whether mail can be sent at all.
+func (m MailConfig) Enabled() bool { return m.Host != "" }
 
 // SessionConfig holds the session and login settings.
 type SessionConfig struct {
@@ -318,6 +341,16 @@ func populate(cfg *Config, v *viper.Viper, flags *pflag.FlagSet, scope Scope,
 		ShutdownGrace:      dur("shutdown-grace"),
 		MaxImageSize:       size("max-image-size"),
 		CORSAllowedOrigins: str("cors-allowed-origins"),
+		BaseURL:            str("base-url"),
+	}
+	cfg.Mail = MailConfig{
+		Host:       str("mail-host"),
+		Port:       num("mail-port"),
+		Username:   str("mail-username"),
+		Password:   str("mail-password"),
+		From:       str("mail-from"),
+		Encryption: str("mail-encryption"),
+		Timeout:    dur("mail-timeout"),
 	}
 	cfg.Session = SessionConfig{
 		JWTSecret:            str("jwt-secret"),

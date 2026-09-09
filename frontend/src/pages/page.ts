@@ -55,6 +55,24 @@ export function pageWithActions(
 }
 
 /**
+ * An overview whose heading carries controls.
+ *
+ * The watermark and the heading line, which the two functions above provide
+ * separately. Composed rather than duplicated so that a change to either shows
+ * up here without anybody remembering to make it twice.
+ */
+export function overviewPageWithActions(
+  title: string,
+  controls: HTMLElement,
+  ...content: Child[]
+): HTMLElement {
+  const article = pageWithActions(title, controls, ...content);
+  article.classList.add("page-watermarked");
+  article.insertBefore(logoMark({ class: "page-watermark" }), article.firstChild);
+  return article;
+}
+
+/**
  * Renames a page after it has been built.
  *
  * Renaming a restaurant used to change the browser tab and leave the heading

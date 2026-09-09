@@ -18,9 +18,19 @@ export interface Account {
 /** A password that meets three of the five classes without contortion. */
 export const PASSWORD = "Korrektes Pferd Batterie Klammerß";
 
-/** Something no other run will have used. */
+/**
+ * The mark every name this suite invents carries.
+ *
+ * It is what makes the cleanup in e2e/cleanup.ts safe. Matching test data by
+ * the *shape* of its name -- something, an underscore, a timestamp -- looked
+ * good enough until it deleted an account a person had made and named that way
+ * by coincidence. A prefix nobody types by accident is not a guess.
+ */
+export const E2E_PREFIX = "e2e-";
+
+/** Something no other run will have used, and nothing outside this suite has. */
 export function unique(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  return `${E2E_PREFIX}${prefix}_${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
 }
 
 /** Registers an account and returns it. The request context keeps its cookies. */

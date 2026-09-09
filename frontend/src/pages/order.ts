@@ -11,6 +11,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -437,7 +438,7 @@ export async function orderPage(
       t.t("order.item_list"),
       el("p", { text: t.t("order.items_so_far", { count: order.item_count }) }),
       el("p", { class: "muted", text: t.t("order.anonymous_hint") }),
-      el("p", {}, el("a", { class: "link", href: "/account", text: t.t("order.join") })),
+      el("p", {}, el("a", { class: "link", href: loginHref(currentPath()), text: t.t("order.join") })),
     );
   }
 
@@ -764,7 +765,11 @@ export async function orderPage(
           renderMenu();
         },
       },
-      icon(open ? "close" : "plus"),
+      // The same chevrons the restaurant page uses on its Menu tab. A plus and
+      // a cross said "add" and "remove" on a page whose every other plus and
+      // cross does exactly that; a chevron says "there is more underneath",
+      // which is what this actually does.
+      icon(open ? "chevron-down" : "chevron-right"),
       el("span", { text: name }),
       el("span", { class: "muted", text: ` (${String(own.length)})` }),
     );

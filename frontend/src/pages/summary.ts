@@ -7,6 +7,7 @@
 
 import type { App } from "../app";
 import { api, ApiError, errorMessage } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { append, el, type Child } from "../dom";
 import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
 import { button } from "../components/forms";
@@ -110,7 +111,7 @@ function refused(app: App, id: string, error: unknown): HTMLElement {
         el("p", { text: t.t("summary.participants_only") }),
         app.session.isAuthenticated
           ? null
-          : el("p", {}, el("a", { class: "link", href: "/account", text: t.t("order.join") })),
+          : el("p", {}, el("a", { class: "link", href: loginHref(currentPath()), text: t.t("order.join") })),
         el("p", {}, el("a", { class: "link", href: `/orders/${id}`, text: t.t("summary.back") })),
       ),
     );

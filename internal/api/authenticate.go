@@ -64,6 +64,10 @@ type Authenticator struct {
 	Pool   *pgxpool.Pool
 	Signer *auth.Signer
 
+	// Secure controls the Secure attribute on the cookies this clears and
+	// sets. False under --no-https only, matching AuthHandlers.
+	Secure bool
+
 	// IdleTimeout is how long a session may go untouched before it lapses.
 	IdleTimeout time.Duration
 
@@ -78,20 +82,62 @@ func (a *Authenticator) now() time.Time {
 	return time.Now()
 }
 
+const sessionEndedKey contextKey = 101
+
+// SessionEndedFrom returns the reason a request's session cookie was refused,
+// or nil when there was no cookie or it worked.
+//
+// GET /auth/session is the one place that reads it: the frontend asks who it is
+// on every page load, and that is the natural moment to say "your session ended
+// and here is why" rather than leaving somebody staring at a logged-out page.
+func SessionEndedFrom(ctx context.Context) *Error {
+	ended, _ := ctx.Value(sessionEndedKey).(*Error)
+	return ended
+}
+
 // Middleware identifies the caller, or leaves the request anonymous.
 //
-// Presenting no credential is anonymity. Presenting a credential that does not
-// work is an error -- 2002 for a lapsed session, 2003 for one that was
-// superseded or logged out -- because the browser needs to be told to stop
-// using it and return to the login screen. Silently treating a bad cookie as
-// anonymity would leave somebody looking at a logged-out page with no
-// explanation.
+// Presenting no credential is anonymity. Presenting one that does not work
+// depends on which credential it was, and the difference matters more than it
+// looks:
+//
+// A Bearer token is explicit. A caller that names a token has asked for it to
+// be used, and quietly downgrading them to anonymous would turn a clear 401
+// into a confusing 403 or an empty list. That still fails.
+//
+// A session cookie is ambient. The browser attaches it to everything -- the
+// page, the stylesheet, the script, every public endpoint -- without anyone
+// choosing to. Refusing the request meant that one stale cookie made the whole
+// application unreachable: navigating to / produced a JSON error envelope, and
+// since the same cookie rode along on every subsequent request there was no way
+// out of it short of clearing cookies by hand. So a cookie that does not work
+// now means anonymous, and the reason is recorded for GET /auth/session to
+// report.
+//
+// The intent behind the old behaviour was right -- somebody logged out by a
+// session that lapsed overnight should be told, not silently downgraded -- and
+// it is kept. It just cannot be the transport layer that says so, because the
+// transport layer has no way to say it to a human.
 func (a *Authenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal, err := a.authenticate(r)
 			if err != nil {
-				WriteError(w, r, err)
+				if r.Header.Get("Authorization") != "" {
+					WriteError(w, r, err)
+					return
+				}
+				// The dead cookie goes now, so the browser stops sending it, and
+				// the reason is written down in its place. It has to be recorded
+				// here rather than worked out again later: this request also
+				// deletes the row of a session past its timeout, so a later
+				// lookup would find nothing and conclude "superseded by a newer
+				// login" -- confusing news for somebody whose session merely
+				// lapsed overnight.
+				clearSessionCookies(w, a.Secure)
+				setSessionEndedCookie(w, err.Code, a.Secure)
+				r = r.WithContext(context.WithValue(r.Context(), sessionEndedKey, err))
+				next.ServeHTTP(w, r)
 				return
 			}
 

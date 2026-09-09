@@ -784,3 +784,174 @@ recorded on the branch of the sprint it belongs to.
 > workflow.
 > After that, you can squash-merge the sprint-15 baranch into main as well and
 > tag the version v0.1.0 there
+
+---
+
+## Sprint 16
+
+### Prompt 46
+
+> Start a branch for sprint 16 from main. This sprint will be used mainly for
+> bug-fixing and minor improvements.
+> The first task in that is related to a bug: Yesterday, I did not log out from
+> the web UI on the server. Now, I am getting a json response with error 2003,
+> wzhenever I try to access https://192.168.178.183:8443/ from that browser. The
+> expected behaviour would be to either show an error page that allows a relogin
+> or show the main page as anonymous user with a modal dialog that I have been
+> logged out.
+
+---
+
+### Prompt 47
+
+> Some more tasks:
+> - Add the installation of mokapi to the setup_dev_pipeline.sh script and
+>   install it on the VM. Also maske sure, it is configured for Mail (SMTP and
+>   IMAP) and LDAP. This can be used to test the email functionality.
+> - Add support for sending EMails to the application and add a "Forgot
+>   password?" option in the login dialog beind the Login button. That should
+>   generate a unique reset-password ID, that is kept in memory for one hour. It
+>   should also trigger sending an email to the email address of the user. The
+>   email should contain a link to a password reset page with the unique ID and
+>   allow the user to reset their password. After completing and submitting the
+>   form, the user should be redirected to the login page.
+> - Add the new verb "user" with the following subcommands
+>   - list lists all users with their id
+>   - add adds a user with the following parameters --username (-u),
+>     --displayname (-d), --email (-e): That command should generate a 20
+>     character password using the compleyity rules, set it and print it out
+>   - delete deletes a user, either --id (-i) or --username (-u) must be provided
+>     to identify the user
+>   - password resets the password for a user, either --id (-i) or --username
+>     (-u) must be provided to identify the user. If --set-pasword is provided,
+>     the application will ask for the new password, otherwise it will generate a
+>     reset password link for the user
+> - For the administrator user, there should be a menu entry "Users" that shows a
+>   list of users with an edit, reset password and delete button for each user.
+>   The edit button should open the user dialog for the respective user, the
+>   reset password button should trigger the same password reset functionality as
+>   if the user had clicked on the "reset password" link on the login page.
+> - Add a new verb "restaurant that has the following subcommands
+>   - list lists all restaurants with their ID
+>   - delete deletes a restaurant and depending menu items, orders, opening hours
+>     etc.,  --id (-i) must be specified
+>   - export exports a restaurant with opening hours, contacts menus and
+>     associated tags. --id (-i) must be provided, --format (-F) specifies the
+>     file format. It can either be yaml or json. If -i is provided multiple
+>     times, multipüle restaurants are exported. if --all (-a) is specified, all
+>     restaurants are exported.
+>   - import imports a restaurant, --file (-f) specifies the file, the
+>     application tries to guess the format by looking at the content, not the
+>     file suffix, this can be overridden by providing the --format (-F)
+>     parameter. A file can contain multiple restaurants. If a restaurant with the
+>     given uuid already exists, it will hnot be imported. this can be overridenn
+>     by providing the --overwrite (-o) option. In that case, the existing
+>     restaurant with that ID is deleted before the new restaurant is imported
+
+---
+
+### Prompt 48
+
+> Some more tasks for this sprint:
+> 1. Move --log-file to -L please
+> 2. Also add another verb "order" with the following subcommands:
+> - list tto list all orders with their ID, the option --verbose (-V) also lists
+>   creator, restaurant name and ID, deadline, pickup/delivery and the time for
+>   that as well as the number of order items
+> - delete deletes an order, the parameter --id (-i) must be provided
+> 3. Please also add a doc page with all the commandline verbs and their
+>    parameters, essentially, what you get when using --help
+> 4. Add a cleanup job to the beginning of the local testing that deletes all
+>    orders, restaurants and users from previous jobs. Having one set of test data
+>    at the end of it is fine, but the database is getting crowded
+> 5. On the orders overview add a "cleanup" button on the same height as "orders",
+>    aligned to the right. It should only be visible to the administrator user
+>
+> After that, please make sure, the development version is deployed on the VM.
+> Currently, calling "doenerstag" is resolved as /usr/local/bin/doenerstag and
+> that is 3 days old and does not have any of the new verbs.
+
+---
+
+### Prompt 49
+
+> The table for sprint 16 in 14_implementation_plan.md is broken starting with
+> task 16.8, please fix that. Also make sure to only delete the
+> users/restaurants/orders you created during previous tests, you should be able
+> to determine that by the user name. You also deleted the user I created in the
+> current cleanup.
+
+---
+
+### Prompt 50
+
+> Another task for the sprint. Currently, the binary ends up in /usr/local/bin.
+> Make sure that it is in /usr/bin in the RPM and debian package
+
+---
+
+### Prompt 51
+
+> I have added 4 pictures to the contrib folder. They contain the memory for the
+> restaurant "Ali Baba". On the regular pages (black), the categories are
+> highlighted in red and the menu is white on black, on the getraenke page, the
+> background is red, so the categories are highlighted in black. Can you analyze
+> these four pictures and create a json import file in the contrib folder to use
+> with doenerstag restaurant import?
+
+---
+
+### Prompt 52
+
+> I've restarted the VM. Can you restart the application and reset the root
+> password with a random password and then post that password here?
+
+---
+
+### Prompt 53
+
+> On the order page, there is a + and x for showing/hiding categories. Please use
+> the same symbols, you use on the restaurant page for the categories on the menu
+> tab.
+
+---
+
+### Prompt 54
+
+> Another task: When someone clicks on the login link on any page, he should
+> return there. Only when registering, they should end up on their account page
+> after clicking on "register"
+>
+> I have modified the data for the restaurant Ali Baba, please update the export
+> file in the contrib folder and remove the images from the folder as well.
+
+---
+
+### Prompt 55
+
+> I tried the docker compse setup earlier today and was asked for the database
+> root password despite setting the environment variable as described:
+> DOENER_DATABASE_ROOT_PASSWORD="$(cat secrets/db_password)" \
+>   docker compose run --rm -e DOENER_DATABASE_ROOT_PASSWORD install
+> I checked by running setting the vatiable and printing it with echo, that the
+> varioable indeed held the right password. Can you reproduce this issue?
+
+---
+
+### Prompt 56
+
+> I also increased the disk size, so we should have a lot more space now. Please
+> squash merge the sprint-16 branch back into main and create a new release
+> v0.2.0.
+
+---
+
+### Prompt 57
+
+> I rotated the token
+
+---
+
+### Prompt 58
+
+> The rotated secret is stored in the repository secrets though

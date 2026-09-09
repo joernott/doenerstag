@@ -246,3 +246,7 @@ image: ## Build the container image for this machine's architecture
 .PHONY: licenses
 licenses: ## Regenerate THIRD_PARTY_LICENSES
 	./scripts/licenses.sh
+
+.PHONY: clidocs
+clidocs: ## Regenerate docs/15_cli_reference.md from the command tree
+	./scripts/clidocs.sh

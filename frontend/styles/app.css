@@ -1509,6 +1509,13 @@ a {
 
 /* A category heading that folds its items away. The state is on the button,
    where a screen reader looks for it, not only in the icon. */
+/* The chevron is muted the same way the restaurant page mutes its own, so
+   that the category name is what the eye lands on rather than the marker. */
+.category-toggle .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
 .category-toggle {
   display: flex;
   align-items: center;

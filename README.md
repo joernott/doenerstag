@@ -13,12 +13,29 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.1.0** — the first release. Everything the specification describes is built:
-accounts and sessions, restaurants with menus and opening hours, orders with a
-deadline and a pickup or delivery time, per-person items, a summary page for
-whoever is calling the restaurant, live updates over SSE, German and English,
-and an administration surface. It has had barely any use by real people, which
-is why it is 0.1.0 and marked as a pre-release rather than 1.0.0.
+**0.2.0.** Everything the specification describes is built: accounts and
+sessions, restaurants with menus and opening hours, orders with a deadline and a
+pickup or delivery time, per-person items, a summary page for whoever is calling
+the restaurant, live updates over SSE, German and English, and an administration
+surface.
+
+New since 0.1.0, most of it from using the thing and finding out:
+
+- **Forgotten passwords.** A reset link by mail, and the SMTP settings to send
+  it with. An administrator can send the same link from the Users page or from
+  the command line.
+- **Command line administration.** `doenerstag user`, `doenerstag order` and
+  `doenerstag restaurant`, the last of which exports a restaurant with its menu
+  as YAML or JSON and imports it somewhere else — a menu is an hour of typing
+  and should only be typed once. Every verb and flag is in
+  [docs/15_cli_reference.md](docs/15_cli_reference.md).
+- **A session the server has forgotten** no longer makes the application
+  unreachable. It used to answer every request, the page included, with a JSON
+  error until somebody cleared their cookies by hand.
+- **Logging in returns you where you were** rather than to your account page.
+
+Still a 0.x release, and marked as a pre-release for the reason it was at
+0.1.0: it works, and not many people have used it yet.
 
 ## Install
 
@@ -26,13 +43,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.1.0-1_amd64.deb
+apt install ./doenerstag_0.2.0-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.1.0-1.x86_64.rpm
+dnf install ./doenerstag-0.2.0-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.1.0
+docker pull docker.io/joernott/doenerstag:0.2.0
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```
@@ -70,6 +87,7 @@ The documentation lives in [docs/](docs/). Start with
 | [12_testing.md](docs/12_testing.md) | Test strategy |
 | [13_legal_and_privacy.md](docs/13_legal_and_privacy.md) | GDPR and legal obligations |
 | [14_implementation_plan.md](docs/14_implementation_plan.md) | Sprint plan and task list |
+| [15_cli_reference.md](docs/15_cli_reference.md) | Every verb and flag, generated from the command tree |
 | [adr/](docs/adr/) | Architecture decision records |
 
 ## Stack

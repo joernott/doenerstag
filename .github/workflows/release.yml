@@ -125,6 +125,10 @@ jobs:
         run: |
           set -eux
           test -x /usr/bin/doenerstag
+          # And nowhere else: /usr/local/bin is for software installed by hand,
+          # and a package that put a binary there would shadow, or be shadowed
+          # by, one that was.
+          test ! -e /usr/local/bin/doenerstag
           test -f /etc/doenerstag/doenerstag.yaml
           test -f /etc/logrotate.d/doenerstag
           test -f /etc/cron.d/doenerstag
@@ -177,6 +181,10 @@ jobs:
         run: |
           set -eux
           test -x /usr/bin/doenerstag
+          # And nowhere else: /usr/local/bin is for software installed by hand,
+          # and a package that put a binary there would shadow, or be shadowed
+          # by, one that was.
+          test ! -e /usr/local/bin/doenerstag
           test -f /etc/doenerstag/doenerstag.yaml
           test -f /etc/logrotate.d/doenerstag
           test -f /etc/cron.d/doenerstag
@@ -372,9 +380,11 @@ jobs:
           prerelease: true
           generate_release_notes: true
           body: |
-            The first iteration. It provides the minimal functionality described
-            in the documentation and has had barely any use, which is why this
-            is 0.1.0 and marked as a pre-release rather than 1.0.0.
+            A 0.x release: the functionality the documentation describes, with
+            little use behind it yet. Marked as a pre-release for that reason
+            rather than because anything in it is known to be unfinished.
+
+            What changed is below, generated from the commits.
 
             **Install**
 

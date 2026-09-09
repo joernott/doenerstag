@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -14,6 +15,12 @@ const (
 	// frontend has to read it to put it in the header, which is what makes the
 	// double-submit pattern work.
 	CSRFCookieName = "doener_csrf"
+
+	// SessionEndedCookieName carries the reason a session cookie was refused,
+	// from the request that detected it to the next call to /auth/session.
+	// HttpOnly: the frontend is told through that endpoint, not by reading
+	// this.
+	SessionEndedCookieName = "doener_session_ended"
 
 	// CSRFHeaderName is where that value must come back.
 	CSRFHeaderName = "X-CSRF-Token"
@@ -86,4 +93,69 @@ func clearSessionCookies(w http.ResponseWriter, secure bool) {
 			SameSite: http.SameSiteStrictMode,
 		})
 	}
+}
+
+// SessionEndedLifetime is how long the notice below survives.
+//
+// Long enough for the page load that follows to collect it, short enough that a
+// browser left closed for a week is not greeted with news about a session it
+// has forgotten.
+const SessionEndedLifetime = 5 * time.Minute
+
+// setSessionEndedCookie records why a session cookie was refused.
+//
+// The reason has to be written down at the moment it is detected, not looked up
+// again later, because looking it up again gives a different answer: the
+// request that finds a session past its idle timeout also deletes the row, so
+// the next request finds no row and concludes "superseded by a newer login" --
+// which is a confusing thing to tell somebody whose session simply timed out
+// while they slept.
+//
+// HttpOnly, because the frontend never reads it directly. GET /auth/session
+// reads it server-side, reports it in a form the frontend already knows how to
+// translate, and clears it, so the news is delivered exactly once.
+func setSessionEndedCookie(w http.ResponseWriter, code Code, secure bool) {
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is conditional on --no-https, as above
+		Name:     SessionEndedCookieName,
+		Value:    strconv.Itoa(int(code)),
+		Path:     "/",
+		MaxAge:   int(SessionEndedLifetime.Seconds()),
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// clearSessionEndedCookie expires the notice, once it has been delivered.
+func clearSessionEndedCookie(w http.ResponseWriter, secure bool) {
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is conditional on --no-https, as above
+		Name:     SessionEndedCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// sessionEndedFromCookie reads the notice, if there is a usable one.
+//
+// An unregistered or unparseable value is ignored rather than reported: it did
+// not come from here, and inventing an error code out of whatever a client put
+// in a cookie would put arbitrary text in front of a user.
+func sessionEndedFromCookie(r *http.Request) (Code, bool) {
+	raw := cookieValue(r, SessionEndedCookieName)
+	if raw == "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, false
+	}
+	code := Code(n)
+	if !code.Registered() {
+		return 0, false
+	}
+	return code, true
 }

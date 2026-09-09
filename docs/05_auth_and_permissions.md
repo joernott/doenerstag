@@ -207,11 +207,41 @@ enforcement possible; a purely stateless JWT can express neither.
 5. Update `last_seen_at`. To avoid a write on every request, the update is
    skipped when `last_seen_at` is less than 60 seconds old.
 
+### What a failed credential does to the request
+
+The code above says which error a credential earns. What happens to the request
+depends on **which** credential it was, and the two are not the same:
+
+| Credential          | Fails how                                                                 |
+| ------------------- | ------------------------------------------------------------------------- |
+| `Authorization: Bearer` | The request is refused, with the code above. A caller that names a token asked for it to be used; downgrading it to anonymity would turn a clear 401 into a confusing 403 or an empty list. |
+| Session cookie      | The request continues **anonymously**. The cookie is expired, the reason is recorded, and authorization then decides the outcome exactly as it would for any anonymous caller. |
+
+The cookie is ambient: the browser attaches it to the page, the stylesheet, the
+script and every public endpoint without anyone choosing to. Refusing those
+requests meant one stale cookie made the whole application unreachable —
+navigating to `/` produced a JSON error envelope rather than the application,
+and since the same cookie rode along on everything there was no way out of it
+short of clearing cookies by hand.
+
+The reason is written into a short-lived `doener_session_ended` cookie
+(`HttpOnly`, five minutes) by the request that detects it. It has to be recorded
+there and then rather than worked out again later: the request that finds a
+session past its idle timeout also deletes the row, so a second look would find
+no row and conclude "superseded by a newer login" — the wrong thing to tell
+somebody whose session simply lapsed overnight.
+
+`GET /auth/session` reports it, in the `ended` object described in
+[04_api.md](04_api.md), and clears the note. The frontend shows it once, as a
+dialog over a working anonymous application, offering a login. Telling somebody
+they were logged out is the part worth keeping; making them read it as JSON was
+not.
+
 ### One session per user
 
 `session` has a unique constraint on `user_id`. A successful login deletes any
 existing row for that user and inserts a new one. The previously logged-in
-browser receives 2003 on its next request and is returned to the login screen.
+browser is told 2003 the next time it asks who it is, and is offered a login.
 
 This deliberately prevents the same account being used from two browsers at
 once, which also removes most of the scope for concurrent edits of the same

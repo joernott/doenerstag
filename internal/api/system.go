@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -33,6 +34,11 @@ type SystemHandlers struct {
 	// answers "what is this server".
 	Swagger bool
 
+	// Retention is --retention, the age past which an expired order is removed
+	// by the cleanup endpoint. Zero would delete everything, so a zero value is
+	// treated as the documented default rather than obeyed.
+	Retention time.Duration
+
 	// MaxImageSize is --max-image-size in bytes, reported for the same reason:
 	// the upload control tells a person their photograph is too large before
 	// it is sent, and the limit is an operator's decision.
@@ -44,6 +50,7 @@ func (h *SystemHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodGet, "/health", h.health)
 	r.HandleFunc(http.MethodGet, "/metrics", h.metrics)
 	r.HandleFunc(http.MethodGet, "/version", h.version)
+	r.HandleFunc(http.MethodPost, "/cleanup", h.cleanupHandler)
 	if h.Shutdown != nil {
 		r.HandleFunc(http.MethodPost, "/shutdown", h.shutdownHandler)
 	}
@@ -174,3 +181,54 @@ func (h *SystemHandlers) shutdownHandler(w http.ResponseWriter, r *http.Request)
 	}
 	go h.Shutdown()
 }
+
+// cleanupBody is what the cleanup endpoint reports.
+type cleanupBody struct {
+	Removed map[string]int64 `json:"removed"`
+	Total   int64            `json:"total"`
+}
+
+// cleanupHandler runs the retention cleanup on demand.
+//
+// The same work the cleanup verb does from cron, offered to the administrator
+// who is looking at a list of expired orders and would rather not wait until
+// 03:17 for them to go. Administrator only: it deletes, and the rest of the
+// system endpoints are unauthenticated precisely because they do not.
+//
+// Synchronous, unlike shutdown. The caller wants the number, the work is a
+// handful of DELETEs bounded by the retention period, and an endpoint that
+// answered "started" would leave the page with nothing to say.
+func (h *SystemHandlers) cleanupHandler(w http.ResponseWriter, r *http.Request) {
+	if _, err := RequireAdmin(r); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	retention := h.Retention
+	if retention <= 0 {
+		// A zero retention would treat every order as expired. A handler that
+		// was wired up without this value must not delete the database.
+		retention = DefaultRetention
+	}
+
+	report, err := db.Cleanup(r.Context(), h.Pool, retention, time.Now(), false)
+	if err != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
+
+	body := cleanupBody{Removed: map[string]int64{}}
+	for _, step := range report.Steps {
+		if step.Count > 0 {
+			body.Removed[step.Object] = step.Count
+		}
+	}
+	body.Total = report.Total()
+	_ = WriteJSON(w, http.StatusOK, body)
+}
+
+// DefaultRetention is the fallback for a SystemHandlers built without one.
+//
+// It matches the documented default of --retention. The cleanup endpoint reads
+// it rather than trusting a zero, because zero means "everything is expired".
+const DefaultRetention = 14 * 24 * time.Hour

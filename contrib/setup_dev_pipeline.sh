@@ -368,6 +368,234 @@ install_playwright() {
 # -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
+# mokapi, the development mail and directory server (sprint 16)
+# -----------------------------------------------------------------------------
+#
+# doenerstag sends one kind of mail, and until sprint 16 there was no way to
+# watch it do so without a real mail server and a real address. mokapi is an SMTP
+# and IMAP server that accepts everything and delivers nothing, with a dashboard
+# for reading what arrived, plus an LDAP server for the directory work that an
+# intranet tool eventually gets asked for.
+#
+# Nothing in the test suite requires it: `make test` uses an in-process fake
+# (internal/mail/mail_test.go). This is for looking at the result by hand, and
+# for the end-to-end test of the reset flow.
+#
+# The .deb installs one file, /usr/bin/mokapi, and nothing else -- no unit, no
+# configuration directory, no service account. All of that is created here.
+
+MOKAPI_VERSION="${MOKAPI_VERSION:-0.51.2}"
+MOKAPI_CONF_DIR=/etc/mokapi/conf.d
+MOKAPI_SMTP_PORT=2525
+MOKAPI_IMAP_PORT=1143
+MOKAPI_LDAP_PORT=3389
+MOKAPI_DASHBOARD_PORT=8080
+
+install_mokapi() {
+  local want="$MOKAPI_VERSION" have=""
+
+  if have mokapi; then
+    # Bounded: mokapi prints its version and then does not exit, so an
+    # unbounded call here would hang the whole provisioning run.
+    have="$(timeout 5 mokapi --version 2>/dev/null | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1)"
+  fi
+
+  if [ "$have" = "$want" ]; then
+    log "mokapi $want already installed"
+  else
+    log "Installing mokapi $want"
+    local arch deb tmp
+    arch="$(dpkg --print-architecture)"
+    case "$arch" in
+      amd64|arm64) ;;
+      *) warn "mokapi publishes no package for $arch; skipping"; return 0 ;;
+    esac
+
+    tmp="$(mktemp -d)"
+    deb="$tmp/mokapi.deb"
+    if ! curl -fsSL -o "$deb" \
+      "https://github.com/marle3003/mokapi/releases/download/v${want}/mokapi_${want}_linux_${arch}.deb"; then
+      warn "could not download mokapi ${want}; skipping"
+      rm -rf "$tmp"
+      return 0
+    fi
+    apt install -y "$deb"
+    rm -rf "$tmp"
+  fi
+
+  configure_mokapi
+}
+
+configure_mokapi() {
+  log "Configuring mokapi for SMTP, IMAP and LDAP"
+
+  install -d -m 0755 /etc/mokapi "$MOKAPI_CONF_DIR"
+
+  # The mail server. The schema is mokapi's own rather than AsyncAPI, and the
+  # `mail: '1.0'` line is what tells mokapi so. info.title is required: without
+  # it the file is rejected.
+  #
+  # mokapi authenticates by matching username and password across every mailbox,
+  # not by the address, so the credentials under doenerstag@doener.test are
+  # exactly what goes in mail-username and mail-password.
+  cat >"$MOKAPI_CONF_DIR/mail.yaml" <<'EOF'
+mail: '1.0'
+
+info:
+  title: doenerstag development mail
+  description: SMTP in, IMAP out, nothing delivered anywhere.
+  version: 1.0.0
+
+servers:
+  smtp:
+    host: :2525
+    protocol: smtp
+    description: Where doenerstag sends. Unprivileged, so mokapi needs no root.
+  imap:
+    host: :1143
+    protocol: imap
+    description: Where a test reads back what was sent.
+
+settings:
+  allowUnknownSenders: true
+  autoCreateMailbox: true
+  # The default is unlimited, whatever the documentation says: mokapi applies
+  # its 100 only when the settings block is absent entirely, and this one is
+  # not. Stated so a long-running VM does not accumulate for ever.
+  maxInboxMails: 500
+
+mailboxes:
+  doenerstag@doener.test:
+    username: doenerstag
+    password: doenerstag-development-only
+    description: The sender. Its credentials are the SMTP credentials.
+  probe@doener.test:
+    username: probe
+    password: probe-development-only
+    description: A recipient a test can read over IMAP.
+    folders:
+      Sent:
+        flags: ['\Sent']
+EOF
+
+  # The directory. doenerstag does not authenticate against LDAP today; this is
+  # here so that the question can be answered by trying rather than by guessing.
+  cat >"$MOKAPI_CONF_DIR/ldap.yaml" <<'EOF'
+ldap: '1.0'
+
+info:
+  title: doenerstag development directory
+  description: A directory to develop against. No account here is real.
+
+host: :3389
+
+files:
+  - ./doener.ldif
+EOF
+
+  # mokapi compares userPassword as plaintext, and an entry without one binds
+  # successfully with any password at all. Every entry here has one.
+  cat >"$MOKAPI_CONF_DIR/doener.ldif" <<'EOF'
+dn:
+namingContexts: dc=doener,dc=test
+
+dn: dc=doener,dc=test
+objectClass: top
+objectClass: domain
+dc: doener
+
+dn: ou=people,dc=doener,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=doener,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=probe,ou=people,dc=doener,dc=test
+objectClass: inetOrgPerson
+cn: Probe Person
+sn: Person
+uid: probe
+mail: probe@doener.test
+userPassword: probe-development-only
+
+dn: uid=hungry,ou=people,dc=doener,dc=test
+objectClass: inetOrgPerson
+cn: Hungry Colleague
+sn: Colleague
+uid: hungry
+mail: hungry@doener.test
+userPassword: hungry-development-only
+
+dn: cn=doenerstag-users,ou=groups,dc=doener,dc=test
+objectClass: groupOfNames
+cn: doenerstag-users
+member: uid=probe,ou=people,dc=doener,dc=test
+member: uid=hungry,ou=people,dc=doener,dc=test
+EOF
+
+  # An unprivileged account. mokapi binds only ports above 1024, so it never
+  # needs root, and a development tool that accepts connections should not have
+  # more than it needs.
+  if ! getent passwd mokapi >/dev/null; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin mokapi
+  fi
+  chown -R mokapi:mokapi /etc/mokapi
+
+  cat >/etc/systemd/system/mokapi.service <<EOF
+[Unit]
+Description=mokapi, the development mail and directory server for doenerstag
+Documentation=https://mokapi.io/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mokapi
+Group=mokapi
+ExecStart=/usr/bin/mokapi --providers-file-directory $MOKAPI_CONF_DIR
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now mokapi
+
+  cat <<EOF
+
+mokapi is listening:
+  SMTP       localhost:$MOKAPI_SMTP_PORT   (user doenerstag, password doenerstag-development-only)
+  IMAP       localhost:$MOKAPI_IMAP_PORT
+  LDAP       localhost:$MOKAPI_LDAP_PORT   (dc=doener,dc=test)
+  Dashboard  http://localhost:$MOKAPI_DASHBOARD_PORT
+
+To point a development doenerstag at it, in doenerstag.yaml:
+  mail:
+    host: "localhost"
+    port: $MOKAPI_SMTP_PORT
+    username: "doenerstag"
+    password: "doenerstag-development-only"
+    from: "doenerstag@doener.test"
+    encryption: "none"
+
+encryption is none because mokapi offers STARTTLS with a certificate from its
+own self-signed authority, which nothing here trusts. That is acceptable for a
+loopback development server and for nothing else.
+EOF
+}
+
+# -----------------------------------------------------------------------------
 
 # tool_version prints one line describing an installed tool.
 #
@@ -383,13 +611,17 @@ tool_version() {
     nfpm)   echo "nfpm $(nfpm --version 2>&1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)" ;;
     # go-licenses has no version flag at all.
     go-licenses) echo "installed (reports no version)" ;;
+    # mokapi answers with an ASCII-art banner, like nfpm; pick the version out.
+    # mokapi answers with an ASCII-art banner and then does not exit, so
+    # the version is picked out of it and the call is bounded.
+    mokapi) echo "mokapi $(timeout 5 mokapi --version 2>&1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1)" ;;
     *)      "$1" --version ;;
   esac
 }
 
 report() {
   log "Installed versions"
-  local tools=(go gofmt make gcc git golangci-lint govulncheck migrate nfpm
+  local tools=(go gofmt make gcc git golangci-lint govulncheck migrate nfpm mokapi
                go-licenses node npm psql docker jq)
   local missing=0
 
@@ -436,6 +668,7 @@ main() {
   install_docker
   install_node
   install_playwright
+  install_mokapi
   report
 }
 

@@ -121,6 +121,9 @@ function summaryStubs(overrides: Record<string, unknown> = {}): Record<string, u
 
 beforeEach(() => {
   document.body.replaceChildren();
+  // A page test that moves the address moves it for the whole file otherwise,
+  // and pages read the address when they build their login links.
+  history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -279,11 +282,14 @@ describe("somebody who may not read it", () => {
 
     expect(rendered.textContent).toContain(app.t.t("summary.participants_only"));
     expect(rendered.querySelector("a[href='/orders/o1']")).not.toBeNull();
-    // Already logged in, so there is nothing to log in to.
-    expect(rendered.querySelector("a[href='/account']")).toBeNull();
+    // Already logged in, so there is nothing to log in to. Matched by prefix
+    // because the link, when there is one, carries a return address.
+    expect(rendered.querySelector("a[href^='/account']")).toBeNull();
   });
 
   it("is offered the login page when anonymous, because logging in may help", async () => {
+    // The link comes back here, so the page has to be here to begin with.
+    history.replaceState(null, "", "/orders/o1/summary");
     stubServer(
       summaryStubs({
         "GET /orders/o1/summary": fails(401, {
@@ -296,7 +302,9 @@ describe("somebody who may not read it", () => {
     const rendered = await summaryPage(app, "o1");
 
     expect(rendered.textContent).toContain(app.t.t("summary.participants_only"));
-    expect(rendered.querySelector("a[href='/account']")).not.toBeNull();
+    expect(
+      rendered.querySelector("a[href='/account?next=%2Forders%2Fo1%2Fsummary']"),
+    ).not.toBeNull();
   });
 });
 
