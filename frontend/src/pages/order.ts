@@ -764,7 +764,11 @@ export async function orderPage(
           renderMenu();
         },
       },
-      icon(open ? "close" : "plus"),
+      // The same chevrons the restaurant page uses on its Menu tab. A plus and
+      // a cross said "add" and "remove" on a page whose every other plus and
+      // cross does exactly that; a chevron says "there is more underneath",
+      // which is what this actually does.
+      icon(open ? "chevron-down" : "chevron-right"),
       el("span", { text: name }),
       el("span", { class: "muted", text: ` (${String(own.length)})` }),
     );

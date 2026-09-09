@@ -898,3 +898,18 @@ recorded on the branch of the sprint it belongs to.
 > background is red, so the categories are highlighted in black. Can you analyze
 > these four pictures and create a json import file in the contrib folder to use
 > with doenerstag restaurant import?
+
+---
+
+### Prompt 52
+
+> I've restarted the VM. Can you restart the application and reset the root
+> password with a random password and then post that password here?
+
+---
+
+### Prompt 53
+
+> On the order page, there is a + and x for showing/hiding categories. Please use
+> the same symbols, you use on the restaurant page for the categories on the menu
+> tab.
