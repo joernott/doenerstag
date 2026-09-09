@@ -887,3 +887,14 @@ recorded on the branch of the sprint it belongs to.
 
 > Another task for the sprint. Currently, the binary ends up in /usr/local/bin.
 > Make sure that it is in /usr/bin in the RPM and debian package
+
+---
+
+### Prompt 51
+
+> I have added 4 pictures to the contrib folder. They contain the memory for the
+> restaurant "Ali Baba". On the regular pages (black), the categories are
+> highlighted in red and the menu is white on black, on the getraenke page, the
+> background is red, so the categories are highlighted in black. Can you analyze
+> these four pictures and create a json import file in the contrib folder to use
+> with doenerstag restaurant import?
