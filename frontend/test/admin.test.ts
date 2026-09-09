@@ -35,6 +35,9 @@ function asAdmin(): ReturnType<typeof mountApp> {
 
 beforeEach(() => {
   document.body.replaceChildren();
+  // A page test that moves the address moves it for the whole file otherwise,
+  // and pages read the address when they build their login links.
+  history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -44,11 +47,16 @@ afterEach(() => {
 describe("the user administration", () => {
   it("tells a visitor who is not the administrator, rather than showing an empty table", async () => {
     stubServer({});
+    // The link is built from the address the page is at, so the page has to be
+    // at one.
+    history.replaceState(null, "", "/admin/users");
     const app = mountApp(() => []);
     const rendered = await usersPage(app);
 
     expect(rendered.textContent).toContain(app.t.t("error.3000"));
-    expect(rendered.querySelector("a[href='/account']")).not.toBeNull();
+    expect(
+      rendered.querySelector("a[href='/account?next=%2Fadmin%2Fusers']"),
+    ).not.toBeNull();
   });
 
   it("lists the accounts with when they were made and last seen", async () => {

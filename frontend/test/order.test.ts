@@ -125,6 +125,9 @@ function loggedIn(app: App, admin = false): void {
 
 beforeEach(() => {
   document.body.replaceChildren();
+  // A page test that moves the address moves it for the whole file otherwise,
+  // and pages read the address when they build their login links.
+  history.replaceState(null, "", "/");
 });
 
 afterEach(() => {
@@ -364,13 +367,17 @@ describe("the order page", () => {
   it("shows an anonymous visitor the count and a way in, and no items", async () => {
     stubServer(orderStubs(header()));
 
+    // The login link carries the page it was pressed on, and the page is only
+    // at its own address if the test puts it there.
+    history.replaceState(null, "", "/orders/o1");
+
     const app = mountApp(() => []);
     const rendered = await orderPage(app, "o1", { factory: silentFactory });
     await settle();
 
     expect(rendered.textContent).toContain(app.t.t("order.items_so_far", { count: 1 }));
     expect(rendered.textContent).toContain(app.t.t("order.anonymous_hint"));
-    expect(rendered.querySelector("a[href='/account']")).not.toBeNull();
+    expect(rendered.querySelector("a[href='/account?next=%2Forders%2Fo1']")).not.toBeNull();
     // The item and the people are absent, not hidden: the API never sent them.
     expect(rendered.textContent).not.toContain("Alex");
     expect(rendered.textContent).not.toContain("ohne Zwiebeln");

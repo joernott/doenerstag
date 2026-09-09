@@ -943,3 +943,15 @@ recorded on the branch of the sprint it belongs to.
 > I also increased the disk size, so we should have a lot more space now. Please
 > squash merge the sprint-16 branch back into main and create a new release
 > v0.2.0.
+
+---
+
+### Prompt 57
+
+> I rotated the token
+
+---
+
+### Prompt 58
+
+> The rotated secret is stored in the repository secrets though
