@@ -125,6 +125,10 @@ jobs:
         run: |
           set -eux
           test -x /usr/bin/doenerstag
+          # And nowhere else: /usr/local/bin is for software installed by hand,
+          # and a package that put a binary there would shadow, or be shadowed
+          # by, one that was.
+          test ! -e /usr/local/bin/doenerstag
           test -f /etc/doenerstag/doenerstag.yaml
           test -f /etc/logrotate.d/doenerstag
           test -f /etc/cron.d/doenerstag
@@ -177,6 +181,10 @@ jobs:
         run: |
           set -eux
           test -x /usr/bin/doenerstag
+          # And nowhere else: /usr/local/bin is for software installed by hand,
+          # and a package that put a binary there would shadow, or be shadowed
+          # by, one that was.
+          test ! -e /usr/local/bin/doenerstag
           test -f /etc/doenerstag/doenerstag.yaml
           test -f /etc/logrotate.d/doenerstag
           test -f /etc/cron.d/doenerstag

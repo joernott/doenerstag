@@ -880,3 +880,10 @@ recorded on the branch of the sprint it belongs to.
 > users/restaurants/orders you created during previous tests, you should be able
 > to determine that by the user name. You also deleted the user I created in the
 > current cleanup.
+
+---
+
+### Prompt 50
+
+> Another task for the sprint. Currently, the binary ends up in /usr/local/bin.
+> Make sure that it is in /usr/bin in the RPM and debian package

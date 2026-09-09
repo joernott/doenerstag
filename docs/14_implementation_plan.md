@@ -585,6 +585,7 @@ by a plan written in advance.
 | ✅ 16.11 | The browser tests clear the orders, restaurants and accounts left by previous runs before they start. The development database had accumulated 500 restaurants, 78 orders and 792 accounts | S | [12](12_testing.md) |
 | ✅ 16.11.1 | That cleanup matched test data by the shape of its name -- a word, an underscore, a timestamp -- and deleted an account the user had created that happened to look like one. Every name the fixtures invent now carries an `e2e-` prefix and only that prefix is deleted. Reported by the user, after it had already happened | S | [12](12_testing.md) |
 | ✅ 16.12 | A Cleanup button on the order overview, on the heading line and only for the administrator | M | [06](06_ui_ux.md) |
+| ✅ 16.13 | A check that the packages install the binary to `/usr/bin` and to nowhere else. They already did; what was in `/usr/local/bin` on the development VM was a hand-installed build, which is the confusion the assertion now prevents | S | [10](10_operations.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about
 loads the application, is told once that it was logged out, and can log in
