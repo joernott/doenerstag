@@ -935,3 +935,11 @@ recorded on the branch of the sprint it belongs to.
 >   docker compose run --rm -e DOENER_DATABASE_ROOT_PASSWORD install
 > I checked by running setting the vatiable and printing it with echo, that the
 > varioable indeed held the right password. Can you reproduce this issue?
+
+---
+
+### Prompt 56
+
+> I also increased the disk size, so we should have a lot more space now. Please
+> squash merge the sprint-16 branch back into main and create a new release
+> v0.2.0.

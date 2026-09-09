@@ -30,7 +30,7 @@ services:
   # It is the only service that mounts the configuration directory writable,
   # because it is the only one that writes to it.
   install:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["install", "-o", "/config/doenerstag.yaml", "-R", "postgres"]
@@ -43,7 +43,7 @@ services:
     profiles: ["install"]
 
   doenerstag:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["server", "-c", "/config/doenerstag.yaml"]
@@ -58,7 +58,7 @@ services:
   # Behind a profile so it never starts with the stack. Run it from the host's
   # cron: 17 3 * * * cd /srv/doenerstag && docker compose run --rm cleanup
   cleanup:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.1.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["cleanup", "-c", "/config/doenerstag.yaml"]

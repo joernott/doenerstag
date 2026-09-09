@@ -591,6 +591,8 @@ by a plan written in advance.
 | ✅ 16.16 | A login link carries the page it was pressed on, so logging in returns there. Registering still ends on the account page, which is where a new account has a display name and an address to fill in. The return path is validated as a path on this site, because a login page that navigates wherever a query parameter says is an open redirect | M | [06](06_ui_ux.md) |
 | ✅ 16.17 | `contrib/ali_baba.json` re-exported after the user filled in the contacts, the opening hours and the notes, and the four photographs removed now that the data is in the file | S | — |
 | ✅ 16.18 | `install` appeared to ignore `DOENER_DATABASE_ROOT_PASSWORD` under `docker compose`. It did not: an ordinary question shows its default in brackets, a secret question showed nothing at all, so a prompt for a value already supplied was indistinguishable from one being ignored. Secret prompts now name the variable the value came from. Reported by the user | S | [09](09_configuration.md) |
+| ✅ 16.19 | Version references moved to 0.2.0, and the release notes in the workflow stopped calling every release "the first iteration" | S | — |
+| ✅ 16.20 | Sprint 16 squashed into `main` and released as 0.2.0 | S | [10](10_operations.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about
 loads the application, is told once that it was logged out, and can log in
@@ -598,6 +600,7 @@ again without clearing anything by hand. Somebody who has forgotten their
 password can set a new one from a mail the application sent, and an
 administrator can do the same for them from either the command line or the
 browser. A restaurant can be carried from one installation to another as a file.
+Sprint 16 is on `main` and released as 0.2.0.
 
 ---
 
