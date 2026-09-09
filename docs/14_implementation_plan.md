@@ -590,6 +590,7 @@ by a plan written in advance.
 | ✅ 16.15 | The order page folded its menu categories with a plus and a cross; the restaurant page's Menu tab uses a disclosure chevron. The order page now uses the chevron too -- on a page where every other plus adds an item and every cross removes one, those two symbols were saying the wrong thing | S | [06](06_ui_ux.md) |
 | ✅ 16.16 | A login link carries the page it was pressed on, so logging in returns there. Registering still ends on the account page, which is where a new account has a display name and an address to fill in. The return path is validated as a path on this site, because a login page that navigates wherever a query parameter says is an open redirect | M | [06](06_ui_ux.md) |
 | ✅ 16.17 | `contrib/ali_baba.json` re-exported after the user filled in the contacts, the opening hours and the notes, and the four photographs removed now that the data is in the file | S | — |
+| ✅ 16.18 | `install` appeared to ignore `DOENER_DATABASE_ROOT_PASSWORD` under `docker compose`. It did not: an ordinary question shows its default in brackets, a secret question showed nothing at all, so a prompt for a value already supplied was indistinguishable from one being ignored. Secret prompts now name the variable the value came from. Reported by the user | S | [09](09_configuration.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about
 loads the application, is told once that it was logged out, and can log in

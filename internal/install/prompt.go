@@ -146,6 +146,16 @@ func (p *Prompter) unattended(q Question) (string, error) {
 
 func (p *Prompter) readAnswer(q Question) (string, error) {
 	if q.Secret {
+		// A secret cannot be shown in brackets the way an ordinary default is,
+		// but the fact that there *is* one has to be visible: without this the
+		// prompt looks like a demand for a value the operator has already
+		// supplied through the environment, and the natural conclusion is that
+		// the variable was ignored. It was not -- pressing return accepts it.
+		// Reported against the docker compose install, where every value comes
+		// from the environment and every secret prompt looked like a refusal.
+		if q.Default != "" {
+			return p.secret(fmt.Sprintf("%s [%s; press return to accept]: ", q.Prompt, q.suppliedBy()))
+		}
 		return p.secret(q.Prompt + ": ")
 	}
 
@@ -303,4 +313,18 @@ func parseBoolWord(s string) (value, ok bool) {
 	default:
 		return false, false
 	}
+}
+
+// suppliedBy names where a value already came from, for a prompt that cannot
+// show the value itself.
+//
+// The environment variable if the question has one, because that is what the
+// operator set and what they will look for; otherwise a plain statement that
+// something is there, which is the case for a value read out of an existing
+// configuration file.
+func (q Question) suppliedBy() string {
+	if q.Env != "" {
+		return "set from " + q.Env
+	}
+	return "a value is already set"
 }

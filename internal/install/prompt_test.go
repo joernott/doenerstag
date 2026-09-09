@@ -349,3 +349,68 @@ func TestInputEndingIsExplained(t *testing.T) {
 		t.Errorf("the error does not suggest the unattended mode: %v", err)
 	}
 }
+
+// A secret prompt has to show that a value is already available.
+//
+// Reported against the docker compose install: every value there comes from the
+// environment, and a prompt reading "Password for postgres:" with no bracket
+// looks exactly like a variable that was ignored. It was not -- pressing return
+// accepted it -- but nothing on screen said so, and the operator drew the only
+// conclusion available.
+func TestASecretPromptSaysWhenAValueIsAlreadySet(t *testing.T) {
+	var asked []string
+	p, _ := prompterFor("\n")
+	p.readSecret = func(prompt string) (string, error) {
+		asked = append(asked, prompt)
+		return "", nil
+	}
+
+	answer, err := p.Ask(Question{
+		Prompt:  "Password for postgres",
+		Secret:  true,
+		Default: "from-the-environment",
+		Env:     "DOENER_DATABASE_ROOT_PASSWORD",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(asked) != 1 {
+		t.Fatalf("asked %d times, want 1", len(asked))
+	}
+	// It names the variable the operator set, because that is what they will
+	// look for when they wonder whether it was read.
+	if !strings.Contains(asked[0], "DOENER_DATABASE_ROOT_PASSWORD") {
+		t.Errorf("the prompt does not name the variable: %q", asked[0])
+	}
+	if !strings.Contains(asked[0], "press return") {
+		t.Errorf("the prompt does not say return accepts it: %q", asked[0])
+	}
+	// And the secret itself is never printed.
+	if strings.Contains(asked[0], "from-the-environment") {
+		t.Errorf("the prompt echoed the secret: %q", asked[0])
+	}
+
+	// Pressing return still accepts it, which is the behaviour the message now
+	// describes rather than changes.
+	if answer != "from-the-environment" {
+		t.Errorf("return gave %q, want the default", answer)
+	}
+}
+
+// With nothing set, the prompt stays as it was: no brackets, no promise.
+func TestASecretPromptWithoutAValueIsUnchanged(t *testing.T) {
+	var asked []string
+	p, _ := prompterFor("typed\n")
+	p.readSecret = func(prompt string) (string, error) {
+		asked = append(asked, prompt)
+		return "typed", nil
+	}
+
+	if _, err := p.Ask(Question{Prompt: "Password for postgres", Secret: true}); err != nil {
+		t.Fatal(err)
+	}
+	if asked[0] != "Password for postgres: " {
+		t.Errorf("prompt is %q, want the plain one", asked[0])
+	}
+}

@@ -924,3 +924,14 @@ recorded on the branch of the sprint it belongs to.
 >
 > I have modified the data for the restaurant Ali Baba, please update the export
 > file in the contrib folder and remove the images from the folder as well.
+
+---
+
+### Prompt 55
+
+> I tried the docker compse setup earlier today and was asked for the database
+> root password despite setting the environment variable as described:
+> DOENER_DATABASE_ROOT_PASSWORD="$(cat secrets/db_password)" \
+>   docker compose run --rm -e DOENER_DATABASE_ROOT_PASSWORD install
+> I checked by running setting the vatiable and printing it with echo, that the
+> varioable indeed held the right password. Can you reproduce this issue?
