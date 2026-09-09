@@ -18,6 +18,7 @@ var expectedVerbs = map[string]bool{
 	"version":    true,
 	"user":       true,
 	"restaurant": true,
+	"order":      true,
 }
 
 func TestRootCommandHasEveryDocumentedVerb(t *testing.T) {

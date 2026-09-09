@@ -92,6 +92,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Pool:         opts.Pool,
 		Shutdown:     s.beginShutdown,
 		Swagger:      routerOptions.Swagger != nil,
+		Retention:    cfg.Cleanup.Retention,
 		MaxImageSize: cfg.Server.MaxImageSize,
 	}
 	system.Register(router)

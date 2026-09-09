@@ -847,3 +847,26 @@ recorded on the branch of the sprint it belongs to.
 >     given uuid already exists, it will hnot be imported. this can be overridenn
 >     by providing the --overwrite (-o) option. In that case, the existing
 >     restaurant with that ID is deleted before the new restaurant is imported
+
+---
+
+### Prompt 48
+
+> Some more tasks for this sprint:
+> 1. Move --log-file to -L please
+> 2. Also add another verb "order" with the following subcommands:
+> - list tto list all orders with their ID, the option --verbose (-V) also lists
+>   creator, restaurant name and ID, deadline, pickup/delivery and the time for
+>   that as well as the number of order items
+> - delete deletes an order, the parameter --id (-i) must be provided
+> 3. Please also add a doc page with all the commandline verbs and their
+>    parameters, essentially, what you get when using --help
+> 4. Add a cleanup job to the beginning of the local testing that deletes all
+>    orders, restaurants and users from previous jobs. Having one set of test data
+>    at the end of it is fine, but the database is getting crowded
+> 5. On the orders overview add a "cleanup" button on the same height as "orders",
+>    aligned to the right. It should only be visible to the administrator user
+>
+> After that, please make sure, the development version is deployed on the VM.
+> Currently, calling "doenerstag" is resolved as /usr/local/bin/doenerstag and
+> that is 3 days old and does not have any of the new verbs.

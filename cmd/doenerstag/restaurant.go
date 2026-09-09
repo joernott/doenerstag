@@ -102,8 +102,7 @@ orders too, so it asks first and prints what it is about to destroy.`,
 	}
 
 	cmd.Flags().StringVarP(&id, "id", "i", "", "id of the restaurant to delete")
-	// -f is --log-file, inherited by every verb, so this is long-form only.
-	cmd.Flags().BoolVar(&force, "force", false, "do not ask for confirmation")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "do not ask for confirmation")
 	return cmd
 }
 
@@ -173,9 +172,7 @@ matter. --format overrides that.
 A file may hold several restaurants. A restaurant whose id is already here is
 skipped, and the run continues with the rest; --overwrite deletes the existing
 one first, orders and all.
-
---file has no single-letter form: -f belongs to --log-file, which every verb
-inherits.`,
+`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -189,11 +186,7 @@ inherits.`,
 		},
 	}
 
-	// No -f shorthand, and not by choice: --log-file has claimed it globally
-	// since sprint 1, and pflag refuses to let a subcommand shadow a persistent
-	// shorthand -- it panics at startup rather than at parse time. Renaming a
-	// flag that shipped in 0.1.0 to free up one letter is the worse trade.
-	cmd.Flags().StringVar(&file, "file", "", "the file to read")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "the file to read")
 	cmd.Flags().StringVarP(&format, "format", "F", "",
 		"yaml or json; the default is to work it out from the content")
 	cmd.Flags().BoolVarP(&overwrite, "overwrite", "o", false,

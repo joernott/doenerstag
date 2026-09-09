@@ -70,6 +70,7 @@ The documentation lives in [docs/](docs/). Start with
 | [12_testing.md](docs/12_testing.md) | Test strategy |
 | [13_legal_and_privacy.md](docs/13_legal_and_privacy.md) | GDPR and legal obligations |
 | [14_implementation_plan.md](docs/14_implementation_plan.md) | Sprint plan and task list |
+| [15_cli_reference.md](docs/15_cli_reference.md) | Every verb and flag, generated from the command tree |
 | [adr/](docs/adr/) | Architecture decision records |
 
 ## Stack

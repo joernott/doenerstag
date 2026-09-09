@@ -46,6 +46,7 @@ var verbScopes = map[string]config.Scope{
 	"version":    config.ScopeGlobal,
 	"user":       config.ScopeGlobal,
 	"restaurant": config.ScopeGlobal,
+	"order":      config.ScopeGlobal,
 }
 
 // setup resolves the configuration and starts logging for the verb being run.

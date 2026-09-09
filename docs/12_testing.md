@@ -241,6 +241,36 @@ service container and starts it on `--no-https` before calling the same target.
 Running the documented installation on every push is a second benefit: the
 install path is exercised continuously rather than only when somebody installs.
 
+### The database is cleared before each run, not after
+
+Every test leaves its world behind on purpose: a test that tidied up after
+itself would delete the evidence of why it failed. Over a few weeks of running
+the suite that accumulated 500 restaurants, 78 orders and 792 accounts on the
+development machine, which makes the application slow to look at and the tables
+tiresome to read.
+
+So the tidying happens at the start of the *next* run instead
+([`e2e/cleanup.ts`](../frontend/e2e/cleanup.ts)). The world the last run left is
+still there while somebody is looking at it, and gone by the time it matters.
+
+It deletes **everything except the root administrator**: every order, every
+restaurant, every other account. That is right for a machine whose only job is
+to be a test target, and wrong for anything else, which is why it runs from the
+test suite and from nowhere else.
+
+It needs to log in as `root`, so it needs that password:
+
+```sh
+export DOENER_E2E_ROOT_PASSWORD='…'
+make e2e
+```
+
+Without it the cleanup logs one line saying it skipped and the tests run
+anyway — a developer whose server has a different root password should get
+their tests, not a refusal to start. CI provisions the installation itself, so
+the default matches what the workflow sets and nothing has to be configured
+there.
+
 Each test builds the world it needs — an account, a restaurant, a menu, an
 order — through the API, with a name no other run will have used. That is not
 the shared fixture described below; it is what exists until the fixture package

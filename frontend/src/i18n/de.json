@@ -365,6 +365,10 @@
 
   "admin.last_login": "Letzte Anmeldung",
   "admin.edit_user": "Konto bearbeiten",
+  "admin.cleanup": "Aufräumen",
+  "admin.cleanup_confirm": "Alle Bestellungen löschen, deren Frist länger als die Aufbewahrungszeit zurückliegt, samt der Menüdaten und Bilder, auf die nichts mehr verweist? Das ist derselbe Durchlauf, der nachts läuft.",
+  "admin.cleanup_done": "{count} Zeilen wurden entfernt.",
+  "admin.cleanup_nothing": "Es war nichts alt genug zum Entfernen.",
   "admin.reset_password": "Passwort zurücksetzen",
   "admin.reset_password_confirm": "{name} einen Link zum Setzen eines neuen Passworts schicken? Er geht an {email} und verfällt nach einer Stunde.",
   "admin.reset_password_no_email": "Für {name} ist keine E-Mail-Adresse hinterlegt, es kann also nichts verschickt werden. Tragen Sie zuerst eine Adresse ein oder setzen Sie das Passwort auf der Kommandozeile.",

@@ -414,6 +414,7 @@ loud rather than storing silently.
 | `GET`  | `/metrics`  | public | Counters, see below.                                             |
 | `GET`  | `/version`  | public | Application version and applied schema version.                  |
 | `POST` | `/shutdown` | admin  | Begin a graceful shutdown. Responds 202 before shutting down.    |
+| `POST` | `/cleanup`  | admin  | Run the retention pass now: the same work the `cleanup` verb does from cron. Answers with what was removed. |
 
 `/version` returns:
 

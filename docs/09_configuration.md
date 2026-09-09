@@ -54,7 +54,7 @@ Understood by every verb.
 | `--database-sslmode`    |       | `prefer`       | One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`. |
 | `--max-connection-pool` |       | `10`           | Upper bound for open and for idle database connections.            |
 | `--log-level`           | `-l`  | `INFO`         | `FATAL`, `ERROR`, `WARN`, `INFO` or `DEBUG`. Case-insensitive.     |
-| `--log-file`            | `-f`  | *(stdout)*     | Log destination. Reopened on `SIGHUP` for `logrotate`.             |
+| `--log-file`            | `-L`  | *(stdout)*     | Log destination. Reopened on `SIGHUP` for `logrotate`.             |
 | `--help`                | `-h`  |                | Usage for the verb.                                                |
 | `--version`             | `-v`  |                | Print the compiled-in version and exit, without touching the database. |
 
@@ -353,14 +353,6 @@ and then imports.
 An import is one transaction per restaurant. One that arrived with its contacts
 and half its menu, because the twentieth item named an unknown tag, would be
 worse than one that did not arrive.
-
-### A note on `--file`
-
-`restaurant import --file` has no single-letter form, and `restaurant delete
---force` does not either. `-f` belongs to `--log-file`, which every verb
-inherits, and a subcommand cannot shadow an inherited shorthand: pflag panics
-when the flags are merged. Renaming a flag that shipped in 0.1.0 to free up one
-letter is the worse trade.
 
 ---
 

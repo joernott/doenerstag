@@ -142,7 +142,7 @@ var Settings = []Setting{
 		Scopes: ScopeGlobal,
 	},
 	{
-		Flag: "log-file", Short: "f", Key: "log.file",
+		Flag: "log-file", Short: "L", Key: "log.file",
 		Kind: KindString, Default: "",
 		Usage:  "log destination; empty writes to stdout",
 		Scopes: ScopeGlobal,

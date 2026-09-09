@@ -48,6 +48,7 @@ It does not take payments and does not place orders with restaurants.`,
 		newVersionCommand(app),
 		newUserCommand(app),
 		newRestaurantCommand(app),
+		newOrderCommand(app),
 	)
 
 	// Resolve configuration and start logging before any verb runs. The root

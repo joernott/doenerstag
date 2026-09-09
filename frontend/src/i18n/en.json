@@ -365,6 +365,10 @@
 
   "admin.last_login": "Last login",
   "admin.edit_user": "Edit account",
+  "admin.cleanup": "Clean up",
+  "admin.cleanup_confirm": "Delete every order whose deadline is more than the retention period old, and the menu data and images that nothing points at any more? This is the same pass that runs nightly.",
+  "admin.cleanup_done": "{count} rows were removed.",
+  "admin.cleanup_nothing": "There was nothing old enough to remove.",
   "admin.reset_password": "Reset password",
   "admin.reset_password_confirm": "Send {name} a link to choose a new password? It goes to {email} and stops working after an hour.",
   "admin.reset_password_no_email": "{name} has no e-mail address on file, so nothing can be sent. Add an address first, or set a password from the command line.",

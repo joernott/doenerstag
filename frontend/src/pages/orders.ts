@@ -9,10 +9,11 @@ import { api, errorMessage, getList } from "../api";
 import { el, icon, type Child } from "../dom";
 import { formatDateTime, formatRelativeTime } from "../format";
 import { logoMark } from "../logo";
+import { button } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { confirmDialog } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
-import { overviewPage, page, statusLine, type StatusLine } from "./page";
+import { overviewPage, overviewPageWithActions, page, statusLine, type StatusLine } from "./page";
 
 /** The order header, which every caller receives. */
 export interface OrderHeader {
@@ -102,10 +103,18 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
     orderTile(app, order, details[index] ?? null, status),
   );
 
-  return overviewPage(
+  const body = [status.element, tileGrid(addTile(create, t.t("order.new")), ...tiles)];
+
+  // Only the administrator is offered the cleanup. The endpoint refuses
+  // everybody else anyway; hiding the button keeps the page from advertising
+  // something most people cannot do.
+  if (!app.session.isAdmin) {
+    return overviewPage(t.t("nav.orders"), ...body);
+  }
+  return overviewPageWithActions(
     t.t("nav.orders"),
-    status.element,
-    tileGrid(addTile(create, t.t("order.new")), ...tiles),
+    cleanupButton(app, status, () => app.router.refresh()),
+    ...body,
   );
 }
 
@@ -313,4 +322,57 @@ function logo(order: OrderHeader, t: App["t"]): HTMLElement {
     alt: "",
     loading: "lazy",
   });
+}
+/**
+ * The Cleanup button, for the administrator only.
+ *
+ * It runs the same retention pass the nightly cron job runs, from the page
+ * where the reason to want it is visible: a list with a dozen expired orders on
+ * it. Nobody else sees the button, and the server refuses the endpoint for
+ * anybody else regardless -- the hidden button is a convenience, not the
+ * control.
+ *
+ * It says what it is about to do before doing it. "Cleanup" is a mild word for
+ * deleting orders, and the confirmation names the retention period so that the
+ * person pressing it knows what counts as old.
+ */
+function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLElement {
+  const { t } = app;
+
+  const control = button({
+    label: t.t("admin.cleanup"),
+    onclick: () => {
+      void run();
+    },
+  });
+
+  async function run(): Promise<void> {
+    const confirmed = await confirmDialog({
+      t,
+      title: t.t("admin.cleanup"),
+      message: t.t("admin.cleanup_confirm"),
+      confirmLabel: t.t("admin.cleanup"),
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    status.clear();
+    control.disabled = true;
+    try {
+      const report = await api.post<{ total: number }>("/cleanup", {});
+      status.say(
+        report.total > 0
+          ? t.t("admin.cleanup_done", { count: report.total })
+          : t.t("admin.cleanup_nothing"),
+      );
+      reload();
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    } finally {
+      control.disabled = false;
+    }
+  }
+
+  return control;
 }

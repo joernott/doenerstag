@@ -112,6 +112,12 @@ jobs:
           go install github.com/google/go-licenses@latest
           ./scripts/licenses.sh --check
 
+      # The command line reference is generated from the command tree, so a
+      # flag added without regenerating it makes the page wrong. Cheap to
+      # check, and the alternative is a reference nobody trusts.
+      - name: The command line reference is current
+        run: ./scripts/clidocs.sh --check
+
   test:
     name: Test
     runs-on: ubuntu-latest

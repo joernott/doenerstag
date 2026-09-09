@@ -580,6 +580,12 @@ by a plan written in advance.
 | ✅ 16.7.2 | `restaurant import --file -f` and `restaurant delete --force -f` both claimed a shorthand that `--log-file` owns globally. pflag refuses that by panicking when the flags are merged, which is when somebody runs the command or asks for help -- so both subcommands were unusable and nothing caught it. Both are long-form only now, and a test walks the tree forcing the merge. Found in sprint 16, by running the command | S | [09](09_configuration.md) |
 | ✅ 16.7.3 | An imported contact without a label violated a check constraint: the column is nullable and refuses the empty string, so an absent label has to arrive as NULL rather than as "". Found in sprint 16, by a round trip | S | [03](03_data_model.md) |
 
+| ✅ 16.8 | `--log-file` moves to `-L`, which gives `-f` back to `restaurant import --file` and `restaurant delete --force` | S | [09](09_configuration.md) |
+| ✅ 16.9 | The `order` verb: `list` with `--verbose`, and `delete` | M | [09](09_configuration.md) |
+| ✅ 16.10 | A reference page for every verb and every flag, so `--help` is not the only place they are written down | M | — |
+| ✅ 16.11 | The browser tests clear the orders, restaurants and accounts left by previous runs before they start. The development database had accumulated 470 restaurants | S | [12](12_testing.md) |
+| ✅ 16.12 | A Cleanup button on the order overview, on the heading line and only for the administrator | M | [06](06_ui_ux.md) |
+
 **Exit criteria:** a browser holding a session the server no longer knows about
 loads the application, is told once that it was logged out, and can log in
 again without clearing anything by hand. Somebody who has forgotten their

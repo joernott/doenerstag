@@ -16,6 +16,11 @@ const baseURL = process.env["DOENER_E2E_URL"] ?? "https://localhost:8443";
 
 export default defineConfig({
   testDir: "./e2e",
+
+  // Clears what previous runs left behind. See e2e/cleanup.ts for what it
+  // removes and why it runs at the start rather than the end.
+  globalSetup: "./e2e/cleanup.ts",
+
   // The suite creates the world it needs through the API, so two files running
   // at once would be two suites creating restaurants in the same database.
   // Serial is also honest about the machine this runs on: two cores.

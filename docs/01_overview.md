@@ -92,5 +92,6 @@ The following are explicitly *not* part of the application:
 | [12_testing.md](12_testing.md)                                   | Test strategy and coverage expectations.                        |
 | [13_legal_and_privacy.md](13_legal_and_privacy.md)               | GDPR obligations, imprint and legal notes pages.                |
 | [14_implementation_plan.md](14_implementation_plan.md)           | Sprint-by-sprint build order and task list.                     |
+| [15_cli_reference.md](15_cli_reference.md)                       | Every verb and flag, generated from the command tree.           |
 | [adr/](adr/)                                                     | Architecture decision records.                                  |
 | [zz_prompts.md](zz_prompts.md)                                   | Development prompt log. Not part of the specification.          |
