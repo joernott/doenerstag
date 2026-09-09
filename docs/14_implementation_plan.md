@@ -586,7 +586,7 @@ by a plan written in advance.
 | ✅ 16.11.1 | That cleanup matched test data by the shape of its name -- a word, an underscore, a timestamp -- and deleted an account the user had created that happened to look like one. Every name the fixtures invent now carries an `e2e-` prefix and only that prefix is deleted. Reported by the user, after it had already happened | S | [12](12_testing.md) |
 | ✅ 16.12 | A Cleanup button on the order overview, on the heading line and only for the administrator | M | [06](06_ui_ux.md) |
 | ✅ 16.13 | A check that the packages install the binary to `/usr/bin` and to nowhere else. They already did; what was in `/usr/local/bin` on the development VM was a hand-installed build, which is the confusion the assertion now prevents | S | [10](10_operations.md) |
-
+| ✅ 16.14 | `contrib/ali_baba.json`: a real menu, transcribed from four photographs, as an import file. The allergen and additive letters had to be translated rather than copied, because the restaurant's numbering and doenerstag's do not agree | M | [09](09_configuration.md) |
 | ✅ 16.15 | The order page folded its menu categories with a plus and a cross; the restaurant page's Menu tab uses a disclosure chevron. The order page now uses the chevron too -- on a page where every other plus adds an item and every cross removes one, those two symbols were saying the wrong thing | S | [06](06_ui_ux.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about
