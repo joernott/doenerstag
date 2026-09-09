@@ -870,3 +870,13 @@ recorded on the branch of the sprint it belongs to.
 > After that, please make sure, the development version is deployed on the VM.
 > Currently, calling "doenerstag" is resolved as /usr/local/bin/doenerstag and
 > that is 3 days old and does not have any of the new verbs.
+
+---
+
+### Prompt 49
+
+> The table for sprint 16 in 14_implementation_plan.md is broken starting with
+> task 16.8, please fix that. Also make sure to only delete the
+> users/restaurants/orders you created during previous tests, you should be able
+> to determine that by the user name. You also deleted the user I created in the
+> current cleanup.

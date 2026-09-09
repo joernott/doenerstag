@@ -579,11 +579,11 @@ by a plan written in advance.
 | ✅ 16.7.1 | `restaurant export` wrote the document to standard output and the logger wrote to standard output, so "database connected" was the first line of every exported file and none of them parsed. The log goes to standard error for a verb whose output is data. Found in sprint 16, by exporting a restaurant and reading the file | S | [09](09_configuration.md) |
 | ✅ 16.7.2 | `restaurant import --file -f` and `restaurant delete --force -f` both claimed a shorthand that `--log-file` owns globally. pflag refuses that by panicking when the flags are merged, which is when somebody runs the command or asks for help -- so both subcommands were unusable and nothing caught it. Both are long-form only now, and a test walks the tree forcing the merge. Found in sprint 16, by running the command | S | [09](09_configuration.md) |
 | ✅ 16.7.3 | An imported contact without a label violated a check constraint: the column is nullable and refuses the empty string, so an absent label has to arrive as NULL rather than as "". Found in sprint 16, by a round trip | S | [03](03_data_model.md) |
-
 | ✅ 16.8 | `--log-file` moves to `-L`, which gives `-f` back to `restaurant import --file` and `restaurant delete --force` | S | [09](09_configuration.md) |
 | ✅ 16.9 | The `order` verb: `list` with `--verbose`, and `delete` | M | [09](09_configuration.md) |
 | ✅ 16.10 | A reference page for every verb and every flag, so `--help` is not the only place they are written down | M | — |
-| ✅ 16.11 | The browser tests clear the orders, restaurants and accounts left by previous runs before they start. The development database had accumulated 470 restaurants | S | [12](12_testing.md) |
+| ✅ 16.11 | The browser tests clear the orders, restaurants and accounts left by previous runs before they start. The development database had accumulated 500 restaurants, 78 orders and 792 accounts | S | [12](12_testing.md) |
+| ✅ 16.11.1 | That cleanup matched test data by the shape of its name -- a word, an underscore, a timestamp -- and deleted an account the user had created that happened to look like one. Every name the fixtures invent now carries an `e2e-` prefix and only that prefix is deleted. Reported by the user, after it had already happened | S | [12](12_testing.md) |
 | ✅ 16.12 | A Cleanup button on the order overview, on the heading line and only for the administrator | M | [06](06_ui_ux.md) |
 
 **Exit criteria:** a browser holding a session the server no longer knows about

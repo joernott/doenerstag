@@ -253,16 +253,25 @@ So the tidying happens at the start of the *next* run instead
 ([`e2e/cleanup.ts`](../frontend/e2e/cleanup.ts)). The world the last run left is
 still there while somebody is looking at it, and gone by the time it matters.
 
-It deletes **everything except the root administrator**: every order, every
-restaurant, every other account. That is right for a machine whose only job is
-to be a test target, and wrong for anything else, which is why it runs from the
-test suite and from nowhere else.
+It deletes **only what the suite itself created**. Every name the fixtures
+invent goes through `unique()`, which prefixes `e2e-`, and nothing without that
+prefix is touched -- an order is recognised by the restaurant it was placed at,
+which the suite also created and also marked.
 
-It needs to log in as `root`, so it needs that password:
+That is a correction, not a precaution. The first version matched test data by
+the *shape* of a name -- a word, an underscore, a timestamp -- which was close
+enough to look right and close enough to delete an account somebody had made and
+named that way. A prefix nobody types by accident is not a guess; a pattern that
+describes most test names is.
+
+It logs in as an administrator, so it needs one:
 
 ```sh
 export DOENER_E2E_ROOT_PASSWORD='…'
 make e2e
+
+# Or, against a server whose administrator is not called root:
+export DOENER_E2E_ROOT_USER=someone
 ```
 
 Without it the cleanup logs one line saying it skipped and the tests run
