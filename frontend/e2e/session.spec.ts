@@ -8,7 +8,7 @@
 
 import { expect, test } from "@playwright/test";
 
-import { login, loginThroughTheForm, register } from "./support";
+import { PASSWORD, login, loginThroughTheForm, register, seedRestaurant, unique } from "./support";
 
 test.describe("a session the server has forgotten", () => {
   test("still loads the application, and says why once", async ({ page, request, browser }) => {
@@ -73,5 +73,51 @@ test.describe("a session the server has forgotten", () => {
     await expect(page.getByRole("link", { name: account.displayName })).toBeVisible();
 
     await elsewhere.close();
+  });
+});
+
+test.describe("logging in from where you were", () => {
+  // Somebody who presses "Log in" from an order is trying to join that order.
+  // Before this they arrived on their account page and had to find their way
+  // back.
+  test("returns to the page the login link was pressed on", async ({ page, request }) => {
+    const account = await register(request, "returnto");
+    const { restaurantID } = await seedRestaurant(request);
+
+    // A page that is not the account page, reached anonymously.
+    await page.goto(`/restaurants/${restaurantID}`);
+    await expect(page.getByRole("link", { name: "Log in / Register" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Log in / Register" }).click();
+    await expect(page).toHaveURL(/\/account\?next=/);
+
+    const panel = page.locator("[role=tabpanel]").first();
+    await panel.getByLabel("User name").fill(account.name);
+    await panel.getByLabel("Password", { exact: true }).fill(account.password);
+    await panel.getByRole("button", { name: "Log in" }).click();
+
+    // Back where the link was pressed, logged in.
+    await expect(page).toHaveURL(new RegExp(`/restaurants/${restaurantID}$`));
+    await expect(page.getByRole("link", { name: account.displayName })).toBeVisible();
+  });
+
+  // Registering is the exception, and deliberately: a new account has a display
+  // name and an e-mail address to fill in, and that is where it happens.
+  test("stays on the account page after registering", async ({ page }) => {
+    const name = unique("registered");
+
+    await page.goto("/restaurants");
+    await page.getByRole("link", { name: "Log in / Register" }).click();
+    await expect(page).toHaveURL(/\/account\?next=/);
+
+    await page.getByRole("tab", { name: "Register" }).click();
+    const panel = page.locator("[role=tabpanel]").nth(1);
+    await panel.getByLabel("User name").fill(name);
+    await panel.getByLabel("Display name").fill(name);
+    await panel.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await panel.getByRole("button", { name: "Register" }).click();
+
+    await expect(page.getByRole("link", { name } )).toBeVisible();
+    await expect(page).toHaveURL(/\/account/);
   });
 });

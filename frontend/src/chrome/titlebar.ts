@@ -4,6 +4,7 @@
 // spacer, language selector, theme toggle, account control, menu button.
 
 import type { App } from "../app";
+import { currentPath, loginHref } from "../returnto";
 import { el, icon } from "../dom";
 import { logoMark } from "../logo";
 import { languages } from "../i18n";
@@ -109,7 +110,13 @@ function accountControl(app: App): HTMLElement {
   const user = app.session.user;
 
   if (!user) {
-    return el("a", { class: "button button-quiet", href: "/account", text: t.t("auth.login_or_register") });
+    // Carries where it was pressed, so logging in returns there rather than
+    // dumping somebody on their account page.
+    return el("a", {
+      class: "button button-quiet",
+      href: loginHref(currentPath()),
+      text: t.t("auth.login_or_register"),
+    });
   }
 
   return el(

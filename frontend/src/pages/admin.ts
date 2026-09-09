@@ -6,6 +6,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, form, input, textarea } from "../components/forms";
@@ -39,7 +40,7 @@ function forbidden(app: App): HTMLElement {
       el("p", { text: t.t("error.3000") }),
       app.session.isAuthenticated
         ? null
-        : el("p", {}, el("a", { class: "link", href: "/account", text: t.t("auth.login") })),
+        : el("p", {}, el("a", { class: "link", href: loginHref(currentPath()), text: t.t("auth.login") })),
     ),
   );
 }

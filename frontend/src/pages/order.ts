@@ -11,6 +11,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -437,7 +438,7 @@ export async function orderPage(
       t.t("order.item_list"),
       el("p", { text: t.t("order.items_so_far", { count: order.item_count }) }),
       el("p", { class: "muted", text: t.t("order.anonymous_hint") }),
-      el("p", {}, el("a", { class: "link", href: "/account", text: t.t("order.join") })),
+      el("p", {}, el("a", { class: "link", href: loginHref(currentPath()), text: t.t("order.join") })),
     );
   }
 

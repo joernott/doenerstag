@@ -2,6 +2,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { el } from "../dom";
 import { logoMark } from "../logo";
 import { thumbnailURL } from "../components/images";
@@ -46,7 +47,7 @@ export async function restaurantsPage(app: App): Promise<HTMLElement> {
   // than to make the page cleverer.
   const tiles = await Promise.all(restaurants.map((restaurant) => gather(restaurant)));
 
-  const create = app.session.isAuthenticated ? "/restaurants/new" : "/account";
+  const create = app.session.isAuthenticated ? "/restaurants/new" : loginHref(currentPath());
 
   return overviewPage(
     t.t("nav.restaurants"),

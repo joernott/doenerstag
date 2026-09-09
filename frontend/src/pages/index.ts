@@ -6,6 +6,7 @@
 
 import type { App } from "../app";
 import { api, type VersionInfo } from "../api";
+import { returnPathFrom } from "../returnto";
 import { el } from "../dom";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
@@ -36,7 +37,10 @@ export function routes(app: App): Route[] {
     },
     { pattern: "/restaurants", render: () => restaurantsPage(app) },
     { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },
-    { pattern: "/account", render: () => accountPage(app) },
+    {
+      pattern: "/account",
+      render: (context) => accountPage(app, returnPathFrom(context.query)),
+    },
     {
       // The address a reset link points at. The token is a path segment rather
       // than a query parameter so that it is not kept in a Referer header on

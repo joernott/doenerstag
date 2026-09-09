@@ -15,8 +15,8 @@ import { tabs } from "../components/tabs";
 import { actions, card, page, pageWithActions, section, statusLine } from "./page";
 
 /** The account page, in whichever of its two shapes applies. */
-export function accountPage(app: App): HTMLElement {
-  return app.session.user ? loggedIn(app, app.session.user) : anonymous(app);
+export function accountPage(app: App, returnTo: string | null = null): HTMLElement {
+  return app.session.user ? loggedIn(app, app.session.user) : anonymous(app, returnTo);
 }
 
 // --- logged out --------------------------------------------------------------
@@ -27,7 +27,7 @@ export function accountPage(app: App): HTMLElement {
  * Two tabs rather than two pages: somebody who came here to log in and finds
  * they have no account should not have to go looking for the other form.
  */
-function anonymous(app: App): HTMLElement {
+function anonymous(app: App, returnTo: string | null): HTMLElement {
   const { t } = app;
 
   // The shared component, like every other tab strip in the application. This
@@ -39,7 +39,7 @@ function anonymous(app: App): HTMLElement {
     t.t("auth.login_or_register"),
     tabs(
       [
-        { id: "login", label: t.t("auth.login"), panel: loginForm(app) },
+        { id: "login", label: t.t("auth.login"), panel: loginForm(app, returnTo) },
         { id: "register", label: t.t("auth.register"), panel: registerForm(app) },
       ],
       { label: t.t("auth.login_or_register"), initial: 0 },
@@ -47,7 +47,7 @@ function anonymous(app: App): HTMLElement {
   );
 }
 
-function loginForm(app: App): HTMLElement {
+function loginForm(app: App, returnTo: string | null): HTMLElement {
   const { t } = app;
   const status = statusLine();
 
@@ -90,7 +90,7 @@ function loginForm(app: App): HTMLElement {
         password: password.value(),
       });
       writeCookie(NAME_COOKIE, name.value.trim());
-      finishLogin(app, body.user);
+      finishLogin(app, body.user, returnTo);
     } catch (error) {
       status.fail(errorMessage(t, error));
       password.control.focus();
@@ -164,9 +164,17 @@ function registerForm(app: App): HTMLElement {
 }
 
 /** Records the new session and rebuilds everything that depends on it. */
-function finishLogin(app: App, user: SessionUser): void {
+function finishLogin(app: App, user: SessionUser, returnTo: string | null = null): void {
   app.session.set(user);
   app.render();
+
+  // Back where the login link was pressed, if it carried somewhere. Registering
+  // passes nothing and so stays here, which is where a new account has a
+  // display name and an address to fill in.
+  if (returnTo !== null) {
+    app.router.navigate(returnTo);
+    return;
+  }
   app.router.refresh();
 }
 

@@ -6,6 +6,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { currentPath, loginHref } from "../returnto";
 import { el, icon, type Child } from "../dom";
 import { formatDateTime, formatRelativeTime } from "../format";
 import { logoMark } from "../logo";
@@ -98,7 +99,7 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   // somebody will look for it.
   const status = statusLine();
 
-  const create = app.session.isAuthenticated ? "/orders/new" : "/account";
+  const create = app.session.isAuthenticated ? "/orders/new" : loginHref(currentPath());
   const tiles = orders.map((order, index) =>
     orderTile(app, order, details[index] ?? null, status),
   );

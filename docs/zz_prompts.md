@@ -913,3 +913,14 @@ recorded on the branch of the sprint it belongs to.
 > On the order page, there is a + and x for showing/hiding categories. Please use
 > the same symbols, you use on the restaurant page for the categories on the menu
 > tab.
+
+---
+
+### Prompt 54
+
+> Another task: When someone clicks on the login link on any page, he should
+> return there. Only when registering, they should end up on their account page
+> after clicking on "register"
+>
+> I have modified the data for the restaurant Ali Baba, please update the export
+> file in the contrib folder and remove the images from the folder as well.
