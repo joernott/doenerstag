@@ -276,6 +276,67 @@ modifications are not stored here — they live in `order_item.note`.
 
 ---
 
+### `availability_filter`
+
+When a dish can be had, which is a different question from whether it exists.
+`menu_item.available` is a switch somebody flips — sold out today, back
+tomorrow. This is the standing rule beside it: the pasta is made from Friday to
+Sunday between five and ten, and no amount of wanting it on a Tuesday changes
+that.
+
+One row is one named rule, reusable across a menu.
+
+| Column          | Type          | Null | Notes                                                   |
+| --------------- | ------------- | ---- | ------------------------------------------------------- |
+| `id`            | `uuid`        | no   | PK, UUIDv7.                                              |
+| `restaurant_id` | `uuid`        | no   | FK `restaurant`, `ON DELETE CASCADE`.                    |
+| `name`          | `text`        | no   | Chosen by a person: "Mittagsmenü", "Fri-Sun after 5".    |
+| `on_date`       | `date`        | yes  | One calendar date. Several dates are several filters.    |
+| `weekdays`      | `smallint[]`  | no   | ISO days, 1 = Monday. Empty means every day.             |
+| `start_time`    | `time`        | yes  | With `end_time`, or neither.                             |
+| `end_time`      | `time`        | yes  | Earlier than `start_time` crosses midnight.              |
+| `sort_order`    | `integer`     | no   | Default 0.                                               |
+
+- A filter's own parts are **ANDed**: weekdays *and* a time means those days and
+  only during those hours. A part left null is "no opinion" — a filter with only
+  a time applies on every day.
+- A filter that says nothing is refused by a `CHECK`. It would match everything
+  while reading as though it restricted something.
+- `weekdays` is an array rather than a row per day, because a filter is one
+  rule. `opening_hours` has a row per day because there each row is an
+  independent period.
+
+### `menu_category_availability`, `menu_item_availability`
+
+Which filters are attached to what. Two tables rather than one with a nullable
+pair of columns: a row pointing at a category and an item at once would be
+meaningless, and the constraint forbidding it is harder to read than two tables
+that cannot express it.
+
+| Column                        | Type   | Null | Notes                                    |
+| ----------------------------- | ------ | ---- | ---------------------------------------- |
+| `category_id` / `menu_item_id`| `uuid` | no   | PK with `filter_id`. `ON DELETE CASCADE`. |
+| `filter_id`                   | `uuid` | no   | FK `availability_filter`, `ON DELETE CASCADE`. |
+
+**How they combine, which is deliberately asymmetric:**
+
+- Several filters on **one element** are alternatives — **OR**. A Monday filter
+  and a Friday filter on one category make it available on both.
+- A **category's** filters and an **item's** must both be satisfied — **AND**.
+- No filters at all means available always, so a menu that has never heard of
+  this behaves exactly as it did.
+
+A consequence worth stating because it looks like a bug and is not: a
+Monday-only category containing a Wednesday-only item hides that item
+permanently. That is what "this category is only served on Mondays" has to
+mean, and it is what the operator asked for.
+
+Everything is tested against the **order's pickup or delivery time**, not
+against now. Somebody ordering on Thursday for Friday lunch is offered Friday's
+menu.
+
+---
+
 ## Classification entities
 
 Free tags and regulated classifications are kept in separate tables so that the
