@@ -85,7 +85,7 @@ func TestAfterTheDeadlineNobodyCanChangeAnything(t *testing.T) {
 
 	// And the order's own fields are frozen too (F5.7).
 	edit := o.patch("/orders/"+o.order.ID,
-		map[string]any{"pickup_person": "zu spät"}, o.admin...)
+		map[string]any{"pickup_person_id": o.userID("cook")}, o.admin...)
 	expectError(t, edit, http.StatusConflict, api.CodeOrderClosed)
 
 	// But it still reads.
@@ -120,7 +120,7 @@ func TestTheRestaurantLocksOnceItemsExist(t *testing.T) {
 
 	// Everything else about the order is still editable.
 	if rec := o.patch("/orders/"+o.order.ID,
-		map[string]any{"pickup_person": "Anna"}, o.cookies...); rec.Code != http.StatusOK {
+		map[string]any{"pickup_person_id": o.userID("cook")}, o.cookies...); rec.Code != http.StatusOK {
 		t.Errorf("an unrelated field was locked too: %s", rec.Body.String())
 	}
 }
@@ -159,15 +159,15 @@ func TestOnlyTheCreatorEditsTheOrder(t *testing.T) {
 	stranger := o.register("fremder")
 
 	rec := o.patch("/orders/"+o.order.ID,
-		map[string]any{"pickup_person": "ich"}, stranger...)
+		map[string]any{"pickup_person_id": o.userID("cook")}, stranger...)
 	expectError(t, rec, http.StatusForbidden, api.CodeNotOrderCreator)
 
 	if ok := o.patch("/orders/"+o.order.ID,
-		map[string]any{"pickup_person": "Anna"}, o.cookies...); ok.Code != http.StatusOK {
+		map[string]any{"pickup_person_id": o.userID("cook")}, o.cookies...); ok.Code != http.StatusOK {
 		t.Errorf("the creator could not edit: %s", ok.Body.String())
 	}
 	if admin := o.patch("/orders/"+o.order.ID,
-		map[string]any{"money_collector": "Bert"}, o.admin...); admin.Code != http.StatusOK {
+		map[string]any{"money_collector_id": o.userID("cook")}, o.admin...); admin.Code != http.StatusOK {
 		t.Errorf("the administrator could not edit: %s", admin.Body.String())
 	}
 }

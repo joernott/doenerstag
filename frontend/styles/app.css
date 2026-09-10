@@ -1092,6 +1092,14 @@ a {
   display: none;
 }
 
+/* The "nobody yet" note and the button that fixes it, on one line. */
+.order-person {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 /* Several addresses stack rather than run together on one line. */
 .summary-addresses {
   display: flex;

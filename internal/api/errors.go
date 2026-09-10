@@ -70,6 +70,7 @@ const (
 	CodeItemUnavailable  Code = 4004
 	CodeNameExistsHere   Code = 4005
 	CodeMethodNotAllowed Code = 4006
+	CodeJobTaken         Code = 4007
 
 	// Rate limiting.
 	CodeTooManyLogins Code = 5000
@@ -130,6 +131,7 @@ var registry = map[Code]definition{
 	CodeItemUnavailable:  {http.StatusConflict, "menu item is marked unavailable"},
 	CodeNameExistsHere:   {http.StatusConflict, "name already exists within this restaurant"},
 	CodeMethodNotAllowed: {http.StatusMethodNotAllowed, "the HTTP method is not allowed on this path"},
+	CodeJobTaken:         {http.StatusConflict, "somebody is already doing this"},
 
 	CodeTooManyLogins: {http.StatusTooManyRequests, "too many login attempts"},
 

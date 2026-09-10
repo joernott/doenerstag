@@ -430,8 +430,8 @@ Primary key is the column pair. These tables carry audit columns as well.
 | `fulfilment`            | `text`        | no   | `pickup` or `delivery`. `CHECK`ed.                        |
 | `fulfilment_at`         | `timestamptz` | no   | When the food is picked up or delivered.                  |
 | `deadline_at`           | `timestamptz` | no   | Last moment items may be added or changed.                |
-| `money_collector`       | `text`        | yes  | Free text: who collects the money.                        |
-| `pickup_person`         | `text`        | yes  | Free text: who fetches the order.                         |
+| `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. |
+| `pickup_person_id`      | `uuid`        | yes  | The account fetching the order. `ON DELETE SET NULL`.     |
 | `currency_code`         | `char(3)`     | no   | Copied from the restaurant at creation.                   |
 | `min_order_value_cents` | `bigint`      | yes  | Copied from the restaurant at creation.                   |
 | `delivery_fee_cents`    | `bigint`      | yes  | Copied from the restaurant at creation.                   |

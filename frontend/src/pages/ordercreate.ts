@@ -11,6 +11,7 @@
 
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
+import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
 import { button, field, form, input, select } from "../components/forms";
 import { isOpen } from "../openinghours";
@@ -67,6 +68,12 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
 
   restaurants.sort((left, right) => left.name.localeCompare(right.name, app.language));
 
+  // Who might collect the money or fetch the food. A failure here leaves the
+  // form usable with nobody in either job, which is what a new order starts
+  // with anyway.
+  const accounts = await listAccounts().catch(() => []);
+  const people = accountChoices(accounts, t.t("order.nobody"));
+
   const status = statusLine();
 
   const restaurant = select(
@@ -92,8 +99,8 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
     value: localInputValue(inHours(1)),
     required: true,
   });
-  const moneyCollector = input({ name: "money_collector" });
-  const pickupPerson = input({ name: "pickup_person" });
+  const moneyCollector = select(people, { name: "money_collector_id" });
+  const pickupPerson = select(people, { name: "pickup_person_id" });
 
   const deadlineProblem = el("p", { class: "field-error", role: "alert" });
   const hoursWarning = el("p", { class: "field-hint" });
@@ -163,8 +170,8 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
         // The API takes UTC; the field is the viewer's own wall clock.
         fulfilment_at: new Date(fulfilmentAt.value).toISOString(),
         deadline_at: new Date(deadlineAt.value).toISOString(),
-        money_collector: moneyCollector.value.trim(),
-        pickup_person: pickupPerson.value.trim(),
+        money_collector_id: moneyCollector.value,
+        pickup_person_id: pickupPerson.value,
       });
       app.navigate(`/orders/${created.id}`);
     } catch (error) {

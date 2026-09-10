@@ -12,26 +12,28 @@ import (
 )
 
 type orderResponse struct {
-	ID             string          `json:"id"`
-	Title          string          `json:"title"`
-	RestaurantID   string          `json:"restaurant_id"`
-	RestaurantName string          `json:"restaurant_name"`
-	Fulfilment     string          `json:"fulfilment"`
-	FulfilmentAt   string          `json:"fulfilment_at"`
-	DeadlineAt     string          `json:"deadline_at"`
-	Status         string          `json:"status"`
-	CreatorID      string          `json:"creator_id"`
-	CreatorName    string          `json:"creator_name"`
-	MoneyCollector string          `json:"money_collector"`
-	PickupPerson   string          `json:"pickup_person"`
-	CurrencyCode   string          `json:"currency_code"`
-	MinOrderValue  *int64          `json:"min_order_value_cents"`
-	DeliveryFee    *int64          `json:"delivery_fee_cents"`
-	ItemCount      int             `json:"item_count"`
-	Items          []orderItemResp `json:"items"`
-	ItemTotalCents int64           `json:"item_total_cents"`
-	GrandTotal     int64           `json:"grand_total_cents"`
-	BelowMinimum   bool            `json:"below_minimum"`
+	ID                 string          `json:"id"`
+	Title              string          `json:"title"`
+	RestaurantID       string          `json:"restaurant_id"`
+	RestaurantName     string          `json:"restaurant_name"`
+	Fulfilment         string          `json:"fulfilment"`
+	FulfilmentAt       string          `json:"fulfilment_at"`
+	DeadlineAt         string          `json:"deadline_at"`
+	Status             string          `json:"status"`
+	CreatorID          string          `json:"creator_id"`
+	CreatorName        string          `json:"creator_name"`
+	MoneyCollectorID   *string         `json:"money_collector_id"`
+	MoneyCollectorName string          `json:"money_collector_name"`
+	PickupPersonID     *string         `json:"pickup_person_id"`
+	PickupPersonName   string          `json:"pickup_person_name"`
+	CurrencyCode       string          `json:"currency_code"`
+	MinOrderValue      *int64          `json:"min_order_value_cents"`
+	DeliveryFee        *int64          `json:"delivery_fee_cents"`
+	ItemCount          int             `json:"item_count"`
+	Items              []orderItemResp `json:"items"`
+	ItemTotalCents     int64           `json:"item_total_cents"`
+	GrandTotal         int64           `json:"grand_total_cents"`
+	BelowMinimum       bool            `json:"below_minimum"`
 }
 
 type orderItemResp struct {

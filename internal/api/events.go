@@ -184,11 +184,7 @@ func (h *OrderHandlers) publishOrderChange(order model.Order) {
 			Name: sse.EventOrderUpdated, Audience: sse.AnonymousOnly, Data: data,
 		})
 	}
-	if data, err := json.Marshal(orderListEntry{
-		orderHeaderBody: h.publicHeader(order),
-		CreatorID:       order.CreatorID.String(),
-		CreatorName:     order.CreatorName,
-	}); err == nil {
+	if data, err := json.Marshal(h.listEntry(order)); err == nil {
 		events = append(events, sse.Event{
 			Name: sse.EventOrderUpdated, Audience: sse.AuthenticatedOnly, Data: data,
 		})

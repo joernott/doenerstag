@@ -82,8 +82,6 @@ function header(overrides: Record<string, unknown> = {}): Record<string, unknown
     fulfilment_at: soon(3),
     deadline_at: soon(2),
     status: "active",
-    money_collector: "Jo",
-    pickup_person: "",
     currency_code: "CHF",
     min_order_value_cents: 2000,
     delivery_fee_cents: 350,
@@ -114,6 +112,10 @@ function detail(overrides: Record<string, unknown> = {}): Record<string, unknown
     ...header(),
     creator_id: "u1",
     creator_name: "Jo",
+    money_collector_id: "u1",
+    money_collector_name: "Jo",
+    pickup_person_id: null,
+    pickup_person_name: "",
     items: [orderItem],
     item_total_cents: 2100,
     grand_total_cents: 2450,
@@ -432,6 +434,76 @@ describe("the order page", () => {
     // And nothing is left in the row itself to compete with the description.
     expect(rendered.querySelector(".menu-item > .menu-price")).toBeNull();
     expect(rendered.querySelector(".menu-item > button")).toBeNull();
+  });
+
+  // 17.7: both jobs are accounts now, so the row shows the joined name.
+  it("names the people the order has, and says so when nobody does", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const definitions = rendered.querySelector(".definitions")?.textContent ?? "";
+    expect(definitions).toContain(app.t.t("order.money_collector"));
+    expect(definitions).toContain(app.t.t("order.pickup_person"));
+    // Nobody is fetching the food in the fixture, and the row says so rather
+    // than disappearing.
+    expect(definitions).toContain(app.t.t("order.nobody"));
+  });
+
+  // 17.8: the volunteering button, which is deliberately not the creator's.
+  it("offers 'Me!' for fetching the food, and takes the job when pressed", async () => {
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "POST /orders/o1/pickup-person": detail({
+        pickup_person_id: "u9",
+        pickup_person_name: "Robin",
+      }),
+      "GET /orders/o1": detail(),
+    });
+
+    const app = mountApp(() => []);
+    // Somebody who did not open this order: the point of the button.
+    app.session.set({ id: "u9", name: "robin", display_name: "Robin", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const volunteer = rendered.querySelector<HTMLButtonElement>(".order-person button");
+    expect(volunteer?.textContent).toBe(app.t.t("order.volunteer"));
+
+    volunteer?.click();
+    await settle();
+
+    expect(stubs.calls.some((call) => call.path === "/orders/o1/pickup-person")).toBe(true);
+  });
+
+  it("offers nobody the button once somebody is fetching", async () => {
+    stubServer(
+      orderStubs(detail({ pickup_person_id: "u2", pickup_person_name: "Alex" })),
+    );
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.querySelector(".order-person button")).toBeNull();
+    expect(rendered.querySelector(".definitions")?.textContent).toContain("Alex");
+  });
+
+  it("offers an anonymous visitor nothing to volunteer for", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.querySelector(".order-person button")).toBeNull();
+    // The rows are not there at all: an anonymous caller is told about no
+    // person, the creator included (ADR-0011).
+    expect(rendered.textContent).not.toContain(app.t.t("order.pickup_person"));
   });
   it("shows an anonymous visitor the count and a way in, and no items", async () => {
     stubServer(orderStubs(header()));

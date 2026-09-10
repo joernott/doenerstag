@@ -12,6 +12,7 @@
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
+import { accountChoices, listAccounts } from "../accounts";
 import { contactTarget } from "../contacts";
 import { append, el, icon, type Child } from "../dom";
 import {
@@ -185,14 +186,14 @@ export async function orderPage(
       ],
     ];
 
-    if (order.money_collector) {
-      rows.push([t.t("order.money_collector"), order.money_collector]);
-    }
-    if (order.pickup_person) {
-      rows.push([t.t("order.pickup_person"), order.pickup_person]);
-    }
+    // Who does what. Only an authenticated caller is told, because both are
+    // named people (ADR-0011), and both rows are shown even when empty: an
+    // order with nobody fetching the food is the case worth seeing, and it is
+    // where the "Me!" button goes.
     const own = detail();
     if (own) {
+      rows.push([t.t("order.money_collector"), personRow(own.money_collector_name, false)]);
+      rows.push([t.t("order.pickup_person"), personRow(own.pickup_person_name, true)]);
       rows.push([t.t("order.creator"), own.creator_name]);
     }
     if (order.min_order_value_cents !== null) {
@@ -243,7 +244,7 @@ export async function orderPage(
         button({
           label: t.t("order.edit"),
           onclick: () => {
-            openOrderEditor();
+            void openOrderEditor();
           },
         }),
       );
@@ -264,6 +265,59 @@ export async function orderPage(
   }
 
   /** The restaurant, with its contacts as the links they are meant to be. */
+  /**
+   * One of the two jobs an order has, and -- for fetching the food -- a way to
+   * take it.
+   *
+   * The row is shown even when nobody is doing the job, because that is the
+   * case worth seeing. The button is offered to every signed-in visitor and not
+   * only to the creator: the point of it is that whoever is willing can say so
+   * without finding the creator first, which is how this gets decided in the
+   * room anyway. It is not offered on a closed order, where nothing can be
+   * changed, and never to an anonymous visitor, who has no name to put there.
+   */
+  function personRow(name: string, offerToVolunteer: boolean): Child {
+    if (name) {
+      return name;
+    }
+
+    const nobody = el("span", { class: "muted", text: t.t("order.nobody") });
+    if (!offerToVolunteer || !app.session.isAuthenticated || !active()) {
+      return nobody;
+    }
+
+    return el(
+      "span",
+      { class: "order-person" },
+      nobody,
+      button({
+        label: t.t("order.volunteer"),
+        ariaLabel: `${t.t("order.volunteer")}: ${t.t("order.pickup_person")}`,
+        onclick: () => {
+          void volunteerToFetch();
+        },
+      }),
+    );
+  }
+
+  /**
+   * Takes on fetching the food.
+   *
+   * Its own endpoint rather than a PATCH, because PATCH belongs to the creator
+   * and this deliberately does not. Putting "unless the only field is
+   * pickup_person_id and its value is your own id and it was empty before"
+   * inside the general edit path would be a rule nobody could find later.
+   */
+  async function volunteerToFetch(): Promise<void> {
+    status.clear();
+    try {
+      await api.post(`/orders/${id}/pickup-person`, {});
+      await refresh();
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    }
+  }
+
   function restaurantLine(): HTMLElement {
     const line = el("div", { class: "restaurant-line" });
     append(
@@ -457,12 +511,17 @@ export async function orderPage(
 
   // --- the order's own fields ---------------------------------------------
 
-  function openOrderEditor(): void {
+  async function openOrderEditor(): Promise<void> {
     const own = detail();
     if (!own) {
       return;
     }
     const editorStatus = statusLine();
+
+    // The accounts to choose between, fetched when the dialog is opened rather
+    // than with the page: only the creator ever opens it, and an anonymous
+    // visitor would be refused the list.
+    const accounts = await listAccounts().catch(() => []);
 
     const fulfilment = select(
       [
@@ -476,8 +535,9 @@ export async function orderPage(
       value: localValue(order.fulfilment_at),
     });
     const deadlineAt = input({ type: "datetime-local", value: localValue(order.deadline_at) });
-    const moneyCollector = input({ value: order.money_collector });
-    const pickupPerson = input({ value: order.pickup_person });
+    const choices = accountChoices(accounts, t.t("order.nobody"));
+    const moneyCollector = select(choices, { value: own.money_collector_id ?? "" });
+    const pickupPerson = select(choices, { value: own.pickup_person_id ?? "" });
 
     // F5.8: the restaurant is locked once the order has items, because the
     // prices and the currency were copied from it. Disabled with the reason
@@ -525,8 +585,8 @@ export async function orderPage(
           fulfilment: fulfilment.value,
           fulfilment_at: fulfils.toISOString(),
           deadline_at: closes.toISOString(),
-          money_collector: moneyCollector.value.trim(),
-          pickup_person: pickupPerson.value.trim(),
+          money_collector_id: moneyCollector.value,
+          pickup_person_id: pickupPerson.value,
         });
         modal.close();
         await refresh();

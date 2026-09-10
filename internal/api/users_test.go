@@ -89,16 +89,40 @@ func TestUnknownUserIsNotFound(t *testing.T) {
 	}
 }
 
-// The full list is administrator-only.
-func TestListUsersRequiresTheAdministrator(t *testing.T) {
+// The list needs a session, and gives the administrator more than it gives
+// anybody else.
+//
+// An order names two people besides its creator and both are chosen from this
+// list, so it cannot be administrator-only any more. What stays administrator-
+// only is the shape: an e-mail address and a last-seen time are not something
+// every colleague is handed because they opened an order form.
+func TestTheUserListTiersWhatItShows(t *testing.T) {
 	f := newAPIFixture(t)
 	ordinary := f.register("carla")
+	const address = "carla@example.invalid"
+	if rec := f.patch("/users/"+f.userID("carla"), map[string]any{"email": address}, ordinary...); rec.Code != http.StatusOK {
+		t.Fatalf("setting an address: %d %s", rec.Code, rec.Body.String())
+	}
 
 	anonymous := f.get("/users")
 	expectError(t, anonymous, http.StatusUnauthorized, api.CodeNotAuthenticated)
 
 	asUser := f.get("/users", ordinary...)
-	expectError(t, asUser, http.StatusForbidden, api.CodeAdminRequired)
+	if asUser.Code != http.StatusOK {
+		t.Fatalf("a signed-in caller was refused the list: %d %s", asUser.Code, asUser.Body.String())
+	}
+	if strings.Contains(asUser.Body.String(), address) {
+		t.Error("the ordinary shape carries an e-mail address")
+	}
+	if strings.Contains(asUser.Body.String(), "last_login_at") {
+		t.Error("the ordinary shape carries a login time")
+	}
+
+	admin := f.loginAsAdmin("chief")
+	asAdmin := f.get("/users", admin...)
+	if !strings.Contains(asAdmin.Body.String(), address) {
+		t.Error("the administrative shape is missing the e-mail address")
+	}
 }
 
 func TestTheAdministratorCanListUsers(t *testing.T) {
