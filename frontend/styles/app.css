@@ -1324,6 +1324,26 @@ a {
   white-space: nowrap;
 }
 
+/* The price and the "add" button, as one column at the end of a menu row.
+   `flex: none` is the point of it: the chips beside it can take width from the
+   description but not from here, so the button keeps its natural width and its
+   label stays on one line whatever the dish is marked with. */
+.menu-item-side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.menu-item-side .menu-price {
+  font-weight: 700;
+}
+
+.menu-item-side .button {
+  white-space: nowrap;
+}
+
 .menu-thumb,
 .menu-thumb-empty,
 .tile-logo,

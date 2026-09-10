@@ -813,21 +813,32 @@ export async function orderPage(
         item.description ? el("p", { class: "muted", text: item.description }) : null,
         marks.length > 0 ? el("div", { class: "chips" }, ...marks) : null,
       ),
-      el("span", {
-        class: "menu-price",
-        text: formatMoney(app.language, item.price_cents, order.currency_code, minorUnit),
-      }),
-      addable
-        ? button({
-            label: t.t("item.add"),
-            variant: "primary",
-            // Named for the dish: the menu column has one of these per item.
-            ariaLabel: `${t.t("item.add")}: ${item.name}`,
-            onclick: () => {
-              void openItemEditor(null, item);
-            },
-          })
-        : null,
+      // The price and the button share a column at the end of the row rather
+      // than sitting beside each other in it. Side by side, the two of them
+      // and the chips competed for one line: a dish with four allergens
+      // squeezed the button until its label wrapped, and a column of buttons
+      // that are one line tall next to some dishes and two next to others is
+      // what made the list look broken. The column is `flex: none`, so the
+      // chips can no longer take width from it.
+      el(
+        "div",
+        { class: "menu-item-side" },
+        el("span", {
+          class: "menu-price",
+          text: formatMoney(app.language, item.price_cents, order.currency_code, minorUnit),
+        }),
+        addable
+          ? button({
+              label: t.t("item.add"),
+              variant: "primary",
+              // Named for the dish: the menu column has one of these per item.
+              ariaLabel: `${t.t("item.add")}: ${item.name}`,
+              onclick: () => {
+                void openItemEditor(null, item);
+              },
+            })
+          : null,
+      ),
     );
   }
 

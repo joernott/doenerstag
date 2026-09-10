@@ -408,6 +408,31 @@ describe("the order page", () => {
     const address = contacts.find((node) => node.textContent?.startsWith("Bahnhofstrasse"));
     expect(address?.getAttribute("href")).toContain("google.com/maps");
   });
+
+  // The button used to sit beside the price in the row, where the chips could
+  // take width from it: a dish with five allergens squeezed it until its label
+  // wrapped, and the column of buttons came out three different heights. jsdom
+  // has no layout, so what is asserted here is the structure that fixed it --
+  // the measurement itself was done in a browser.
+  it("puts the price above the add button in a column of their own", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const side = rendered.querySelector(".menu-item .menu-item-side");
+    expect(side).not.toBeNull();
+
+    const children = [...(side?.children ?? [])];
+    expect(children[0]?.classList.contains("menu-price")).toBe(true);
+    expect(children[1]?.tagName).toBe("BUTTON");
+
+    // And nothing is left in the row itself to compete with the description.
+    expect(rendered.querySelector(".menu-item > .menu-price")).toBeNull();
+    expect(rendered.querySelector(".menu-item > button")).toBeNull();
+  });
   it("shows an anonymous visitor the count and a way in, and no items", async () => {
     stubServer(orderStubs(header()));
 
