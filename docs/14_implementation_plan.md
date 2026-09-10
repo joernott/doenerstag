@@ -605,6 +605,37 @@ Sprint 16 is on `main` and released as 0.2.0.
 
 ---
 
+## Sprint 17 — What a real order found
+
+**Goal:** the first real order was placed at a real restaurant, and it found
+things a test never would: an address printed twice, a price hidden behind a
+button that changed width with every dish, no way to say who is fetching the
+food except by typing a name, and a menu that offers pasta on a Tuesday when
+the kitchen only makes it at the weekend. Four of these are data model changes,
+so this sprint is the first since 3 to touch the schema in earnest.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ⬜ 17.1 | The password rules under the field list "three of five groups" and then six bullet points, the sixth repeating the ten-character minimum stated above it. Remove it | S | [06](06_ui_ux.md) |
+| ⬜ 17.2 | A `x/10` counter beside the password field, counting what has been typed and turning green at ten | S | [06](06_ui_ux.md) |
+| ⬜ 17.3 | A rule that is satisfied already swaps its bullet for a tick; the tick is green as well | S | [06](06_ui_ux.md) |
+| ⬜ 17.4 | The order page prints a contact address twice when it has no label. An address without a label is the value, shown once | S | [06](06_ui_ux.md) |
+| ⬜ 17.5 | The summary page prints no address at all. Whoever is collecting the food needs it more than anybody | S | [06](06_ui_ux.md) |
+| ⬜ 17.6 | The "Add an item" button changes width with the number of tags, allergens and additives on the dish beside it, so the column of buttons is ragged. One line, always; the price moves above the button and is set bold | M | [06](06_ui_ux.md) |
+| ⬜ 17.7 | "Fetches the food" and "collects the money" become references to an account rather than free text, chosen on the edit-order page from a list that can be searched | L | [03](03_data_model.md) |
+| ⬜ 17.8 | When nobody is fetching the food, the order page offers every signed-in visitor a "Me!" button that puts them there | M | [06](06_ui_ux.md) |
+| ⬜ 17.9 | A currency needs a minor-unit ratio as well as a number of decimals. The Malagasy ariary and the Mauritanian ouguiya divide into five, not ten, so one decimal place is the wrong way to say it: ten iraimbilanja are two ariary, and arithmetic that assumes powers of ten makes them one | M | [03](03_data_model.md) |
+| ⬜ 17.10 | A "paid" flag on an order item, which the person who added it, the person who opened the order and the person collecting the money may set. A checkbox beside each price on the summary page, and a paid item is left out of that person's total | L | [03](03_data_model.md) |
+| ⬜ 17.11 | Availability: a named, reusable filter combining a date, a weekday and a time of day, tested against the order's pickup or delivery time. Attached to a category or to a single item; several on one element are alternatives, and a category's and an item's are both required. The restaurant page shows the whole menu, the order page only what can be had | L | [03](03_data_model.md) |
+
+**Exit criteria:** an order at a real restaurant can be placed, fetched, paid
+for and settled without anybody typing a name into a text field or working out
+which dishes the kitchen is making today. The password field says how far along
+the person typing is rather than repeating itself. A currency whose minor unit
+is not a tenth of its major one is stored correctly.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
