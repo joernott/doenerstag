@@ -1027,3 +1027,12 @@ recorded on the branch of the sprint it belongs to.
 > - Also make a second variant of that file where you add a traefik reverse
 >   proxy with Let's encrypt support and the doenerstag server not using https
 >   but relying on traefik as reverse proxy to do the ssl offloading.
+
+---
+
+### Prompt 61
+
+> Running that command as non root fails as the log file is not accessible:
+> {"level":"fatal","component":"config","error":"open log file
+> /var/log/doenerstag/doenerstag.log: open /var/log/doenerstag/doenerstag.log:
+> permission denied","time":"2026-09-10T20:18:56.137Z","message":"cannot start"}

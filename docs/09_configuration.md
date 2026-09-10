@@ -54,7 +54,7 @@ Understood by every verb.
 | `--database-sslmode`    |       | `prefer`       | One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`. |
 | `--max-connection-pool` |       | `10`           | Upper bound for open and for idle database connections.            |
 | `--log-level`           | `-l`  | `INFO`         | `FATAL`, `ERROR`, `WARN`, `INFO` or `DEBUG`. Case-insensitive.     |
-| `--log-file`            | `-L`  | *(stdout)*     | Log destination. Reopened on `SIGHUP` for `logrotate`.             |
+| `--log-file`            | `-L`  | *(stdout)*     | Log destination. Reopened on `SIGHUP` for `logrotate`. A destination that cannot be opened is fatal for `server` and a warning for every other verb, which then logs to standard error. |
 | `--help`                | `-h`  |                | Usage for the verb.                                                |
 | `--version`             | `-v`  |                | Print the compiled-in version and exit, without touching the database. |
 

@@ -495,6 +495,13 @@ doenerstag update -c /etc/doenerstag/doenerstag.yaml
 systemctl start doenerstag
 ```
 
+The configuration file is readable only by the service user, and so is the log
+it names, so `update` is run as `root` or with `sudo -u doenerstag`. Run as
+somebody else it stops at the configuration file, which is the security rule
+doing its job. It no longer stops at the **log** file: an administrative verb
+that cannot write the log warns and writes to standard error instead, because
+refusing to migrate a database over a log line helps nobody.
+
 Plain binary:
 
 ```sh
