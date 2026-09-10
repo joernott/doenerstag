@@ -1015,3 +1015,15 @@ recorded on the branch of the sprint it belongs to.
 >     only available after 17:00, that item only shows, if both conditions are
 >     met. If the food item is only available on Wednesdays, it would never show
 >     up if the category is limited to Mondays. That is intentional.
+
+---
+
+### Prompt 60
+
+> There are two more tasks related to the docker-compose.yaml:
+>
+> - Add an update and an import job, similar to the install job to the
+>   docker-compose.yml
+> - Also make a second variant of that file where you add a traefik reverse
+>   proxy with Let's encrypt support and the doenerstag server not using https
+>   but relying on traefik as reverse proxy to do the ssl offloading.

@@ -235,8 +235,9 @@ instead.
 The stack is [`packaging/docker-compose.yml`](../packaging/docker-compose.yml)
 with [`packaging/docker-compose.env`](../packaging/docker-compose.env) next to
 it as `.env`. It is not a sketch: the release is tested by running exactly these
-files through the sequence below. It defines four services — `db`, a one-shot
-`install`, the `doenerstag` server, and `cleanup` behind a profile.
+files through the sequence below. It defines six services: `db`, the
+`doenerstag` server, and four one-shot jobs behind profiles so that none of them
+starts with the stack -- `install`, `update`, `import` and `cleanup`.
 
 Two things about it are easy to get wrong and are worth stating:
 
@@ -296,6 +297,38 @@ service's command rather than appending to it. `docker compose run --rm install
 --non-interactive` fails with `unknown flag`, which is confusing until you know
 that rule.
 
+#### Importing a restaurant
+
+A menu is an hour of typing and should only be typed once, so `restaurant
+export` writes one out and `restaurant import` reads it back — on another
+installation, or on this one after a rebuild. The `import` service is that verb
+with the file mounted:
+
+```sh
+mkdir -p import
+cp …/ali_baba.json import/
+DOENERSTAG_IMPORT_FILE=ali_baba.json docker compose run --rm import
+```
+
+Which file is an environment variable rather than an argument because
+`docker compose run SERVICE ARGS…` **replaces** the command rather than
+appending to it — the same rule that makes `install` awkward to script.
+`DOENERSTAG_IMPORT_ARGS` carries anything else the verb takes:
+
+```sh
+DOENERSTAG_IMPORT_FILE=ali_baba.json DOENERSTAG_IMPORT_ARGS=--overwrite \
+  docker compose run --rm import
+```
+
+**`--overwrite` deletes the existing restaurant and every order placed at it**
+before writing the new one. A restaurant whose id is already present is
+otherwise skipped and the run continues with the rest of the file.
+
+The file has to be readable by uid 65532, the unprivileged user the container
+runs as -- the same rule as `config/`, and the same failure if it is not:
+`permission denied` on a file that is plainly there. A file arriving with mode
+`0640` from somewhere else is the usual cause.
+
 #### The cleanup job
 
 `cleanup` sits behind a compose profile so it never starts with the stack. Run
@@ -308,6 +341,74 @@ it from the host's `cron`:
 Compose has no scheduler of its own; putting the schedule on the host is the
 simplest thing that works. On Kubernetes it is a `CronJob` running the same
 image with the same command.
+
+### docker compose behind Traefik
+
+[`packaging/docker-compose.traefik.yml`](../packaging/docker-compose.traefik.yml)
+is the same stack with [Traefik](https://traefik.io) in front, holding a Let's
+Encrypt certificate. Its `.env` is
+[`packaging/docker-compose.traefik.env`](../packaging/docker-compose.traefik.env).
+
+The difference is where TLS ends. In the plain file the application holds the
+certificate and serves HTTPS on 8443. Here Traefik holds it, answers 443, and
+speaks plain HTTP to the application over a network that is not published at
+all.
+
+Use it when the host has a public name and port 80 reachable from the internet,
+which is what the ACME HTTP challenge needs. Use the plain file when it does
+not: an internal network with a self-signed or organisation-issued certificate
+is not a worse deployment, it is a different one.
+
+```sh
+mkdir -p /srv/doenerstag && cd /srv/doenerstag
+cp …/packaging/docker-compose.traefik.yml docker-compose.yml
+cp …/packaging/docker-compose.traefik.env .env
+$EDITOR .env                     # DOENERSTAG_HOST and ACME_EMAIL are required
+mkdir -p config secrets import
+
+openssl rand -base64 24 | tr -d '\n' > secrets/db_password
+chmod 0600 secrets/db_password
+chown -R 65532:65532 config
+
+docker compose up -d db
+DOENER_DATABASE_ROOT_PASSWORD="$(cat secrets/db_password)" \
+  docker compose run --rm -e DOENER_DATABASE_ROOT_PASSWORD install
+docker compose up -d
+```
+
+There is no `openssl req` step: the certificate is Traefik's problem now.
+
+Three things about this file are worth stating, because each is a way to end up
+with a site that looks like it works:
+
+- **The application is told twice that it is behind a proxy.** `--no-https`
+  stops it looking for a certificate. `--behind-tls-proxy` tells it that the
+  browser's side of the connection is encrypted anyway, so the session cookie
+  keeps its `Secure` flag and HSTS is still sent. Without the second flag the
+  deployment is a working site whose session cookie has quietly stopped being
+  marked `Secure`, which nothing in a browser will tell you.
+
+  Set `--behind-tls-proxy` **without** a proxy in front and the opposite
+  happens: the browser refuses to return a `Secure` cookie over plain HTTP, so
+  logging in appears to succeed and the next request is anonymous.
+
+- **`DOENERSTAG_HOST` has to resolve to this host from the public internet
+  before the first `docker compose up`**, and port 80 has to reach Traefik. The
+  ACME HTTP challenge is answered there. It is also the `Host()` rule of the
+  router and the base of every link in a password-reset mail, so a wrong value
+  produces a 404 from Traefik rather than a certificate error.
+
+- **Let's Encrypt rate-limits certificates per registered domain per week.**
+  While setting this up, uncomment the `caserver` line in the compose file to
+  use the staging endpoint. Its certificates are not trusted by browsers, which
+  is the point: you are testing the plumbing, not the certificate. Comment it
+  out and delete the `acme` volume to switch to the real one.
+
+The `install`, `update`, `import` and `cleanup` jobs are the same as in the
+plain file and are run the same way. `install` here also writes the base URL and
+the two TLS settings into the configuration file, taking them from the
+environment, because `install` is a different verb from `server` and does not
+carry the server's flags.
 
 ### Things to get right
 
@@ -409,9 +510,11 @@ Container:
 # The tag lives in .env, so an upgrade starts by editing one line there.
 sed -i 's/^DOENERSTAG_VERSION=.*/DOENERSTAG_VERSION=0.2.0/' .env
 docker compose pull
-# The install service is the one with the writable config mount, and update
-# needs to write. Naming the verb replaces that service's command.
-docker compose run --rm install update -c /config/doenerstag.yaml
+# update is a service of its own, behind a profile, with the writable config
+# mount it needs. It asks for the password of the role that owns the schema,
+# which is never stored; set DOENER_DATABASE_ADMIN_PASSWORD and add
+# --non-interactive to script it.
+docker compose run --rm update
 docker compose up -d doenerstag
 ```
 

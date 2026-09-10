@@ -42,6 +42,7 @@ func ValuesFrom(cfg *Config) Values {
 		"port":                 strconv.Itoa(cfg.Server.Port),
 		"bind-address":         cfg.Server.BindAddress,
 		"no-https":             strconv.FormatBool(cfg.Server.NoHTTPS),
+		"behind-tls-proxy":     strconv.FormatBool(cfg.Server.BehindTLSProxy),
 		"tls-cert":             cfg.Server.TLSCert,
 		"tls-key":              cfg.Server.TLSKey,
 		"no-swagger":           strconv.FormatBool(cfg.Server.NoSwagger),

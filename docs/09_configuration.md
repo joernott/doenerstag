@@ -71,7 +71,8 @@ Runs the web server. HTTPS by default.
 | --------------------------- | :---: | -------------- | ------------------------------------------------------------ |
 | `--port`                    | `-p`  | `8443`         | TCP port to listen on.                                        |
 | `--bind-address`            | `-b`  | *(all)*        | Address to bind to. Empty binds to all addresses, IPv4 and IPv6. |
-| `--no-https`                |       | `false`        | Serve plain HTTP. Disables the `Secure` cookie flag and HSTS.  |
+| `--no-https`                |       | `false`        | Serve plain HTTP. Disables the `Secure` cookie flag and HSTS, unless `--behind-tls-proxy` says otherwise. |
+| `--behind-tls-proxy`        |       | `false`        | A reverse proxy in front terminates TLS. Keeps the `Secure` flag and HSTS although this process speaks plain HTTP. |
 | `--tls-cert`                | `-t`  | `server.crt`   | PEM certificate chain, relative to the working directory.      |
 | `--tls-key`                 | `-T`  | `server.key`   | PEM private key, relative to the working directory.            |
 | `--no-swagger`              |       | `false`        | Do not serve `/tools/swagger` and do not link it in the menu.  |
@@ -148,7 +149,9 @@ Before it begins listening, the server:
 3. Reads the TLS certificate and key unless `--no-https` is set, and fails FATAL
    if either is missing or unreadable.
 4. Fails FATAL if `jwt-secret` is unset or shorter than 32 bytes.
-5. Logs a WARN when `--no-https` is set, naming the security implications.
+5. Logs a WARN when `--no-https` is set without `--behind-tls-proxy`, naming
+   the security implications. With both, it logs an INFO instead: the browser's
+   side of the connection is encrypted, so the warning would be wrong.
 
 ---
 
@@ -386,6 +389,7 @@ server:
   port: 8443
   bind_address: ""
   no_https: false
+  behind_tls_proxy: false
   tls_cert: /etc/doenerstag/server.crt
   tls_key: /etc/doenerstag/server.key
   no_swagger: false
