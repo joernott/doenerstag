@@ -1790,3 +1790,42 @@ a {
   font-weight: 400;
   color: var(--ok);
 }
+
+/* --- availability -------------------------------------------------------- */
+
+/* One rule per line: what it is called, and what it actually says. */
+.availability-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-block: 0.5rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.availability-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+/* The seven days, as a row that wraps rather than a column seven tall. */
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+/* A dish that is not always available says so on the menu, beside its tags. */
+.availability-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.availability-chip .icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}

@@ -14,6 +14,7 @@ import { imageField } from "../components/images";
 import { contactIcon, contactTarget, type Linkable } from "../contacts";
 import { referenceName } from "../i18n";
 import { moneyFormatOf, referenceData, type ReferenceData } from "../reference";
+import { availabilitySection } from "./availability";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
 import { actions, card, page, pageWithActions, section, setPageTitle, statusLine } from "./page";
@@ -102,6 +103,11 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
           panel: contactsSection(app, reference, restaurant),
         },
         { id: "hours", label: t.t("restaurant.opening_hours"), panel: hours.element },
+        {
+          id: "availability",
+          label: t.t("availability.title"),
+          panel: availabilitySection(app, restaurant.id),
+        },
       ],
       { label: t.t("restaurant.sections"), initial: 0 },
     ),

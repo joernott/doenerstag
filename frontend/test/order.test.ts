@@ -411,6 +411,40 @@ describe("the order page", () => {
     expect(address?.getAttribute("href")).toContain("google.com/maps");
   });
 
+  /*
+   * A dish the kitchen does not make at this order's time is not on this menu.
+   *
+   * Not greyed out and not behind a filter box: there is nothing to decide
+   * about it. The order is for Tuesday and the pasta is a weekend dish. The
+   * restaurant page still lists it, because that is the menu.
+   */
+  it("leaves out what is not served at the order's time", async () => {
+    const pasta = {
+      ...menuItem,
+      id: "m2",
+      name: "Spaghetti",
+      available_at: false,
+    };
+    const doener = { ...menuItem, available_at: true };
+
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "GET /restaurants/r1/menu-items": { menu_items: [doener, pasta] },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.textContent).toContain("Döner Kebap");
+    expect(rendered.textContent).not.toContain("Spaghetti");
+
+    // And it asked about the order's fulfilment time rather than about now.
+    const asked = stubs.calls.find((call) => call.path.startsWith("/restaurants/r1/menu-items"));
+    expect(asked?.path).toContain("at=");
+  });
+
   // The button used to sit beside the price in the row, where the chips could
   // take width from it: a dish with five allergens squeezed it until its label
   // wrapped, and the column of buttons came out three different heights. jsdom

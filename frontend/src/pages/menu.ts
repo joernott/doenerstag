@@ -19,12 +19,21 @@ import { confirmDialog, openModal } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
 import { moneyFormatOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
+import { availabilityChip, openAttachmentEditor } from "./availability";
 import { actions, card, statusLine } from "./page";
 
 /** The marks an item carries: its tags, allergens and additives, as chips. */
 export function itemChips(app: App, item: MenuItem): HTMLElement[] {
   const { t } = app;
+
+  // A dish with a rule says so, and says which rule, so that somebody reading
+  // the menu can tell "we are out of it today" from "we make it at weekends".
+  // Only on the restaurant page: the order page has already left out what its
+  // order cannot have.
+  const when = availabilityChip(app, item.availability ?? []);
+
   return [
+    ...(when === null ? [] : [when]),
     ...item.tags.map((tag) => chip(tagName(t, tag), "chip-tag")),
     ...item.allergens.map((allergen) =>
       chip(referenceName(t, "allergen", allergen.code), "chip-allergen"),
@@ -201,6 +210,25 @@ export function menuSection(
             value: category.name,
             confirmLabel: t.t("action.save"),
             onSubmit: rename,
+          });
+        },
+      }),
+      button({
+        label: t.t("availability.title"),
+        variant: "quiet",
+        // Named for the category, like the Edit beside it and for the same
+        // reason: every category has one of these.
+        title: `${t.t("availability.attached")}: ${category.name}`,
+        ariaLabel: `${t.t("availability.attached")}: ${category.name}`,
+        onclick: () => {
+          openAttachmentEditor({
+            app,
+            restaurantID: restaurant.id,
+            kind: "categories",
+            elementID: category.id,
+            title: category.name,
+            attached: category.availability ?? [],
+            onSaved: reload,
           });
         },
       }),

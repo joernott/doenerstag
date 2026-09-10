@@ -81,7 +81,7 @@ export async function orderPage(
     referenceData().catch(() => null),
     api.get<RestaurantDetail>(`/restaurants/${order.restaurant_id}`).catch(() => null),
     getList<Category>(`/restaurants/${order.restaurant_id}/categories`, "categories").catch(() => []),
-    getList<MenuItem>(`/restaurants/${order.restaurant_id}/menu-items`, "menu_items").catch(() => []),
+    getList<MenuItem>(menuPath(order), "menu_items").catch(() => []),
   ]);
 
   const moneyFormat = moneyFormatOf(reference?.currencies ?? [], order.currency_code);
@@ -142,7 +142,7 @@ export async function orderPage(
   async function reloadMenu(): Promise<void> {
     [categoryList, menuItems] = await Promise.all([
       getList<Category>(`/restaurants/${order.restaurant_id}/categories`, "categories"),
-      getList<MenuItem>(`/restaurants/${order.restaurant_id}/menu-items`, "menu_items"),
+      getList<MenuItem>(menuPath(order), "menu_items"),
     ]);
     renderMenu();
   }
@@ -701,6 +701,15 @@ export async function orderPage(
   }
 
   function matchesFilter(item: MenuItem): boolean {
+    // What the kitchen will not make at this order's time is not on this menu
+    // at all -- not greyed out, not behind a filter box. There is nothing to
+    // decide about it: the order is for Tuesday and the pasta is a weekend
+    // dish. The restaurant page still shows it, because that is the menu.
+    // available_at is null when the menu was asked for without a time, which
+    // the order page never does.
+    if (item.available_at === false) {
+      return false;
+    }
     if (filters.availableOnly && !item.available) {
       return false;
     }
@@ -1140,4 +1149,17 @@ function localValue(iso: string): string {
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
+}
+
+/**
+ * The menu as it will be when the food is fetched.
+ *
+ * `at` is the order's fulfilment time, not now: somebody ordering on Thursday
+ * for Friday lunch is offered Friday's menu. The server answers with a verdict
+ * per item rather than with the rules, so the question "is this served then"
+ * has one implementation and it is the one that also refuses the order.
+ */
+function menuPath(order: OrderHeader): string {
+  const at = encodeURIComponent(order.fulfilment_at);
+  return `/restaurants/${order.restaurant_id}/menu-items?at=${at}`;
 }
