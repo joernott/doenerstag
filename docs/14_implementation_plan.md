@@ -619,8 +619,9 @@ so this sprint is the first since 3 to touch the schema in earnest.
 | ✅ 17.1 | The password rules under the field list "three of five groups" and then six bullet points, the sixth repeating the ten-character minimum stated above it. Remove it | S | [06](06_ui_ux.md) |
 | ✅ 17.2 | A `x/10` counter beside the password field, counting what has been typed and turning green at ten | S | [06](06_ui_ux.md) |
 | ✅ 17.3 | A rule that is satisfied already swaps its bullet for a tick; the tick is green as well | S | [06](06_ui_ux.md) |
-| ⬜ 17.4 | The order page prints a contact address twice when it has no label. An address without a label is the value, shown once | S | [06](06_ui_ux.md) |
-| ⬜ 17.5 | The summary page prints no address at all. Whoever is collecting the food needs it more than anybody | S | [06](06_ui_ux.md) |
+| ✅ 17.4 | The order page prints a contact address twice when it has no label. An address without a label is the value, shown once | S | [06](06_ui_ux.md) |
+| ✅ 17.5 | The summary page prints no address at all. Whoever is collecting the food needs it more than anybody | S | [06](06_ui_ux.md) |
+| ✅ 17.4.1 | The order page decided for itself what a contact opens rather than asking contacts.ts, and had drifted: no case for an address at all, spaces left in a `tel:` URI, a website without a scheme becoming a relative link. It asks now, which is what fixed 17.4. The summary page's telephone link had the same spaces and now goes through the same function | S | [06](06_ui_ux.md) |
 | ⬜ 17.6 | The "Add an item" button changes width with the number of tags, allergens and additives on the dish beside it, so the column of buttons is ragged. One line, always; the price moves above the button and is set bold | M | [06](06_ui_ux.md) |
 | ⬜ 17.7 | "Fetches the food" and "collects the money" become references to an account rather than free text, chosen on the edit-order page from a list that can be searched | L | [03](03_data_model.md) |
 | ⬜ 17.8 | When nobody is fetching the food, the order page offers every signed-in visitor a "Me!" button that puts them there | M | [06](06_ui_ux.md) |

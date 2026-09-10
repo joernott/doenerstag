@@ -26,6 +26,24 @@ const restaurant = {
       label: "",
       sort_order: 10,
     },
+    {
+      id: "c2",
+      contact_type_id: "ct-address",
+      contact_type_code: "address",
+      render_as: "address",
+      value: "Bahnhofstrasse 1, 8001 Zürich",
+      label: "",
+      sort_order: 20,
+    },
+    {
+      id: "c3",
+      contact_type_id: "ct-other",
+      contact_type_code: "other",
+      render_as: "text",
+      value: "ring twice",
+      label: "Doorbell",
+      sort_order: 30,
+    },
   ],
   opening_hours: [{ id: "h1", day_of_week: 1, start: "11:00", end: "14:00", crosses_midnight: false }],
 };
@@ -364,6 +382,32 @@ describe("creating an order", () => {
 });
 
 describe("the order page", () => {
+  // Reported from a real order: the address in the restaurant line read
+  // "Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich". An
+  // unlabelled contact was printed as "label: value" with the value standing in
+  // for the missing label.
+  it("prints an unlabelled contact once, and a labelled one as label and value", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const line = rendered.querySelector(".restaurant-line");
+    const contacts = [...(line?.querySelectorAll(".contact") ?? [])];
+    const texts = contacts.map((node) => node.textContent);
+
+    expect(texts).toContain("Bahnhofstrasse 1, 8001 Zürich");
+    expect(texts).not.toContain("Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich");
+    // A label is worth showing beside the value when there is one, because
+    // "ring twice" alone says nothing about what to ring.
+    expect(texts).toContain("Doorbell: ring twice");
+
+    // The address leads to a map, which is the rule contacts.ts states and the
+    // order page used to be missing: it had no address case at all.
+    const address = contacts.find((node) => node.textContent?.startsWith("Bahnhofstrasse"));
+    expect(address?.getAttribute("href")).toContain("google.com/maps");
+  });
   it("shows an anonymous visitor the count and a way in, and no items", async () => {
     stubServer(orderStubs(header()));
 

@@ -8,6 +8,7 @@
 import type { App } from "../app";
 import { api, ApiError, errorMessage } from "../api";
 import { currentPath, loginHref } from "../returnto";
+import { contactTarget } from "../contacts";
 import { append, el, type Child } from "../dom";
 import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
 import { button } from "../components/forms";
@@ -148,13 +149,42 @@ function headerCard(
 
   // The telephone number is the point of this section: it is what the person
   // holding the phone needs, so it is a link and it is large.
-  const phone = (restaurant?.contacts ?? []).find((contact) => contact.render_as === "tel");
+  const contacts = restaurant?.contacts ?? [];
+  const phone = contacts.find((contact) => contact.render_as === "tel");
   const contactRow: Child = phone
-    ? el("a", { class: "phone", href: `tel:${phone.value}`, text: phone.value })
+    ? el("a", {
+        class: "phone",
+        href: contactTarget(phone)?.href ?? `tel:${phone.value}`,
+        text: phone.value,
+      })
     : el("span", { class: "muted", text: t.t("restaurant.no_contact") });
 
   rows.unshift([t.t("restaurant.data"), restaurant?.name ?? order?.restaurant_name ?? ""]);
   rows.push([t.t("contact_type.phone"), contactRow]);
+
+  // And the address, for whoever is fetching rather than telephoning. It was
+  // missing entirely, which is a strange omission on the one page that exists
+  // for the person going to the restaurant. Every address is listed rather than
+  // the first: a second one is a second branch, not a duplicate.
+  const addresses = contacts.filter((contact) => contact.render_as === "address");
+  if (addresses.length > 0) {
+    const block = el("div", { class: "summary-addresses" });
+    for (const address of addresses) {
+      const target = contactTarget(address);
+      block.appendChild(
+        target
+          ? el("a", {
+              class: "link",
+              href: target.href,
+              rel: "noreferrer",
+              target: "_blank",
+              text: address.value,
+            })
+          : el("span", { text: address.value }),
+      );
+    }
+    rows.push([t.t("contact_type.address"), block]);
+  }
 
   const list = el("dl", { class: "definitions" });
   for (const [label, value] of rows) {

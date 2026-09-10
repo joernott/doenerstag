@@ -23,6 +23,15 @@ const restaurant = {
       label: "",
       sort_order: 10,
     },
+    {
+      id: "c2",
+      contact_type_id: "ct-address",
+      contact_type_code: "address",
+      render_as: "address",
+      value: "Bahnhofstrasse 1, 8001 Zürich",
+      label: "",
+      sort_order: 20,
+    },
   ],
   opening_hours: [],
 };
@@ -158,8 +167,26 @@ describe("the summary", () => {
     await settle();
 
     const phone = rendered.querySelector("a.phone");
-    expect(phone?.getAttribute("href")).toBe("tel:+41 44 123 45 67");
+    // The punctuation people write a number with is not valid in a tel: URI,
+    // so the href is the digits and the visible text is what was typed.
+    expect(phone?.getAttribute("href")).toBe("tel:+41441234567");
     expect(phone?.textContent).toBe("+41 44 123 45 67");
+  });
+
+  // The page for the person going to fetch the food, which had every detail
+  // except where to go.
+  it("puts the address in the header, as a link to a map", async () => {
+    stubServer(summaryStubs());
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const address = rendered.querySelector(".summary-addresses a");
+    expect(address?.textContent).toBe("Bahnhofstrasse 1, 8001 Zürich");
+    expect(address?.getAttribute("href")).toContain("google.com/maps");
+    expect(address?.getAttribute("href")).toContain(encodeURIComponent("Bahnhofstrasse 1"));
   });
 
   it("aggregates the order into the lines somebody reads out", async () => {

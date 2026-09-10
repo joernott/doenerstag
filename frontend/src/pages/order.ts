@@ -12,6 +12,7 @@
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
+import { contactTarget } from "../contacts";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -280,24 +281,36 @@ export async function orderPage(
     return line;
   }
 
+  /**
+   * One contact, as the link it is meant to be.
+   *
+   * Where it leads comes from contacts.ts, which is where that rule lives for
+   * every page that shows one. This function used to decide for itself and had
+   * drifted: an address fell through to the text branch because the list here
+   * had never gained the case, a telephone number kept the spaces people write
+   * it with, and a website typed without a scheme became a relative link.
+   *
+   * A contact with no label is its own label. Printing "value: value" -- which
+   * is what the text branch did -- says the address twice and reads as though
+   * something is missing.
+   */
   function contactLink(contact: Contact): HTMLElement {
-    const label = contact.label || contact.value;
-    switch (contact.render_as) {
-      case "tel":
-        return el("a", { class: "link contact", href: `tel:${contact.value}`, text: label });
-      case "mailto":
-        return el("a", { class: "link contact", href: `mailto:${contact.value}`, text: label });
-      case "url":
-        return el("a", {
-          class: "link contact",
-          href: contact.value,
-          rel: "noreferrer",
-          target: "_blank",
-          text: label,
-        });
-      default:
-        return el("span", { class: "contact muted", text: `${label}: ${contact.value}` });
+    const label = contact.label.trim();
+    const target = contactTarget(contact);
+
+    if (!target) {
+      return el("span", {
+        class: "contact muted",
+        text: label ? `${label}: ${contact.value}` : contact.value,
+      });
     }
+
+    return el("a", {
+      class: "link contact",
+      href: target.href,
+      ...(target.external ? { rel: "noreferrer", target: "_blank" } : {}),
+      text: label || contact.value,
+    });
   }
 
   /** The items, grouped by the person who ordered them. */

@@ -1092,6 +1092,13 @@ a {
   display: none;
 }
 
+/* Several addresses stack rather than run together on one line. */
+.summary-addresses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 /* --- password rules ------------------------------------------------------ */
 
 /* The input and its counter share a line, the counter keeping its natural
