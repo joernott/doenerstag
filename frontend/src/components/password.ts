@@ -8,7 +8,7 @@
 import { el } from "../dom";
 import { field, input } from "./forms";
 import type { Translator } from "../i18n";
-import { CLASSES, checkPassword, MIN_LENGTH, REQUIRED_CLASSES } from "../password";
+import { CLASSES, checkPassword, MIN_LENGTH, passwordLength } from "../password";
 
 export interface PasswordFieldOptions {
   t: Translator;
@@ -61,7 +61,10 @@ export function passwordField(options: PasswordFieldOptions): PasswordField {
     rules.appendChild(item);
   };
 
-  add("length", t.t("password.length", { count: MIN_LENGTH }));
+  // No "at least ten characters" entry: the hint above the list already says
+  // it, and the counter beside the field says how far along it is. Six bullet
+  // points, one of them repeating the sentence above them, is a list somebody
+  // stops reading.
   for (const name of CLASSES) {
     add(name, t.t(`password.${name}`));
   }
@@ -71,12 +74,24 @@ export function passwordField(options: PasswordFieldOptions): PasswordField {
   // they had not.
   rules.setAttribute("aria-live", "polite");
 
+  // How many characters there are, out of how many there have to be.
+  //
+  // Hidden from assistive technology deliberately: it changes on every
+  // keystroke, and a counter that announces itself thirty times while somebody
+  // types is worse than no counter at all. The requirement is in the hint,
+  // which is bound to the field, and the classes are announced by the list.
+  const counter = el("span", {
+    class: "password-count",
+    "aria-hidden": "true",
+    text: `0/${MIN_LENGTH}`,
+  });
+
   const update = (): void => {
     const verdict = checkPassword(control.value);
     const met = new Set<string>(verdict.satisfied);
-    if (verdict.longEnough) {
-      met.add("length");
-    }
+
+    counter.textContent = `${passwordLength(control.value)}/${MIN_LENGTH}`;
+    counter.classList.toggle("password-count-met", verdict.longEnough);
 
     for (const [key, entry] of entries) {
       const satisfied = met.has(key);
@@ -91,8 +106,16 @@ export function passwordField(options: PasswordFieldOptions): PasswordField {
   const element = field({
     label: options.label ?? t.t("auth.password"),
     control,
-    hint: t.t("password.requirements", { count: REQUIRED_CLASSES }),
+    hint: t.t("password.requirements", { min: MIN_LENGTH }),
   });
+
+  // The counter belongs beside the input rather than under it, so the field is
+  // built first and the input is then moved into a row with it. Building the
+  // row up front and passing that to field() would bind the label to a div.
+  const row = el("div", { class: "password-row" });
+  control.replaceWith(row);
+  row.append(control, counter);
+
   element.appendChild(rules);
 
   return {

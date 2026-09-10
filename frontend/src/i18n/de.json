@@ -34,8 +34,7 @@
   "auth.current_password": "Aktuelles Passwort",
   "auth.optional": "optional",
 
-  "password.requirements": "Mindestens 10 Zeichen aus drei dieser fünf Gruppen.",
-  "password.length": "Mindestens {count} Zeichen",
+  "password.requirements": "Mindestens {min} Zeichen aus drei dieser fünf Gruppen.",
   "password.upper": "Ein Großbuchstabe",
   "password.lower": "Ein Kleinbuchstabe",
   "password.digit": "Eine Ziffer",

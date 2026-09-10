@@ -34,8 +34,7 @@
   "auth.current_password": "Current password",
   "auth.optional": "optional",
 
-  "password.requirements": "Use at least 10 characters from three of these five groups.",
-  "password.length": "At least {count} characters",
+  "password.requirements": "Use at least {min} characters from three of these five groups.",
   "password.upper": "An upper case letter",
   "password.lower": "A lower case letter",
   "password.digit": "A digit",

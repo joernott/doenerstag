@@ -616,9 +616,9 @@ so this sprint is the first since 3 to touch the schema in earnest.
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
-| ⬜ 17.1 | The password rules under the field list "three of five groups" and then six bullet points, the sixth repeating the ten-character minimum stated above it. Remove it | S | [06](06_ui_ux.md) |
-| ⬜ 17.2 | A `x/10` counter beside the password field, counting what has been typed and turning green at ten | S | [06](06_ui_ux.md) |
-| ⬜ 17.3 | A rule that is satisfied already swaps its bullet for a tick; the tick is green as well | S | [06](06_ui_ux.md) |
+| ✅ 17.1 | The password rules under the field list "three of five groups" and then six bullet points, the sixth repeating the ten-character minimum stated above it. Remove it | S | [06](06_ui_ux.md) |
+| ✅ 17.2 | A `x/10` counter beside the password field, counting what has been typed and turning green at ten | S | [06](06_ui_ux.md) |
+| ✅ 17.3 | A rule that is satisfied already swaps its bullet for a tick; the tick is green as well | S | [06](06_ui_ux.md) |
 | ⬜ 17.4 | The order page prints a contact address twice when it has no label. An address without a label is the value, shown once | S | [06](06_ui_ux.md) |
 | ⬜ 17.5 | The summary page prints no address at all. Whoever is collecting the food needs it more than anybody | S | [06](06_ui_ux.md) |
 | ⬜ 17.6 | The "Add an item" button changes width with the number of tags, allergens and additives on the dish beside it, so the column of buttons is ragged. One line, always; the price moves above the button and is set bold | M | [06](06_ui_ux.md) |

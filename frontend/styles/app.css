@@ -35,6 +35,7 @@
   --accent-text: #1a1206;
   --danger: #ff6b6f;
   --danger-text: #1a0405;
+  --ok: #4cc98a;
   --focus: #7cc4ff;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.45);
 }
@@ -53,6 +54,7 @@
   --accent-text: #ffffff;
   --danger: #b3261e;
   --danger-text: #ffffff;
+  --ok: #116b33;
   --focus: #0b5cad;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.12);
 }
@@ -1092,6 +1094,31 @@ a {
 
 /* --- password rules ------------------------------------------------------ */
 
+/* The input and its counter share a line, the counter keeping its natural
+   width so the field does not jump as the number of digits changes. */
+.password-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.password-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-count {
+  flex: none;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.password-count-met {
+  color: var(--ok);
+  font-weight: 600;
+}
+
 .rules {
   margin: 0.35rem 0 0;
   padding: 0;
@@ -1113,6 +1140,12 @@ a {
 .rule-mark {
   width: 1rem;
   text-align: center;
+}
+
+/* The tick is the signal that a rule is satisfied, so it carries the colour;
+   the text beside it only stops being muted. */
+.rule-met .rule-mark {
+  color: var(--ok);
 }
 
 /* --- images -------------------------------------------------------------- */

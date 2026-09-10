@@ -79,7 +79,7 @@ describe("logged out", () => {
 
     const panels = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")];
     expect(panels[0]?.querySelector(".rules")).toBeNull();
-    expect(panels[1]?.querySelectorAll(".rule").length).toBe(6);
+    expect(panels[1]?.querySelectorAll(".rule").length).toBe(5);
   });
 
   it("ticks a rule as it is satisfied", () => {
@@ -98,10 +98,45 @@ describe("logged out", () => {
     password.value = "Abcdefghij1!";
     password.dispatchEvent(new Event("input"));
 
-    // Length, upper, lower, digit and special: five of the six lines.
-    expect(panels[1]?.querySelectorAll(".rule-met").length).toBe(5);
+    // Upper, lower, digit and special: four of the five lines. The length is
+    // not one of them any more, it is the counter beside the field.
+    expect(panels[1]?.querySelectorAll(".rule-met").length).toBe(4);
+
+    const counter = panels[1]?.querySelector(".password-count");
+    expect(counter?.textContent).toBe("12/10");
+    expect(counter?.classList.contains("password-count-met")).toBe(true);
   });
 
+  it("counts the characters typed, and only turns the counter over at ten", () => {
+    stubServer({});
+    const app = mountApp(() => []);
+    const rendered = render(app);
+
+    const panels = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")];
+    const password = panels[1]?.querySelector<HTMLInputElement>("input[type='password']");
+    const counter = panels[1]?.querySelector(".password-count");
+    if (!password || !counter) {
+      throw new Error("no password field");
+    }
+
+    expect(counter.textContent).toBe("0/10");
+
+    password.value = "Abcdefghi";
+    password.dispatchEvent(new Event("input"));
+    expect(counter.textContent).toBe("9/10");
+    expect(counter.classList.contains("password-count-met")).toBe(false);
+
+    password.value = "Abcdefghij";
+    password.dispatchEvent(new Event("input"));
+    expect(counter.textContent).toBe("10/10");
+    expect(counter.classList.contains("password-count-met")).toBe(true);
+
+    // Code points, the same unit the rule counts: a decomposed "a" with a
+    // combining acute is one character here and one character to the server.
+    password.value = "Abcdefghi" + "á";
+    password.dispatchEvent(new Event("input"));
+    expect(counter.textContent).toBe("10/10");
+  });
   it("logs in and rebuilds the chrome around the new session", async () => {
     const user = { id: "u1", name: "jo", display_name: "Jo", is_admin: false };
     stubServer({ "POST /auth/login": { user } });
