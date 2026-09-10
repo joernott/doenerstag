@@ -295,10 +295,25 @@ export function menuSection(
       el("h3", { class: "menu-group-title", text: category.name }),
     );
 
+    // The rule beside the name it belongs to.
+    //
+    // A category's rule binds every dish inside it, and the dishes themselves
+    // carry nothing to show for it -- so without this, a menu where the whole
+    // Nudeln section is a weekend thing looks exactly like one where it is not.
+    // It goes on the category rather than being copied onto each item because
+    // that is where somebody would go to change it.
+    const when = availabilityChip(app, category.availability ?? []);
+
     return el(
       "div",
       { class: "menu-group" },
-      el("div", { class: "menu-group-header" }, toggle, controls),
+      el(
+        "div",
+        { class: "menu-group-header" },
+        toggle,
+        ...(when === null ? [] : [when]),
+        controls,
+      ),
       items,
     );
   }
