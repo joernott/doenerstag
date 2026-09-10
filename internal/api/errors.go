@@ -63,14 +63,15 @@ const (
 	CodeNotOwner            Code = 3005
 
 	// Resource state.
-	CodeNotFound         Code = 4000
-	CodeOrderClosed      Code = 4001
-	CodeRestaurantLocked Code = 4002
-	CodeRestaurantInUse  Code = 4003
-	CodeItemUnavailable  Code = 4004
-	CodeNameExistsHere   Code = 4005
-	CodeMethodNotAllowed Code = 4006
-	CodeJobTaken         Code = 4007
+	CodeNotFound          Code = 4000
+	CodeOrderClosed       Code = 4001
+	CodeRestaurantLocked  Code = 4002
+	CodeRestaurantInUse   Code = 4003
+	CodeItemUnavailable   Code = 4004
+	CodeNameExistsHere    Code = 4005
+	CodeMethodNotAllowed  Code = 4006
+	CodeJobTaken          Code = 4007
+	CodeItemNotServedThen Code = 4008
 
 	// Rate limiting.
 	CodeTooManyLogins Code = 5000
@@ -124,14 +125,15 @@ var registry = map[Code]definition{
 	CodeNotParticipant:      {http.StatusForbidden, "only participants of this order may see its summary"},
 	CodeNotOwner:            {http.StatusForbidden, "only the owner of this resource may act on it"},
 
-	CodeNotFound:         {http.StatusNotFound, "resource not found"},
-	CodeOrderClosed:      {http.StatusConflict, "order deadline has passed; the order is read-only"},
-	CodeRestaurantLocked: {http.StatusConflict, "the restaurant cannot be changed once the order has items"},
-	CodeRestaurantInUse:  {http.StatusConflict, "the restaurant is still referenced by an order"},
-	CodeItemUnavailable:  {http.StatusConflict, "menu item is marked unavailable"},
-	CodeNameExistsHere:   {http.StatusConflict, "name already exists within this restaurant"},
-	CodeMethodNotAllowed: {http.StatusMethodNotAllowed, "the HTTP method is not allowed on this path"},
-	CodeJobTaken:         {http.StatusConflict, "somebody is already doing this"},
+	CodeNotFound:          {http.StatusNotFound, "resource not found"},
+	CodeOrderClosed:       {http.StatusConflict, "order deadline has passed; the order is read-only"},
+	CodeRestaurantLocked:  {http.StatusConflict, "the restaurant cannot be changed once the order has items"},
+	CodeRestaurantInUse:   {http.StatusConflict, "the restaurant is still referenced by an order"},
+	CodeItemUnavailable:   {http.StatusConflict, "menu item is marked unavailable"},
+	CodeNameExistsHere:    {http.StatusConflict, "name already exists within this restaurant"},
+	CodeMethodNotAllowed:  {http.StatusMethodNotAllowed, "the HTTP method is not allowed on this path"},
+	CodeJobTaken:          {http.StatusConflict, "somebody is already doing this"},
+	CodeItemNotServedThen: {http.StatusConflict, "the kitchen does not make this at the order's time"},
 
 	CodeTooManyLogins: {http.StatusTooManyRequests, "too many login attempts"},
 

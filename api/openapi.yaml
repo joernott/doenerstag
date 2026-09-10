@@ -1148,6 +1148,200 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /restaurants/{id}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [menu]
+      operationId: listAvailability
+      summary: The restaurant's availability filters.
+      description: |
+        Public, like the menu: when a dish is served is part of what a menu
+        says.
+      security: []
+      responses:
+        "200":
+          description: The filters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [menu]
+      operationId: createAvailability
+      summary: Define a filter.
+      description: |
+        Any signed-in user, like the rest of menu editing. A filter must
+        restrict something — a date, some weekdays or a time — because one that
+        restricts nothing matches everything while reading as though it did
+        not.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "201":
+          description: The filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/availability/{fid}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: fid
+        in: path
+        required: true
+        description: The filter's id.
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [menu]
+      operationId: patchAvailability
+      summary: Change a filter.
+      description: |
+        Only the fields present are changed, and each is judged against the
+        filter as it stands — so a request setting only `start_time` is refused
+        when there is no `end_time` to go with it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "200":
+          description: The filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [menu]
+      operationId: deleteAvailability
+      summary: Remove a filter. Administrator only.
+      description: |
+        Administrator only, like every other delete of menu structure: a filter
+        is shared by everything it is attached to, and those attachments go
+        with it.
+      responses:
+        "204":
+          description: Gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/categories/{cid}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The category's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [menu]
+      operationId: setCategoryAvailability
+      summary: Replace the filters attached to a category.
+      description: |
+        A replacement rather than an addition: an editor shows a set of ticked
+        boxes and submits the set it now has.
+
+        A filter belonging to another restaurant is refused rather than
+        silently dropped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityAttachRequest"
+      responses:
+        "200":
+          description: What is attached now.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items/{mid}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: mid
+        in: path
+        required: true
+        description: The menu item's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [menu]
+      operationId: setMenuItemAvailability
+      summary: Replace the filters attached to a menu item.
+      description: |
+        As for a category. An item's filters and its category's must **both**
+        be satisfied, so a Monday-only category holding a Wednesday-only item
+        hides that item always. See docs/03_data_model.md.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityAttachRequest"
+      responses:
+        "200":
+          description: What is attached now.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /restaurants/{id}/categories:
     parameters:
       - $ref: "#/components/parameters/RestaurantId"
@@ -2191,6 +2385,64 @@ components:
         expires_at:
           type: string
           description: RFC 3339, in the future. Empty means the token never expires.
+
+    AvailabilityFilter:
+      type: object
+      required: [id, restaurant_id, name, weekdays, sort_order]
+      description: |
+        A named rule about when food can be had. Its own parts are ANDed: a
+        filter naming weekdays and a time means those days and only during
+        those hours. A part left null has no opinion.
+
+        Several filters on one element are alternatives; a category's and an
+        item's must both hold. See docs/03_data_model.md.
+      properties:
+        id: { type: string, format: uuid }
+        restaurant_id: { type: string, format: uuid }
+        name:
+          type: string
+          examples: ["Fri-Sun after 5"]
+        on_date:
+          type: [string, "null"]
+          format: date
+          description: One calendar date. Several dates are several filters.
+        weekdays:
+          type: array
+          description: ISO days, 1 = Monday. Empty means every day.
+          items: { type: integer, minimum: 1, maximum: 7 }
+        start_time:
+          type: [string, "null"]
+          examples: ["17:00"]
+          description: With end_time, or neither. HH:MM on a 24-hour clock.
+        end_time:
+          type: [string, "null"]
+          examples: ["22:00"]
+          description: Earlier than start_time crosses midnight.
+        sort_order: { type: integer }
+
+    AvailabilityRequest:
+      type: object
+      description: |
+        Only the fields present are changed. Sending `null` for `on_date`,
+        `start_time` or `end_time` clears it.
+      properties:
+        name: { type: string }
+        on_date: { type: [string, "null"], format: date }
+        weekdays:
+          type: array
+          items: { type: integer, minimum: 1, maximum: 7 }
+        start_time: { type: [string, "null"] }
+        end_time: { type: [string, "null"] }
+        sort_order: { type: integer }
+
+    AvailabilityAttachRequest:
+      type: object
+      required: [filter_ids]
+      description: The set of filters this element should have. Replaces what it had.
+      properties:
+        filter_ids:
+          type: array
+          items: { type: string, format: uuid }
 
     Currency:
       type: object

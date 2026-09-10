@@ -84,6 +84,14 @@ var reviewedAssemblies = map[string]string{
 		"each passing a string literal. The ids are bound as $1 and $2.",
 	"runCleanupStep": "countSQL and deleteSQL are the pair of literals from the " +
 		"step table in Run; the predicate's values arrive in args and are bound.",
+	"filtersByOwner": "the query is one of the two literals in FiltersByCategory " +
+		"and FiltersByMenuItem, each a constant string built from " +
+		"availabilityColumns. The restaurant id is bound as $1.",
+	"filtersForOne": "the query is one of the two literals in FiltersForCategory " +
+		"and FiltersForMenuItem. The owner id is bound as $1.",
+	"replaceAttachments": "the table and column come from the two call sites in " +
+		"this file (SetCategoryFilters, SetMenuItemFilters), each passing a " +
+		"string literal. The ids are bound as $1, $2 and $3.",
 }
 
 // The second rule: the SQL handed to the driver is built only from things that

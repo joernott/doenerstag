@@ -170,6 +170,7 @@
   "error.4005": "Dieser Name wird hier bereits verwendet.",
   "error.4006": "Diese Aktion ist hier nicht erlaubt.",
   "error.4007": "Jemand anders war schneller.",
+  "error.4008": "Das gibt es zur Zeit dieser Bestellung nicht.",
   "error.5000": "Zu viele Anmeldeversuche. Bitte kurz warten.",
   "error.9000": "Auf dem Server ist ein Fehler aufgetreten. Bitte noch einmal versuchen.",
   "error.9001": "Die Datenbank ist nicht erreichbar.",

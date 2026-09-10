@@ -2,15 +2,17 @@ package api_test
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/joernott/doenerstag/internal/api"
 )
 
 type categoryResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SortOrder int    `json:"sort_order"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	SortOrder    int                `json:"sort_order"`
+	Availability []availabilityResp `json:"availability"`
 }
 
 type menuItemResponse struct {
@@ -23,7 +25,11 @@ type menuItemResponse struct {
 	ImageID      *string `json:"image_id"`
 	PriceCents   int64   `json:"price_cents"`
 	Available    bool    `json:"available"`
-	Tags         []struct {
+
+	Availability []availabilityResp `json:"availability"`
+	AvailableAt  *bool              `json:"available_at"`
+
+	Tags []struct {
 		ID   string `json:"id"`
 		Code string `json:"code"`
 		Name string `json:"name"`
@@ -549,4 +555,38 @@ func TestPatchingACategoryOfAnotherRestaurantIsNotFound(t *testing.T) {
 	rec := m.patch("/restaurants/"+other+"/categories/"+category.ID,
 		map[string]any{"name": "Untergeschoben"}, m.cookies...)
 	expectErrorCode(t, rec, api.CodeNotFound)
+}
+
+// readItems lists the menu, optionally as at a moment.
+func (m *menuFixture) readItems(at string) []menuItemResponse {
+	m.t.Helper()
+
+	path := m.menuPath("/menu-items")
+	if at != "" {
+		path += "?at=" + url.QueryEscape(at)
+	}
+	rec := m.get(path)
+	if rec.Code != http.StatusOK {
+		m.t.Fatalf("listing the menu: %d %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		MenuItems []menuItemResponse `json:"menu_items"`
+	}
+	decode(m.t, rec, &body)
+	return body.MenuItems
+}
+
+// readCategories lists the categories with their attached filters.
+func (m *menuFixture) readCategories() []categoryResponse {
+	m.t.Helper()
+
+	rec := m.get(m.menuPath("/categories"))
+	if rec.Code != http.StatusOK {
+		m.t.Fatalf("listing categories: %d %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Categories []categoryResponse `json:"categories"`
+	}
+	decode(m.t, rec, &body)
+	return body.Categories
 }

@@ -260,6 +260,8 @@ func itemWriteError(err error) *Error {
 		return &Error{Code: CodeItemWrongRestaurant, Field: "menu_item_id"}
 	case errors.Is(err, db.ErrItemUnavailable):
 		return &Error{Code: CodeItemUnavailable, Field: "menu_item_id"}
+	case errors.Is(err, db.ErrItemNotServedThen):
+		return &Error{Code: CodeItemNotServedThen, Field: "menu_item_id"}
 	case errors.Is(err, db.ErrModificationWrongItem):
 		return &Error{Code: CodeModificationWrongItem, Field: "modification_ids"}
 	case errors.Is(err, db.ErrNotFound):

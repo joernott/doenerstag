@@ -61,6 +61,8 @@ func (h *MenuHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPatch, "/restaurants/:id/menu-items/:mid/modifications/:k", h.patchModification)
 	r.HandleFunc(http.MethodDelete, "/restaurants/:id/menu-items/:mid/modifications/:k", h.deleteModification)
 
+	h.registerAvailability(r)
+
 	r.HandleFunc(http.MethodGet, "/tags", h.listTags)
 	r.HandleFunc(http.MethodPost, "/tags", h.createTag)
 	r.HandleFunc(http.MethodGet, "/allergens", h.listAllergens)
@@ -71,10 +73,17 @@ type categoryBody struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	SortOrder int    `json:"sort_order"`
+
+	// Availability is the filters attached to this category, which say when the
+	// food in it can be had. Empty means always.
+	Availability []availabilityBody `json:"availability"`
 }
 
-func publicCategory(c model.MenuCategory) categoryBody {
-	return categoryBody{ID: c.ID.String(), Name: c.Name, SortOrder: c.SortOrder}
+func publicCategory(c model.MenuCategory, filters []model.AvailabilityFilter) categoryBody {
+	return categoryBody{
+		ID: c.ID.String(), Name: c.Name, SortOrder: c.SortOrder,
+		Availability: filterBodies(filters),
+	}
 }
 
 type menuItemBody struct {
@@ -87,6 +96,17 @@ type menuItemBody struct {
 	ImageID      *string `json:"image_id"`
 	PriceCents   int64   `json:"price_cents"`
 	Available    bool    `json:"available"`
+
+	// Availability is the filters attached to this item: when the kitchen makes
+	// it. Empty means always, and it is a different question from Available,
+	// which is the switch somebody flips when a dish has sold out.
+	Availability []availabilityBody `json:"availability"`
+
+	// AvailableAt answers "can this be had at the moment asked about", which is
+	// the item's own filters and its category's taken together. Null when the
+	// request named no moment -- the restaurant page shows the whole menu,
+	// because it is the menu.
+	AvailableAt *bool `json:"available_at"`
 
 	Tags      []tagBody       `json:"tags"`
 	Allergens []referenceBody `json:"allergens"`
@@ -213,9 +233,15 @@ func (h *MenuHandlers) listCategories(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	attached, dbErr := db.FiltersByCategory(r.Context(), h.Pool, restaurantID)
+	if dbErr != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		return
+	}
+
 	bodies := make([]categoryBody, 0, len(categories))
 	for i := range categories {
-		bodies = append(bodies, publicCategory(categories[i]))
+		bodies = append(bodies, publicCategory(categories[i], attached[categories[i].ID]))
 	}
 	_ = WriteJSON(w, http.StatusOK, map[string]any{"categories": bodies})
 }
@@ -259,7 +285,7 @@ func (h *MenuHandlers) createCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = WriteJSON(w, http.StatusCreated, publicCategory(created))
+	_ = WriteJSON(w, http.StatusCreated, publicCategory(created, nil))
 }
 
 type patchCategoryRequest struct {
@@ -315,7 +341,7 @@ func (h *MenuHandlers) patchCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = WriteJSON(w, http.StatusOK, publicCategory(updated))
+	_ = WriteJSON(w, http.StatusOK, publicCategory(updated, h.categoryFilters(r, updated.ID)))
 }
 
 // deleteCategory soft-deletes a category. Administrator only (F4.5).
@@ -380,4 +406,17 @@ func validateMenuName(name string) *Error {
 		}
 	}
 	return nil
+}
+
+// categoryFilters reads one category's filters for a response body.
+//
+// A failure returns none rather than failing the request: the write that
+// prompted this has already happened, and answering 503 to a successful edit
+// would be a lie about what the server did.
+func (h *MenuHandlers) categoryFilters(r *http.Request, id uuid.UUID) []model.AvailabilityFilter {
+	filters, err := db.FiltersForCategory(r.Context(), h.Pool, id)
+	if err != nil {
+		return nil
+	}
+	return filters
 }
