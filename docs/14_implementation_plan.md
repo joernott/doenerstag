@@ -635,12 +635,15 @@ so this sprint is the first since 3 to touch the schema in earnest.
 | ✅ 17.13 | A second compose file putting Traefik in front, with Let's Encrypt certificates, and the application serving plain HTTP behind it | M | [10](10_operations.md) |
 | ✅ 17.13.1 | `ValuesFrom` builds the configuration file from a hand-written flag-to-value map, and a loop after it fills in whatever is missing with the declared default. A setting left out of the map is therefore invisible: `DOENER_BEHIND_TLS_PROXY=true` produced a file saying `false`, which for that setting means session cookies stop being marked Secure. Found by running the stack and reading the file it wrote. A test now flips every boolean in the struct and asks for it back | S | [09](09_configuration.md) |
 | ✅ 17.14 | An administrative verb run by a person exited FATAL because the configuration file names the server's log and only the service user may write it: `open /var/log/doenerstag/doenerstag.log: permission denied`, before doing anything at all. The verbs a person runs now warn and log to standard error instead. `server` stays fatal: a daemon that cannot write its log would run for months with nobody noticing. Reported by the user | S | [09](09_configuration.md) |
+| ✅ 17.15 | Version references moved to 0.3.0, and the README's status section rewritten around what a real order found | S | — |
+| ✅ 17.16 | Sprint 17 squashed into `main` and released as 0.3.0 | S | [10](10_operations.md) |
 
 **Exit criteria:** an order at a real restaurant can be placed, fetched, paid
 for and settled without anybody typing a name into a text field or working out
 which dishes the kitchen is making today. The password field says how far along
 the person typing is rather than repeating itself. A currency whose minor unit
-is not a tenth of its major one is stored correctly.
+is not a tenth of its major one is stored correctly. Sprint 17 is on `main`
+and released as 0.3.0.
 
 ---
 
