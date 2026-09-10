@@ -20,7 +20,7 @@ const MaxAvailabilityNameLength = 200
 
 // clockTime is "HH:MM" on a 24-hour clock, which is what the schema's `time`
 // column holds and what an <input type="time"> submits.
-var clockTime = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
+var clockTime = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 type availabilityBody struct {
 	ID           string `json:"id"`
@@ -480,25 +480,6 @@ func (h *MenuHandlers) decorateItems(
 		bodies[i].AvailableAt = &verdict
 	}
 	return nil
-}
-
-// ItemAvailableAt answers the same question for one item, for the order path
-// that has to refuse an item the kitchen will not make.
-func (h *MenuHandlers) itemAvailableAt(
-	r *http.Request, item model.MenuItem, at time.Time,
-) (bool, error) {
-	own, err := db.FiltersForMenuItem(r.Context(), h.Pool, item.ID)
-	if err != nil {
-		return false, err
-	}
-	var category []model.AvailabilityFilter
-	if item.CategoryID != nil {
-		category, err = db.FiltersForCategory(r.Context(), h.Pool, *item.CategoryID)
-		if err != nil {
-			return false, err
-		}
-	}
-	return model.ItemAvailableAt(category, own, at.Local()), nil
 }
 
 // setCategoryAvailability replaces the filters attached to a category.
