@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -51,12 +52,29 @@ func TestAnUnwritableLogFileDoesNotStopAnAdminVerb(t *testing.T) {
 
 			// It says what happened rather than doing it silently: an operator
 			// who expected the log to be written needs to know it was not.
-			written := stderr.String()
-			if !strings.Contains(written, "standard error") {
-				t.Errorf("no warning was written: %q", written)
+			//
+			// The line is decoded rather than searched for a substring. A
+			// Windows path is full of backslashes, JSON escapes every one of
+			// them, and `strings.Contains(line, path)` is therefore false on
+			// exactly the platform where the path looks most alarming. That is
+			// how this test failed on the Windows runner and nowhere else.
+			var line struct {
+				Level   string `json:"level"`
+				LogFile string `json:"log_file"`
+				Message string `json:"message"`
 			}
-			if !strings.Contains(written, blocked) {
-				t.Errorf("the warning does not name the log file: %q", written)
+			written := stderr.String()
+			if err := json.Unmarshal([]byte(strings.TrimSpace(written)), &line); err != nil {
+				t.Fatalf("the warning is not one JSON object: %q", written)
+			}
+			if line.Level != "warn" {
+				t.Errorf("logged at %q, want warn: %q", line.Level, written)
+			}
+			if !strings.Contains(line.Message, "standard error") {
+				t.Errorf("the message does not say where it went instead: %q", line.Message)
+			}
+			if line.LogFile != blocked {
+				t.Errorf("named %q as the log file, want %q", line.LogFile, blocked)
 			}
 		})
 	}
