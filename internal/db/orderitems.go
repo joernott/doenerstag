@@ -20,13 +20,13 @@ var ErrItemUnavailable = errors.New("db: menu item is unavailable")
 
 const orderItemColumns = `i.id, i.order_id, i.user_id, coalesce(u.display_name, u.name),
 	i.menu_item_id, i.quantity, i.item_name, i.unit_price_cents,
-	coalesce(i.note, ''), i.created_at, i.updated_at`
+	coalesce(i.note, ''), i.paid, i.created_at, i.updated_at`
 
 func scanOrderItem(row pgx.Row) (model.OrderItem, error) {
 	var i model.OrderItem
 	err := row.Scan(&i.ID, &i.OrderID, &i.UserID, &i.UserName,
 		&i.MenuItemID, &i.Quantity, &i.ItemName, &i.UnitPriceCents,
-		&i.Note, &i.CreatedAt, &i.UpdatedAt)
+		&i.Note, &i.Paid, &i.CreatedAt, &i.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.OrderItem{}, ErrNotFound
@@ -343,6 +343,25 @@ func UpdateOrderItem(ctx context.Context, pool Pool, id uuid.UUID, in OrderItemU
 // DeleteOrderItem removes an item and its modifications, which cascade.
 func DeleteOrderItem(ctx context.Context, q Querier, id uuid.UUID) error {
 	tag, err := q.Exec(ctx, `DELETE FROM order_item WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetOrderItemPaid records, or unrecords, that a line has been settled.
+//
+// Its own function rather than a field on OrderItemUpdate, because it is the
+// only thing about an item that somebody other than its owner may change and
+// the only thing that may change after the deadline. Keeping it separate keeps
+// both of those rules in one place instead of as conditions inside a general
+// update.
+func SetOrderItemPaid(ctx context.Context, q Querier, id, actor uuid.UUID, paid bool) error {
+	tag, err := q.Exec(ctx,
+		`UPDATE order_item SET paid = $2, updated_by = $3 WHERE id = $1`, id, paid, actor)
 	if err != nil {
 		return err
 	}

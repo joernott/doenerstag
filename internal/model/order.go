@@ -101,6 +101,10 @@ type OrderItem struct {
 
 	Modifications []OrderItemModification
 
+	// Paid records that somebody ticked this line as settled. Not a payment:
+	// the application takes none. See migration 11.
+	Paid bool
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

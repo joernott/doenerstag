@@ -364,6 +364,8 @@
   "summary.copy_failed": "The clipboard is not available. The text is below, ready to select.",
   "summary.plain_text": "The summary as plain text",
   "summary.print": "Print",
+  "summary.paid_for": "Paid for {item}",
+  "summary.already_paid": "{amount} paid",
   "summary.participants_only": "This summary is visible to the people taking part in the order.",
   "summary.back": "Back to the order",
 

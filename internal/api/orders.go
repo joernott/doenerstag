@@ -79,6 +79,7 @@ func (h *OrderHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPost, "/orders/:id/items", h.addItem)
 	r.HandleFunc(http.MethodPatch, "/orders/:id/items/:iid", h.patchItem)
 	r.HandleFunc(http.MethodDelete, "/orders/:id/items/:iid", h.deleteItem)
+	r.HandleFunc(http.MethodPut, "/orders/:id/items/:iid/paid", h.setItemPaid)
 }
 
 // orderHeaderBody is what every caller sees, anonymous included.
@@ -161,6 +162,9 @@ type orderItemBody struct {
 	Modifications  []orderModificationBody `json:"modifications"`
 	LineTotalCents int64                   `json:"line_total_cents"`
 
+	// Paid is a tick against a line, not a payment: the application takes none.
+	Paid bool `json:"paid"`
+
 	CreatedAt string `json:"created_at"`
 }
 
@@ -207,6 +211,7 @@ func publicOrderItem(i model.OrderItem) orderItemBody {
 		Note:           i.Note,
 		Modifications:  make([]orderModificationBody, 0, len(i.Modifications)),
 		LineTotalCents: i.LineTotalCents(),
+		Paid:           i.Paid,
 		CreatedAt:      i.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	for _, m := range i.Modifications {

@@ -311,6 +311,7 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Add an order item to an active order          | – | ✓ | ✓ | ✓ |
 | Edit or delete an order item                  | – | – | ✓ | ✓ |
 | Edit or delete an order item after deadline   | – | – | – | – |
+| Tick an order item as paid, deadline or not   | – | – | ✓ | ✓ |
 | Create a restaurant                           | – | ✓ | ✓ | ✓ |
 | Edit a restaurant, contacts, opening hours    | – | ✓ | ✓ | ✓ |
 | Delete a restaurant                           | – | – | – | ✓ |

@@ -1708,6 +1708,59 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /orders/{id}/items/{iid}/paid:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+      - name: iid
+        in: path
+        required: true
+        description: The order item's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [orders]
+      operationId: setOrderItemPaid
+      summary: Record a line as settled, or as not settled.
+      description: |
+        A tick against a line on a list. **Not a payment** — the application
+        handles none, and this only records that somebody said the money
+        changed hands.
+
+        Three people may set it: the person whose item it is, the person who
+        opened the order, and whoever is collecting the money. Those are the
+        three who plausibly know. Anybody else gets 3002.
+
+        Unlike everything else about an item, this is **not** frozen by the
+        deadline. The order closes before the food is ordered and the money
+        changes hands when it arrives, so the moment somebody wants to tick
+        this box is always after the deadline.
+
+        A paid line is left out of that person's `total_cents` on the summary
+        and counted in `paid_cents` instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paid]
+              properties:
+                paid: { type: boolean }
+      responses:
+        "200":
+          description: The item, with its new state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /orders/{id}/pickup-person:
     parameters:
       - $ref: "#/components/parameters/OrderId"
@@ -2503,10 +2556,17 @@ components:
         - note
         - modifications
         - line_total_cents
+        - paid
       properties:
         id: { type: string, format: uuid }
         user_id: { type: string, format: uuid }
         user_name: { type: string }
+        paid:
+          type: boolean
+          description: >-
+            Somebody recorded this line as settled. Not a payment: the
+            application handles none. Set through PUT .../paid, which three
+            people may call and which the deadline does not freeze.
         menu_item_id: { type: string, format: uuid }
         quantity: { type: integer, minimum: 1 }
         item_name:
@@ -2654,7 +2714,7 @@ components:
 
     SummaryPerson:
       type: object
-      required: [user_id, display_name, items, total_cents]
+      required: [user_id, display_name, items, total_cents, paid_cents]
       properties:
         user_id: { type: string, format: uuid }
         display_name:
@@ -2664,4 +2724,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderItem"
-        total_cents: { type: integer, format: int64 }
+        total_cents:
+          type: integer
+          format: int64
+          description: >-
+            What this person still owes: every line of theirs not ticked as
+            settled. A line marked paid is counted in paid_cents instead.
+        paid_cents: { type: integer, format: int64 }

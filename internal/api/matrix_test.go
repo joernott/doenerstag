@@ -377,6 +377,7 @@ func TestEveryMatrixRowIsCovered(t *testing.T) {
 		"Add an order item to an active order":            "TestPermissionMatrixContent",
 		"Edit or delete an order item":                    "TestPermissionMatrixContent",
 		"Edit or delete an order item after deadline":     "TestPermissionMatrixContent",
+		"Tick an order item as paid, deadline or not":     "TestWhoMayTickAnItemAsPaid",
 		"Create a restaurant":                             "TestPermissionMatrixContent",
 		"Edit a restaurant, contacts, opening hours":      "TestPermissionMatrixContent",
 		"Delete a restaurant":                             "TestPermissionMatrixContent",

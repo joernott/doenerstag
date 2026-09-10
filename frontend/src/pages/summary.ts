@@ -27,18 +27,24 @@ interface AggregatedLine {
   total_cents: number;
 }
 
+interface PersonItem {
+  id: string;
+  quantity: number;
+  item_name: string;
+  note: string;
+  modifications: { name: string }[];
+  line_total_cents: number;
+  paid: boolean;
+}
+
 interface PersonLine {
   user_id: string;
   display_name: string;
-  items: {
-    id: string;
-    quantity: number;
-    item_name: string;
-    note: string;
-    modifications: { name: string }[];
-    line_total_cents: number;
-  }[];
+  items: PersonItem[];
+  /** What this person still owes: their lines that are not ticked as settled. */
   total_cents: number;
+  /** What they have settled, so a page can tell "nothing left" from "nothing". */
+  paid_cents: number;
 }
 
 interface Summary {
@@ -59,6 +65,19 @@ interface RestaurantDetail extends Restaurant {
   contacts: Contact[];
 }
 
+/**
+ * The people an order has, as the authenticated order shape carries them.
+ *
+ * Optional because the same endpoint answers an anonymous caller with a shape
+ * that names nobody (ADR-0011). A summary reader is always authenticated, so in
+ * practice they are there -- but the type says what the API promises rather
+ * than what this page expects.
+ */
+interface OrderPeople extends OrderHeader {
+  creator_id?: string;
+  money_collector_id?: string | null;
+}
+
 export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   let summary: Summary;
   try {
@@ -71,7 +90,7 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   // the deadline, none of which the summary carries: it is about the
   // aggregation. Both are public reads, and a failure of either leaves a page
   // that is still worth reading.
-  const order = await api.get<OrderHeader>(`/orders/${id}`).catch(() => null);
+  const order = await api.get<OrderPeople>(`/orders/${id}`).catch(() => null);
   const restaurant = order
     ? await api.get<RestaurantDetail>(`/restaurants/${order.restaurant_id}`).catch(() => null)
     : null;
@@ -83,11 +102,33 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   const money = (cents: number): string =>
     formatMoney(app.language, cents, summary.currency_code, moneyFormat);
 
+  // Ticking a line changes what everybody on the page owes, so the whole
+  // section is rebuilt from the server rather than patched in place: the
+  // arithmetic belongs to the API and there is no version of it here to keep in
+  // step.
+  const people = el("div", { class: "person-groups" });
+  const renderPeople = (): void => {
+    people.replaceChildren(perPersonCard(app, summary, money, order, refreshPeople));
+  };
+  const refreshPeople = (): void => {
+    api
+      .get<Summary>(`/orders/${id}/summary`)
+      .then((fresh) => {
+        summary = fresh;
+        renderPeople();
+      })
+      .catch(() => {
+        // Leave what is on screen. The tick itself succeeded; only the
+        // re-read failed, and a page that emptied itself would be worse.
+      });
+  };
+  renderPeople();
+
   return page(
     summary.title,
     headerCard(app, summary, order, restaurant),
     aggregatedCard(app, summary, money),
-    perPersonCard(app, summary, money),
+    people,
     totalsCard(app, summary, money),
     toolbar(app, summary),
   );
@@ -127,7 +168,7 @@ function refused(app: App, id: string, error: unknown): HTMLElement {
 function headerCard(
   app: App,
   summary: Summary,
-  order: OrderHeader | null,
+  order: OrderPeople | null,
   restaurant: RestaurantDetail | null,
 ): HTMLElement {
   const { t } = app;
@@ -246,10 +287,32 @@ function aggregatedCard(
 }
 
 /** Who owes what: one block per person, with their own total. */
+/**
+ * Whether this visitor may tick a line as settled.
+ *
+ * The three people who plausibly know: whoever ordered it, whoever opened the
+ * order, and whoever is collecting the money. The server decides for real; this
+ * decides whether to offer a control that would be refused.
+ */
+function mayTick(app: App, order: OrderPeople | null, person: PersonLine): boolean {
+  const me = app.session.user?.id;
+  if (me === undefined) {
+    return false;
+  }
+  return (
+    app.session.isAdmin ||
+    person.user_id === me ||
+    order?.creator_id === me ||
+    (order?.money_collector_id ?? null) === me
+  );
+}
+
 function perPersonCard(
   app: App,
   summary: Summary,
   money: (cents: number) => string,
+  order: OrderPeople | null,
+  onChanged: () => void,
 ): HTMLElement {
   const { t } = app;
 
@@ -264,6 +327,15 @@ function perPersonCard(
         // is what the API sends; the page does not invent a label for it.
         person.display_name,
         el("span", { class: "person-total", text: money(person.total_cents) }),
+        // Only when something has been settled: a "0.00 paid" beside every name
+        // would be noise on the ordinary case, and a bare 0.00 owed could
+        // otherwise mean either "paid up" or "ordered nothing".
+        person.paid_cents > 0
+          ? el("span", {
+              class: "person-paid",
+              text: t.t("summary.already_paid", { amount: money(person.paid_cents) }),
+            })
+          : null,
       ),
       el(
         "ul",
@@ -286,6 +358,7 @@ function perPersonCard(
               item.note ? el("span", { class: "muted item-note", text: ` ${item.note}` }) : null,
             ),
             el("span", { class: "menu-price", text: money(item.line_total_cents) }),
+            paidBox(app, summary, order, person, item, onChanged),
           ),
         ),
       ),
@@ -293,6 +366,56 @@ function perPersonCard(
   );
 
   return section(t.t("summary.who_owes_what"), ...blocks);
+}
+
+/**
+ * The tick beside a price.
+ *
+ * Shown to everybody who can read the summary, because whether a line has been
+ * settled is part of what the summary says; only the three people who may
+ * change it get a live control. For everyone else it is a disabled box, which
+ * says "somebody has ticked this" without pretending they could untick it.
+ *
+ * Its label names the dish rather than saying "paid", because a page with nine
+ * checkboxes all called "paid" is a page a screen reader cannot navigate.
+ */
+function paidBox(
+  app: App,
+  summary: Summary,
+  order: OrderPeople | null,
+  person: PersonLine,
+  item: PersonItem,
+  onChanged: () => void,
+): HTMLElement {
+  const { t } = app;
+  const allowed = mayTick(app, order, person);
+
+  const box = el("input", {
+    type: "checkbox",
+    class: "checkbox",
+    checked: item.paid,
+    disabled: !allowed,
+    "aria-label": t.t("summary.paid_for", { item: item.item_name }),
+    title: t.t("summary.paid_for", { item: item.item_name }),
+  });
+
+  if (allowed) {
+    box.addEventListener("change", () => {
+      const wanted = box.checked;
+      box.disabled = true;
+      api
+        .put(`/orders/${summary.order_id}/items/${item.id}/paid`, { paid: wanted })
+        .then(onChanged)
+        .catch(() => {
+          // Put the box back where it was: the server did not agree, and a tick
+          // that only exists in this browser is worse than none.
+          box.checked = !wanted;
+          box.disabled = false;
+        });
+    });
+  }
+
+  return el("span", { class: "paid-box" }, box);
 }
 
 function totalsCard(

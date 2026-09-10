@@ -8,6 +8,28 @@ import (
 	"github.com/joernott/doenerstag/internal/api"
 )
 
+// summaryPerson is one person's block: what they ordered, what they still owe
+// and what they have settled.
+type summaryPerson struct {
+	UserID      string          `json:"user_id"`
+	DisplayName string          `json:"display_name"`
+	Items       []orderItemResp `json:"items"`
+	TotalCents  int64           `json:"total_cents"`
+	PaidCents   int64           `json:"paid_cents"`
+}
+
+// person finds one person's block, failing the test when they have none.
+func (s summaryResponse) person(t *testing.T, userID string) summaryPerson {
+	t.Helper()
+	for _, p := range s.PerPerson {
+		if p.UserID == userID {
+			return p
+		}
+	}
+	t.Fatalf("no summary block for %s", userID)
+	return summaryPerson{}
+}
+
 type summaryResponse struct {
 	OrderID      string `json:"order_id"`
 	Title        string `json:"title"`
@@ -21,18 +43,13 @@ type summaryResponse struct {
 		UnitPriceCents int64    `json:"unit_price_cents"`
 		TotalCents     int64    `json:"total_cents"`
 	} `json:"aggregated"`
-	PerPerson []struct {
-		UserID      string          `json:"user_id"`
-		DisplayName string          `json:"display_name"`
-		Items       []orderItemResp `json:"items"`
-		TotalCents  int64           `json:"total_cents"`
-	} `json:"per_person"`
-	ItemTotalCents     int64  `json:"item_total_cents"`
-	DeliveryFeeCents   *int64 `json:"delivery_fee_cents"`
-	GrandTotalCents    int64  `json:"grand_total_cents"`
-	MinOrderValueCents *int64 `json:"min_order_value_cents"`
-	BelowMinimum       bool   `json:"below_minimum"`
-	PlainText          string `json:"plain_text"`
+	PerPerson          []summaryPerson `json:"per_person"`
+	ItemTotalCents     int64           `json:"item_total_cents"`
+	DeliveryFeeCents   *int64          `json:"delivery_fee_cents"`
+	GrandTotalCents    int64           `json:"grand_total_cents"`
+	MinOrderValueCents *int64          `json:"min_order_value_cents"`
+	BelowMinimum       bool            `json:"below_minimum"`
+	PlainText          string          `json:"plain_text"`
 }
 
 func (o *orderFixture) readSummary(cookies ...*http.Cookie) summaryResponse {

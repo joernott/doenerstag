@@ -432,3 +432,116 @@ func TestDeletingAnItemUpdatesTheCount(t *testing.T) {
 		t.Errorf("the anonymous count is %d", anonymous.ItemCount)
 	}
 }
+
+// Three people may tick a line as paid, and the deadline does not stop them.
+//
+// The owner, the person who opened the order, and whoever is collecting the
+// money: the three who plausibly know whether the money changed hands. The
+// deadline exemption is the point of the whole thing -- the food arrives after
+// the order closes, so a tick that needed an open order could never be made.
+func TestWhoMayTickAnItemAsPaid(t *testing.T) {
+	o := newOrderFixture(t)
+	hungry := o.register("hungrig")
+	item := o.addOrderItem(hungry, map[string]any{"quantity": 1})
+	path := "/orders/" + o.order.ID + "/items/" + item.ID + "/paid"
+
+	// The creator names somebody else as the money collector.
+	collector := o.register("kassierer")
+	if rec := o.patch("/orders/"+o.order.ID,
+		map[string]any{"money_collector_id": o.userID("kassierer")}, o.cookies...); rec.Code != http.StatusOK {
+		t.Fatalf("naming the collector: %s", rec.Body.String())
+	}
+
+	// Somebody with no part in this order.
+	stranger := o.register("fremder")
+
+	for _, tc := range []struct {
+		who     string
+		cookies []*http.Cookie
+		allowed bool
+	}{
+		{"the item's owner", hungry, true},
+		{"the order's creator", o.cookies, true},
+		{"the money collector", collector, true},
+		{"the administrator", o.admin, true},
+		{"a stranger", stranger, false},
+		{"anonymous", nil, false},
+	} {
+		t.Run(tc.who, func(t *testing.T) {
+			rec := o.put(path, map[string]any{"paid": true}, tc.cookies...)
+			if tc.allowed {
+				if rec.Code != http.StatusOK {
+					t.Fatalf("%s was refused: %d %s", tc.who, rec.Code, rec.Body.String())
+				}
+				// Put it back, so the next case starts from the same state.
+				o.put(path, map[string]any{"paid": false}, o.cookies...)
+				return
+			}
+			if rec.Code < 400 {
+				t.Errorf("%s was allowed: %d %s", tc.who, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// The deadline freezes everything about an item except this.
+func TestAnItemCanBeTickedAsPaidAfterTheDeadline(t *testing.T) {
+	o := newOrderFixture(t)
+	hungry := o.register("hungrig")
+	item := o.addOrderItem(hungry, map[string]any{"quantity": 1})
+
+	o.advance(3 * time.Hour)
+
+	// The ordinary edit is refused, as it has always been.
+	edit := o.patch("/orders/"+o.order.ID+"/items/"+item.ID,
+		map[string]any{"quantity": 2}, hungry...)
+	expectErrorCode(t, edit, api.CodeOrderClosed)
+
+	// The tick is not.
+	paid := o.put("/orders/"+o.order.ID+"/items/"+item.ID+"/paid",
+		map[string]any{"paid": true}, hungry...)
+	if paid.Code != http.StatusOK {
+		t.Fatalf("a closed order refused the tick: %d %s", paid.Code, paid.Body.String())
+	}
+}
+
+// A paid line leaves that person's total and appears in what they have settled.
+func TestAPaidLineIsNotOwed(t *testing.T) {
+	o := newOrderFixture(t)
+	hungry := o.register("hungrig")
+	first := o.addOrderItem(hungry, map[string]any{"quantity": 1})
+	o.addOrderItem(hungry, map[string]any{"quantity": 2})
+
+	before := o.readSummary(o.cookies...)
+	person := before.person(t, o.userID("hungrig"))
+	owedBefore, lineTotal := person.TotalCents, int64(0)
+	for _, i := range person.Items {
+		if i.ID == first.ID {
+			lineTotal = i.LineTotalCents
+		}
+	}
+	if lineTotal == 0 {
+		t.Fatal("the item is not in the summary")
+	}
+
+	if rec := o.put("/orders/"+o.order.ID+"/items/"+first.ID+"/paid",
+		map[string]any{"paid": true}, hungry...); rec.Code != http.StatusOK {
+		t.Fatalf("ticking: %s", rec.Body.String())
+	}
+
+	after := o.readSummary(o.cookies...).person(t, o.userID("hungrig"))
+	if after.TotalCents != owedBefore-lineTotal {
+		t.Errorf("owed is %d, want %d", after.TotalCents, owedBefore-lineTotal)
+	}
+	if after.PaidCents != lineTotal {
+		t.Errorf("settled is %d, want %d", after.PaidCents, lineTotal)
+	}
+
+	// The order still costs the restaurant the same: what somebody has settled
+	// with the collector is not a discount.
+	full := o.readSummary(o.cookies...)
+	if full.ItemTotalCents != before.ItemTotalCents {
+		t.Errorf("the order total moved from %d to %d",
+			before.ItemTotalCents, full.ItemTotalCents)
+	}
+}

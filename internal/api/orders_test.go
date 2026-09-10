@@ -47,6 +47,7 @@ type orderItemResp struct {
 	UnitPriceCents int64  `json:"unit_price_cents"`
 	Note           string `json:"note"`
 	LineTotalCents int64  `json:"line_total_cents"`
+	Paid           bool   `json:"paid"`
 	Modifications  []struct {
 		ID              string  `json:"id"`
 		ModificationID  *string `json:"modification_id"`

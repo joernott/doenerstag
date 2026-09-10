@@ -364,6 +364,8 @@
   "summary.copy_failed": "Die Zwischenablage ist nicht verfügbar. Der Text steht unten bereit.",
   "summary.plain_text": "Die Übersicht als reiner Text",
   "summary.print": "Drucken",
+  "summary.paid_for": "{item} bezahlt",
+  "summary.already_paid": "{amount} bezahlt",
   "summary.participants_only": "Diese Übersicht sehen die Teilnehmer der Bestellung.",
   "summary.back": "Zurück zur Bestellung",
 
