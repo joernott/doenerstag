@@ -535,11 +535,21 @@ Seeded lookup table so the UI can render a symbol next to every price.
 | ------------ | ---------- | ---- | ------------------------------------------------ |
 | `code`       | `char(3)`  | no   | PK. ISO 4217 alphabetic code. i18n key.           |
 | `symbol`     | `text`     | no   | E.g. `€`, `$`, `CHF`.                             |
-| `minor_unit` | `smallint` | no   | Decimal digits. 2 for EUR, 0 for JPY.             |
+| `minor_unit` | `smallint` | no   | Decimal digits an amount is written with. 2 for EUR, 0 for JPY, 1 for MGA. |
+| `minor_per_major` | `integer` | no | Minor units in one major unit. 100 for EUR, 1 for JPY, 5 for MGA and MRU. |
 | `sort_order` | `integer`  | no   | Puts the likely candidates at the top of the list.|
 
 Seeded with `EUR`, `CHF`, `GBP`, `USD`, `PLN`, `CZK`, `DKK`, `SEK`, `NOK`,
-`HUF`. `EUR` is the default offered when creating a restaurant.
+`HUF`, `MGA` and `MRU`. `EUR` is the default offered when creating a restaurant.
+
+**`minor_per_major` is a column and not `10^minor_unit`.** For every currency
+but two it is exactly that, and the application derived it that way until it
+met the last two non-decimal currencies still in use: the Malagasy ariary is
+five iraimbilanja and the Mauritanian ouguiya is five khoums. Deriving the
+divisor from the number of written places makes ten iraimbilanja one ariary
+when they are two -- an error of a factor of two, in the direction nobody
+checks. Migration 10 backfilled every existing row with `10^minor_unit`, so
+nothing that was right changed.
 
 Currency **names** are not stored — the frontend translates the ISO code through
 `currency.EUR`, as described under

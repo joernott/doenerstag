@@ -9,7 +9,7 @@
 import type { App } from "../app";
 import { api, errorMessage } from "../api";
 import { el } from "../dom";
-import { moneyInputValue, parseMoney } from "../format";
+import { moneyInputValue, parseMoney, type MoneyFormat } from "../format";
 import { referenceName, tagName } from "../i18n";
 import type { Classification, ReferenceData, Tag } from "../reference";
 import { button, checkbox, field, form, input, select, textarea } from "./forms";
@@ -51,8 +51,8 @@ export interface MenuItemEditorOptions {
   restaurantID: string;
   /** The categories to choose from. May be empty. */
   categories: readonly Category[];
-  /** How many decimals the restaurant's currency has. */
-  minorUnit: number;
+  /** How the restaurant's currency is written and how it divides. */
+  money: MoneyFormat;
   /** The item being changed, or null to create one. */
   item: MenuItem | null;
   /** Which category a new item lands in. */
@@ -65,7 +65,7 @@ export interface MenuItemEditorOptions {
 
 /** Opens the editor. */
 export function openMenuItemEditor(options: MenuItemEditorOptions): void {
-  const { app, reference, restaurantID, categories, minorUnit, item } = options;
+  const { app, reference, restaurantID, categories, money, item } = options;
   const { t } = app;
   const status = statusLine();
 
@@ -73,7 +73,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
   const externalId = input({ value: item?.external_id ?? "" });
   const price = input({
     inputMode: "decimal",
-    value: item ? moneyInputValue(item.price_cents, minorUnit) : "",
+    value: item ? moneyInputValue(item.price_cents, money) : "",
     required: true,
   });
   const description = textarea({ value: item?.description ?? "", rows: 2 });
@@ -129,7 +129,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
 
   async function store(): Promise<void> {
     status.clear();
-    const cents = parseMoney(price.value, minorUnit);
+    const cents = parseMoney(price.value, money);
     if (cents === null) {
       price.focus();
       return;
@@ -248,7 +248,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
  * machinery to express them would be larger than everything else here.
  */
 function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTMLElement {
-  const { app, restaurantID, minorUnit } = options;
+  const { app, restaurantID, money } = options;
   const { t } = app;
   const status = statusLine();
   const list = el("div", { class: "rows" });
@@ -266,7 +266,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
     const name = input({ value: modification.name });
     const delta = input({
       inputMode: "decimal",
-      value: moneyInputValue(modification.price_delta_cents, minorUnit),
+      value: moneyInputValue(modification.price_delta_cents, money),
     });
 
     const save = async (): Promise<void> => {
@@ -276,7 +276,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications/${modification.id}`,
           {
             name: name.value.trim(),
-            price_delta_cents: parseMoney(delta.value, minorUnit) ?? 0,
+            price_delta_cents: parseMoney(delta.value, money) ?? 0,
           },
         );
         status.say(t.t("state.saved"));
@@ -325,7 +325,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
 
   function newRow(): HTMLElement {
     const name = input({});
-    const delta = input({ inputMode: "decimal", value: moneyInputValue(0, minorUnit) });
+    const delta = input({ inputMode: "decimal", value: moneyInputValue(0, money) });
 
     const add = async (): Promise<void> => {
       status.clear();
@@ -338,7 +338,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications`,
           {
             name: name.value.trim(),
-            price_delta_cents: parseMoney(delta.value, minorUnit) ?? 0,
+            price_delta_cents: parseMoney(delta.value, money) ?? 0,
             sort_order: (modifications[modifications.length - 1]?.sort_order ?? 0) + 10,
           },
         );

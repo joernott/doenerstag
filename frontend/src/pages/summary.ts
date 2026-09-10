@@ -12,7 +12,7 @@ import { contactTarget } from "../contacts";
 import { append, el, type Child } from "../dom";
 import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
 import { button } from "../components/forms";
-import { minorUnitOf, referenceData } from "../reference";
+import { moneyFormatOf, referenceData } from "../reference";
 import { isActive, type OrderHeader } from "./orders";
 import { actions, page, section, statusLine } from "./page";
 import type { Contact, Restaurant } from "./restaurant";
@@ -78,10 +78,10 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   const currencies = await referenceData()
     .then((reference) => reference.currencies)
     .catch(() => []);
-  const minorUnit = minorUnitOf(currencies, summary.currency_code);
+  const moneyFormat = moneyFormatOf(currencies, summary.currency_code);
 
   const money = (cents: number): string =>
-    formatMoney(app.language, cents, summary.currency_code, minorUnit);
+    formatMoney(app.language, cents, summary.currency_code, moneyFormat);
 
   return page(
     summary.title,

@@ -251,17 +251,19 @@ func (h *RestaurantHandlers) listCurrencies(w http.ResponseWriter, r *http.Reque
 	}
 
 	type currencyBody struct {
-		Code      string `json:"code"`
-		Symbol    string `json:"symbol"`
-		MinorUnit int    `json:"minor_unit"`
-		SortOrder int    `json:"sort_order"`
+		Code          string `json:"code"`
+		Symbol        string `json:"symbol"`
+		MinorUnit     int    `json:"minor_unit"`
+		MinorPerMajor int    `json:"minor_per_major"`
+		SortOrder     int    `json:"sort_order"`
 	}
 
 	bodies := make([]currencyBody, 0, len(currencies))
 	for _, c := range currencies {
 		bodies = append(bodies, currencyBody{
 			Code: c.Code, Symbol: c.Symbol,
-			MinorUnit: c.MinorUnit, SortOrder: c.SortOrder,
+			MinorUnit: c.MinorUnit, MinorPerMajor: c.MinorPerMajor,
+			SortOrder: c.SortOrder,
 		})
 	}
 	_ = WriteJSON(w, http.StatusOK, map[string]any{"currencies": bodies})

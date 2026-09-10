@@ -17,7 +17,7 @@ import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
 import { confirmDialog, openModal } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
-import { minorUnitOf, type ReferenceData } from "../reference";
+import { moneyFormatOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
 import { actions, card, statusLine } from "./page";
 
@@ -54,7 +54,7 @@ export function menuSection(
   const { t } = app;
   const status = statusLine();
   const body = el("div", { class: "menu-editor" });
-  const minorUnit = minorUnitOf(reference.currencies, restaurant.currency_code);
+  const moneyFormat = moneyFormatOf(reference.currencies, restaurant.currency_code);
 
   let categories: Category[] = [];
   let items: MenuItem[] = [];
@@ -82,7 +82,7 @@ export function menuSection(
       reference,
       restaurantID: restaurant.id,
       categories,
-      minorUnit,
+      money: moneyFormat,
       item,
       categoryID,
       onSaved: reload,
@@ -316,7 +316,7 @@ export function menuSection(
       ),
       el("span", {
         class: "menu-price",
-        text: formatMoney(app.language, item.price_cents, restaurant.currency_code, minorUnit),
+        text: formatMoney(app.language, item.price_cents, restaurant.currency_code, moneyFormat),
       }),
       actions(
         button({

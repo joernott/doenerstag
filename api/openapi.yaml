@@ -2141,13 +2141,21 @@ components:
 
     Currency:
       type: object
-      required: [code, symbol, minor_unit, sort_order]
+      required: [code, symbol, minor_unit, minor_per_major, sort_order]
       properties:
         code: { type: string, examples: ["CHF"] }
         symbol: { type: string }
         minor_unit:
           type: integer
-          description: Decimal places. Money is carried as integers of this unit.
+          description: >-
+            Decimal places an amount is written with. Money is carried as
+            integers of the minor unit.
+        minor_per_major:
+          type: integer
+          description: >-
+            Minor units in one major unit: 100 for EUR, 1 for JPY, 5 for the
+            Malagasy ariary and the Mauritanian ouguiya. Not always
+            10^minor_unit, which is the whole reason it is sent.
         sort_order: { type: integer }
 
     ContactType:

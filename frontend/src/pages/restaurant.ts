@@ -13,7 +13,7 @@ import { confirmDialog } from "../components/modal";
 import { imageField } from "../components/images";
 import { contactIcon, contactTarget, type Linkable } from "../contacts";
 import { referenceName } from "../i18n";
-import { minorUnitOf, referenceData, type ReferenceData } from "../reference";
+import { moneyFormatOf, referenceData, type ReferenceData } from "../reference";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
 import { actions, card, page, pageWithActions, section, setPageTitle, statusLine } from "./page";
@@ -290,7 +290,7 @@ function dataSection(
 ): DataSection {
   const { t } = app;
   const status = statusLine();
-  let minorUnit = minorUnitOf(reference.currencies, restaurant.currency_code);
+  let moneyFormat = moneyFormatOf(reference.currencies, restaurant.currency_code);
 
   const name = input({ name: "name", value: restaurant.name, required: true });
   const currency = currencySelect(app, reference, restaurant.currency_code);
@@ -300,7 +300,7 @@ function dataSection(
     value:
       restaurant.min_order_value_cents === null
         ? ""
-        : moneyInputValue(restaurant.min_order_value_cents, minorUnit),
+        : moneyInputValue(restaurant.min_order_value_cents, moneyFormat),
   });
   const fee = input({
     name: "delivery_fee",
@@ -308,7 +308,7 @@ function dataSection(
     value:
       restaurant.delivery_fee_cents === null
         ? ""
-        : moneyInputValue(restaurant.delivery_fee_cents, minorUnit),
+        : moneyInputValue(restaurant.delivery_fee_cents, moneyFormat),
   });
   const notes = textarea({ name: "notes", value: restaurant.notes, rows: 3 });
 
@@ -364,12 +364,12 @@ function dataSection(
   // re-rendered in the new currency's minor unit rather than silently keeping
   // digits that meant something else.
   currency.addEventListener("change", () => {
-    const next = minorUnitOf(reference.currencies, currency.value);
+    const next = moneyFormatOf(reference.currencies, currency.value);
     for (const money of [minimum, fee]) {
-      const parsed = parseMoney(money.value, minorUnit);
+      const parsed = parseMoney(money.value, moneyFormat);
       money.value = parsed === null ? "" : moneyInputValue(parsed, next);
     }
-    minorUnit = next;
+    moneyFormat = next;
   });
 
   async function save(): Promise<void> {
@@ -379,8 +379,8 @@ function dataSection(
         name: name.value.trim(),
         currency_code: currency.value,
         logo_image_id: logoImageId,
-        min_order_value_cents: parseMoney(minimum.value, minorUnit),
-        delivery_fee_cents: parseMoney(fee.value, minorUnit),
+        min_order_value_cents: parseMoney(minimum.value, moneyFormat),
+        delivery_fee_cents: parseMoney(fee.value, moneyFormat),
         notes: notes.value.trim(),
       });
       status.say(t.t("state.saved"));

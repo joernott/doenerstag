@@ -26,7 +26,7 @@ import { button, checkbox, field, form, input, select, textarea } from "../compo
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
 import { confirmDialog, openModal } from "../components/modal";
-import { minorUnitOf, referenceData } from "../reference";
+import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
 import {
@@ -84,7 +84,7 @@ export async function orderPage(
     getList<MenuItem>(`/restaurants/${order.restaurant_id}/menu-items`, "menu_items").catch(() => []),
   ]);
 
-  const minorUnit = minorUnitOf(reference?.currencies ?? [], order.currency_code);
+  const moneyFormat = moneyFormatOf(reference?.currencies ?? [], order.currency_code);
   const status = statusLine();
 
   const left = el("div", { class: "order-column" });
@@ -199,13 +199,13 @@ export async function orderPage(
     if (order.min_order_value_cents !== null) {
       rows.push([
         t.t("order.minimum"),
-        formatMoney(app.language, order.min_order_value_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.min_order_value_cents, order.currency_code, moneyFormat),
       ]);
     }
     if (order.delivery_fee_cents !== null) {
       rows.push([
         t.t("order.delivery_fee"),
-        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, moneyFormat),
       ]);
     }
 
@@ -393,7 +393,7 @@ export async function orderPage(
           items[0]?.user_name ?? "",
           el("span", {
             class: "person-total",
-            text: formatMoney(app.language, personTotal, order.currency_code, minorUnit),
+            text: formatMoney(app.language, personTotal, order.currency_code, moneyFormat),
           }),
         ),
         el("ul", { class: "plain-list" }, ...rows),
@@ -434,7 +434,7 @@ export async function orderPage(
       ),
       el("span", {
         class: "menu-price",
-        text: formatMoney(app.language, item.line_total_cents, order.currency_code, minorUnit),
+        text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
       }),
       // Own items only, and only while the order is open: F6.5 and F6.6.
       mine && canOrder()
@@ -459,12 +459,12 @@ export async function orderPage(
 
   function totalsCard(own: OrderDetail): HTMLElement {
     const rows: [string, string][] = [
-      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, minorUnit)],
+      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, moneyFormat)],
     ];
     if (order.delivery_fee_cents) {
       rows.push([
         t.t("order.delivery_fee"),
-        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, moneyFormat),
       ]);
     }
 
@@ -477,7 +477,7 @@ export async function orderPage(
     list.appendChild(
       el("dd", {
         class: "grand",
-        text: formatMoney(app.language, own.grand_total_cents, order.currency_code, minorUnit),
+        text: formatMoney(app.language, own.grand_total_cents, order.currency_code, moneyFormat),
       }),
     );
 
@@ -687,7 +687,7 @@ export async function orderPage(
                 reference,
                 restaurantID: order.restaurant_id,
                 categories: categoryList,
-                minorUnit,
+                money: moneyFormat,
                 item: null,
                 onSaved: reloadMenu,
               });
@@ -885,7 +885,7 @@ export async function orderPage(
         { class: "menu-item-side" },
         el("span", {
           class: "menu-price",
-          text: formatMoney(app.language, item.price_cents, order.currency_code, minorUnit),
+          text: formatMoney(app.language, item.price_cents, order.currency_code, moneyFormat),
         }),
         addable
           ? button({
@@ -965,7 +965,7 @@ export async function orderPage(
         app.language,
         count * (source.price_cents + deltas),
         order.currency_code,
-        minorUnit,
+        moneyFormat,
       )}`;
     };
 
@@ -977,7 +977,7 @@ export async function orderPage(
     for (const modification of modifications) {
       const label = `${modification.name} (${
         modification.price_delta_cents >= 0 ? "+" : ""
-      }${moneyInputValue(modification.price_delta_cents, minorUnit)})`;
+      }${moneyInputValue(modification.price_delta_cents, moneyFormat)})`;
       const row = checkbox(label, {
         checked: chosen.has(modification.id),
         onchange: updateTotal,

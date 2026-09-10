@@ -6,6 +6,32 @@
 // language. See docs/07_i18n.md.
 
 /**
+ * How a currency is written and how it divides.
+ *
+ * Two numbers rather than one, and they are not the same question:
+ *
+ *   - `digits` is how many decimal places an amount is written with.
+ *   - `perMajor` is how many minor units make one major unit.
+ *
+ * For every currency but two, the second is ten to the power of the first, and
+ * this application derived it that way until it met the Malagasy ariary. An
+ * ariary is five iraimbilanja and an ouguiya is five khoums -- the only
+ * non-decimal currencies still in use -- so ten iraimbilanja are two ariary and
+ * not one. Deriving the divisor from the number of written places gets that
+ * wrong by a factor of two, which is exactly the kind of wrong nobody notices.
+ *
+ * The two travel together because passing them separately means eventually
+ * passing them in the wrong order.
+ */
+export interface MoneyFormat {
+  digits: number;
+  perMajor: number;
+}
+
+/** Euros, and anything else two-decimal: the fallback for an unknown code. */
+export const DEFAULT_MONEY_FORMAT: MoneyFormat = { digits: 2, perMajor: 100 };
+
+/**
  * Formatters are expensive to construct and are built once per distinct set of
  * options. A page rendering thirty menu items would otherwise build thirty
  * identical formatters.
@@ -113,37 +139,41 @@ export function formatNumber(locale: string, value: number): string {
  *   - The **number formatting** follows the interface locale, so the same CHF
  *     amount reads `CHF 6.50` in English and `6.50 CHF` in German.
  *
- * The division by 10^minorUnit happens here, immediately before formatting, and
- * nowhere earlier. Every sum in the application is computed on the integers,
- * because a float that has been through three additions is not the number
- * anybody agreed to pay.
+ * The division happens here, immediately before formatting, and nowhere
+ * earlier. Every sum in the application is computed on the integers, because a
+ * float that has been through three additions is not the number anybody agreed
+ * to pay.
  */
 export function formatMoney(
   locale: string,
   minorUnits: number,
   currency: string,
-  minorUnit = 2,
+  money: MoneyFormat = DEFAULT_MONEY_FORMAT,
 ): string {
-  const formatter = cached(`m:${locale}:${currency}:${minorUnit}`, () => {
+  const { digits, perMajor } = money;
+
+  const formatter = cached(`m:${locale}:${currency}:${digits}`, () => {
     try {
       return new Intl.NumberFormat(locale, {
         style: "currency",
         currency,
-        minimumFractionDigits: minorUnit,
-        maximumFractionDigits: minorUnit,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       });
     } catch {
       // An unknown currency code makes Intl throw. Falling back to a plain
       // number with the code appended is ugly but readable, and better than a
       // page that fails to render because a restaurant has an odd currency.
       return new Intl.NumberFormat(locale, {
-        minimumFractionDigits: minorUnit,
-        maximumFractionDigits: minorUnit,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       });
     }
   });
 
-  const amount = minorUnits / 10 ** minorUnit;
+  // Divided by what the currency actually divides into, which is the whole
+  // point: ten iraimbilanja are two ariary, and 10 / 10 ** 1 would say one.
+  const amount = minorUnits / perMajor;
   const formatted = formatter.format(amount);
 
   // The fallback path produced no currency, so add the code where a symbol
@@ -167,7 +197,11 @@ export function formatMoney(
  * should not have to think about which one this field wants. Returns null for
  * anything that is not a number.
  */
-export function parseMoney(text: string, minorUnit = 2): number | null {
+export function parseMoney(
+  text: string,
+  money: MoneyFormat = DEFAULT_MONEY_FORMAT,
+): number | null {
+  const { digits, perMajor } = money;
   const trimmed = text.trim().replace(/\s/gu, "");
   if (trimmed === "") {
     return null;
@@ -186,8 +220,19 @@ export function parseMoney(text: string, minorUnit = 2): number | null {
   // Pad a short fraction and cut a long one. Cutting rather than rounding: a
   // third decimal in a price is a typing slip, and quietly rounding it up would
   // charge somebody a cent they never agreed to.
-  const scaled = fraction.padEnd(minorUnit, "0").slice(0, minorUnit);
-  const value = Number.parseInt((whole || "0") + scaled, 10);
+  const scaled = fraction.padEnd(digits, "0").slice(0, digits);
+
+  // What was typed, as an integer number of the smallest written place: "2.4"
+  // with one digit is 24 tenths. Then tenths to minor units, which for a
+  // decimal currency is a no-op -- 1999 hundredths at 100 per major over 10**2
+  // is 1999 cents -- and for the ariary is the conversion that matters: 24
+  // tenths at 5 per major over 10**1 is 12 iraimbilanja.
+  //
+  // Rounded rather than truncated, because a currency whose divisor is not the
+  // written scale has amounts that fall between its own places: 2.3 ariary
+  // cannot be paid, and the nearest thing that can is 2.4.
+  const written = Number.parseInt((whole || "0") + scaled, 10);
+  const value = Math.round((written * perMajor) / 10 ** digits);
   return sign === "-" ? -value : value;
 }
 
@@ -195,13 +240,21 @@ export function parseMoney(text: string, minorUnit = 2): number | null {
  * Renders minor units for an input field: a plain number, no currency, no
  * grouping separators, because the value goes back through parseMoney.
  */
-export function moneyInputValue(minorUnits: number, minorUnit = 2): string {
-  if (minorUnit === 0) {
+export function moneyInputValue(
+  minorUnits: number,
+  money: MoneyFormat = DEFAULT_MONEY_FORMAT,
+): string {
+  const { digits, perMajor } = money;
+  if (digits === 0) {
     return String(minorUnits);
   }
-  const sign = minorUnits < 0 ? "-" : "";
-  const digits = String(Math.abs(minorUnits)).padStart(minorUnit + 1, "0");
-  return `${sign}${digits.slice(0, -minorUnit)}.${digits.slice(-minorUnit)}`;
+
+  // Minor units to the written scale, the inverse of what parseMoney does: 12
+  // iraimbilanja at 5 per major become 24 tenths, which is written "2.4".
+  const written = Math.round((minorUnits * 10 ** digits) / perMajor);
+  const sign = written < 0 ? "-" : "";
+  const places = String(Math.abs(written)).padStart(digits + 1, "0");
+  return `${sign}${places.slice(0, -digits)}.${places.slice(-digits)}`;
 }
 
 /**

@@ -438,3 +438,50 @@ func TestReferenceEndpointsArePublic(t *testing.T) {
 		}
 	}
 }
+
+// The currency endpoint says what a currency divides into, not only how many
+// places it is written with.
+//
+// The frontend needs both to render an amount, and it cannot derive the second
+// from the first: an ariary is five iraimbilanja, so ten of them are two ariary
+// and 10 / 10^1 would say one.
+func TestCurrenciesCarryWhatTheyDivideInto(t *testing.T) {
+	f := newAPIFixture(t)
+
+	rec := f.get("/currencies")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("currencies: %s", rec.Body.String())
+	}
+
+	var body struct {
+		Currencies []struct {
+			Code          string `json:"code"`
+			MinorUnit     int    `json:"minor_unit"`
+			MinorPerMajor int    `json:"minor_per_major"`
+		} `json:"currencies"`
+	}
+	decode(t, rec, &body)
+
+	want := map[string]struct{ minorUnit, perMajor int }{
+		"EUR": {2, 100},
+		"MGA": {1, 5},
+		"MRU": {1, 5},
+	}
+	seen := map[string]bool{}
+	for _, c := range body.Currencies {
+		expected, ok := want[c.Code]
+		if !ok {
+			continue
+		}
+		seen[c.Code] = true
+		if c.MinorUnit != expected.minorUnit || c.MinorPerMajor != expected.perMajor {
+			t.Errorf("%s is written with %d places and divides into %d, want %d and %d",
+				c.Code, c.MinorUnit, c.MinorPerMajor, expected.minorUnit, expected.perMajor)
+		}
+	}
+	for code := range want {
+		if !seen[code] {
+			t.Errorf("%s is not served", code)
+		}
+	}
+}

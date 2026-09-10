@@ -72,9 +72,16 @@ func (p OpeningPeriod) CrossesMidnight() bool { return p.End < p.Start }
 // It carries no display name: seeded reference data is identified by a stable
 // code and named by the frontend's i18n catalog. See docs/07_i18n.md.
 type Currency struct {
-	Code      string
-	Symbol    string
-	MinorUnit int
+	Code   string
+	Symbol string
+
+	// MinorUnit is how many decimal digits the currency is written with, and
+	// MinorPerMajor how many minor units make one major unit. For almost every
+	// currency the second is ten to the power of the first; for the Malagasy
+	// ariary and the Mauritanian ouguiya, which divide into five, it is not.
+	MinorUnit     int
+	MinorPerMajor int
+
 	SortOrder int
 }
 

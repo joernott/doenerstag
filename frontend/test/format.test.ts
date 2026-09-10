@@ -53,7 +53,7 @@ describe("money", () => {
   });
 
   it("handles a currency with no minor unit", () => {
-    const formatted = formatMoney("en", 1200, "JPY", 0);
+    const formatted = formatMoney("en", 1200, "JPY", { digits: 0, perMajor: 1 });
     expect(formatted).toContain("1,200");
     expect(formatted).not.toContain(".");
   });
@@ -144,8 +144,8 @@ describe("reading an amount somebody typed", () => {
   });
 
   it("follows the currency's minor unit", () => {
-    expect(parseMoney("1200", 0)).toBe(1200);
-    expect(parseMoney("1.234", 3)).toBe(1234);
+    expect(parseMoney("1200", { digits: 0, perMajor: 1 })).toBe(1200);
+    expect(parseMoney("1.234", { digits: 3, perMajor: 1000 })).toBe(1234);
   });
 
   it("says so when it is not a number", () => {
@@ -157,8 +157,60 @@ describe("reading an amount somebody typed", () => {
   it("round-trips through the input value", () => {
     expect(moneyInputValue(650)).toBe("6.50");
     expect(moneyInputValue(7)).toBe("0.07");
-    expect(moneyInputValue(1200, 0)).toBe("1200");
+    expect(moneyInputValue(1200, { digits: 0, perMajor: 1 })).toBe("1200");
     expect(parseMoney(moneyInputValue(123456))).toBe(123456);
+  });
+});
+
+
+/*
+ * The Malagasy ariary and the Mauritanian ouguiya, the two currencies still in
+ * use that do not divide into a power of ten.
+ *
+ * One ariary is five iraimbilanja. Written with one decimal place, the amounts
+ * that can exist are .0, .2, .4, .6 and .8 -- and the divisor is five, not ten.
+ * Deriving it from the number of decimal places, which is what this code did
+ * until it was told otherwise, halves every amount: ten iraimbilanja become one
+ * ariary instead of two.
+ */
+describe("a currency that does not divide by ten", () => {
+  const ariary = { digits: 1, perMajor: 5 };
+
+  it("formats minor units by what the currency divides into", () => {
+    // The case in the report: ten iraimbilanja are two ariary.
+    expect(formatMoney("en", 10, "MGA", ariary)).toContain("2.0");
+    expect(formatMoney("en", 5, "MGA", ariary)).toContain("1.0");
+    expect(formatMoney("en", 12, "MGA", ariary)).toContain("2.4");
+    expect(formatMoney("en", 1, "MGA", ariary)).toContain("0.2");
+  });
+
+  it("reads a typed amount back into iraimbilanja", () => {
+    expect(parseMoney("2", ariary)).toBe(10);
+    expect(parseMoney("2.4", ariary)).toBe(12);
+    expect(parseMoney("0.2", ariary)).toBe(1);
+    expect(parseMoney("0.8", ariary)).toBe(4);
+  });
+
+  // An amount between two coins is rounded to one, because there is no such
+  // thing as 2.3 ariary: the nearest payable amount is 2.4.
+  it("rounds an amount that falls between two coins", () => {
+    expect(parseMoney("2.3", ariary)).toBe(12);
+    expect(parseMoney("2.1", ariary)).toBe(11);
+  });
+
+  it("round-trips through the input field", () => {
+    for (const minorUnits of [0, 1, 4, 5, 10, 12, 137]) {
+      expect(parseMoney(moneyInputValue(minorUnits, ariary), ariary)).toBe(minorUnits);
+    }
+  });
+
+  // The half that was already right stays right: a decimal currency divides by
+  // ten to the power of its places, which is what the ratio says for it too.
+  it("leaves the decimal currencies exactly as they were", () => {
+    const euro = { digits: 2, perMajor: 100 };
+    expect(formatMoney("en", 1999, "EUR", euro)).toBe(formatMoney("en", 1999, "EUR"));
+    expect(parseMoney("19.99", euro)).toBe(1999);
+    expect(moneyInputValue(1999, euro)).toBe("19.99");
   });
 });
 
