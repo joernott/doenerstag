@@ -9,6 +9,7 @@ import (
 
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/model"
 )
 
 type orderResponse struct {
@@ -720,4 +721,16 @@ func TestAccountDeletionAgainstRealOrders(t *testing.T) {
 	if _, err := db.UserByName(ctx, o.pool, "scheidend"); err == nil {
 		t.Error("the account still exists")
 	}
+}
+
+// The placeholder that owns what deleted accounts left behind is a row in
+// app_user, and it is not a person. An order cannot name it as the one holding
+// the money, and the form does not offer it.
+func TestThePlaceholderCannotBeGivenAJob(t *testing.T) {
+	o := newOrderFixture(t)
+
+	rec := o.patch("/orders/"+o.order.ID, map[string]any{
+		"pickup_person_id": model.DeletedUserID.String(),
+	}, o.cookies...)
+	expectError(t, rec, http.StatusBadRequest, api.CodeInvalidField)
 }

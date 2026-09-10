@@ -740,6 +740,12 @@ func (h *OrderHandlers) optionalUserRef(
 		}
 	}
 
+	// The placeholder that owns what deleted accounts left behind is a row in
+	// the table and not a person. Nobody fetches food.
+	if id == model.DeletedUserID {
+		return nil, &Error{Code: CodeInvalidField, Field: field, Detail: "this is not a person"}
+	}
+
 	switch _, dbErr := db.UserByID(ctx, h.Pool, id); {
 	case errors.Is(dbErr, db.ErrNotFound):
 		return nil, &Error{Code: CodeInvalidField, Field: field, Detail: "no account has this id"}

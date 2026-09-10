@@ -13,6 +13,17 @@
 
 import { getList } from "./api";
 
+/**
+ * The placeholder that owns whatever a deleted account left behind.
+ *
+ * It is a row in the same table and the administrator sees it in the user
+ * list, where it belongs: it explains why an old order still reads "1x Döner,
+ * no onions" without naming anybody. It is not a person, so it is not somebody
+ * who can collect money or fetch food, and it is left out of the choices.
+ * Fixed in migration 2 and named in internal/model/user.go.
+ */
+export const DELETED_USER_ID = "00000000-0000-7000-8000-000000000000";
+
 /** An account, as little of one as naming it needs. */
 export interface Account {
   id: string;
@@ -50,6 +61,8 @@ export function accountChoices(
 ): { value: string; label: string }[] {
   return [
     { value: "", label: nobody },
-    ...accounts.map((account) => ({ value: account.id, label: accountLabel(account) })),
+    ...accounts
+      .filter((account) => account.id !== DELETED_USER_ID)
+      .map((account) => ({ value: account.id, label: accountLabel(account) })),
   ];
 }
