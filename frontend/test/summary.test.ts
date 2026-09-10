@@ -370,12 +370,12 @@ describe("when the browser has no clipboard", () => {
  * money marking a line off a list, which is what they were doing on paper.
  */
 describe("recording that a line has been settled", () => {
-  function summaryWithPaidItem(): Record<string, unknown> {
-    const paid = structuredClone(summary) as typeof summary;
+  function summaryWithPaidItem() {
+    const paid = structuredClone(summary);
     paid.per_person[0]!.items[0]!.paid = true;
     paid.per_person[0]!.total_cents = 0;
     paid.per_person[0]!.paid_cents = 2100;
-    return paid as unknown as Record<string, unknown>;
+    return paid;
   }
 
   it("offers the owner a live checkbox and shows it ticked", async () => {
