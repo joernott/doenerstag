@@ -34,8 +34,12 @@ type Order struct {
 	FulfilmentAt time.Time
 	DeadlineAt   time.Time
 
-	MoneyCollector string
-	PickupPerson   string
+	// The two people an order has besides its creator, each an account or
+	// nobody. Names are joined in for display, the way CreatorName is.
+	MoneyCollectorID   *uuid.UUID
+	MoneyCollectorName string
+	PickupPersonID     *uuid.UUID
+	PickupPersonName   string
 
 	CurrencyCode       string
 	MinOrderValueCents *int64
@@ -96,6 +100,10 @@ type OrderItem struct {
 	Note           string
 
 	Modifications []OrderItemModification
+
+	// Paid records that somebody ticked this line as settled. Not a payment:
+	// the application takes none. See migration 11.
+	Paid bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

@@ -135,13 +135,16 @@ func accountRows() []matrixCase {
 			},
 		},
 		{
-			row:    "List all users",
+			// Signed in is enough to see who has an account here; what the
+			// administrator gets on top is a richer shape, not a different
+			// answer, and that is asserted where the shape can be inspected.
+			row:    "List the accounts (id, name, display name)",
 			method: http.MethodGet,
 			path:   func(*matrixFixture) string { return "/users" },
 			cells: []cell{
 				{anonymous, false, api.CodeNotAuthenticated},
-				{otherUser, false, api.CodeAdminRequired},
-				{owner, false, api.CodeAdminRequired},
+				{otherUser, true, 0},
+				{owner, true, 0},
 				{admin, true, 0},
 			},
 		},
@@ -368,11 +371,13 @@ func TestEveryMatrixRowIsCovered(t *testing.T) {
 		"Register an account":                             "TestPermissionMatrixContent",
 		"Create an order":                                 "TestPermissionMatrixContent",
 		"Edit an order's fields":                          "TestPermissionMatrixContent",
+		"Take on fetching the food, when nobody has":      "TestPermissionMatrixContent",
 		"Change an order's restaurant (no items yet)":     "TestPermissionMatrixContent",
 		"Delete an order":                                 "TestPermissionMatrixContent",
 		"Add an order item to an active order":            "TestPermissionMatrixContent",
 		"Edit or delete an order item":                    "TestPermissionMatrixContent",
 		"Edit or delete an order item after deadline":     "TestPermissionMatrixContent",
+		"Tick an order item as paid, deadline or not":     "TestWhoMayTickAnItemAsPaid",
 		"Create a restaurant":                             "TestPermissionMatrixContent",
 		"Edit a restaurant, contacts, opening hours":      "TestPermissionMatrixContent",
 		"Delete a restaurant":                             "TestPermissionMatrixContent",
@@ -383,7 +388,8 @@ func TestEveryMatrixRowIsCovered(t *testing.T) {
 		"Upload an image":                                 "TestPermissionMatrixContent",
 		"Edit own profile, manage own API tokens":         "TestPermissionMatrix",
 		"Delete own account":                              "TestPermissionMatrixAccountDeletion",
-		"List all users":                                  "TestPermissionMatrix",
+		"List the accounts (id, name, display name)":      "TestPermissionMatrix",
+		"List all users with addresses and login times":   "TestTheUserListTiersWhatItShows",
 		"Replace imprint / legal notes":                   "TestPermissionMatrixContent",
 		"Shut the application down":                       "TestPermissionMatrixContent",
 	}

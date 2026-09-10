@@ -23,7 +23,8 @@ import (
 const orderColumns = `o.id, o.creator_id, coalesce(u.display_name, u.name),
 	o.restaurant_id, r.name, r.logo_image_id,
 	o.fulfilment, o.fulfilment_at, o.deadline_at,
-	coalesce(o.money_collector, ''), coalesce(o.pickup_person, ''),
+	o.money_collector_id, coalesce(mc.display_name, mc.name, ''),
+	o.pickup_person_id, coalesce(pp.display_name, pp.name, ''),
 	o.currency_code, o.min_order_value_cents, o.delivery_fee_cents,
 	(SELECT count(*) FROM order_item i WHERE i.order_id = o.id),
 	o.created_at, o.updated_at`
@@ -31,14 +32,17 @@ const orderColumns = `o.id, o.creator_id, coalesce(u.display_name, u.name),
 const orderFrom = `
 	FROM food_order o
 	JOIN restaurant r ON r.id = o.restaurant_id
-	JOIN app_user u ON u.id = o.creator_id`
+	JOIN app_user u ON u.id = o.creator_id
+	LEFT JOIN app_user mc ON mc.id = o.money_collector_id
+	LEFT JOIN app_user pp ON pp.id = o.pickup_person_id`
 
 func scanOrder(row pgx.Row) (model.Order, error) {
 	var o model.Order
 	err := row.Scan(&o.ID, &o.CreatorID, &o.CreatorName,
 		&o.RestaurantID, &o.RestaurantName, &o.RestaurantLogo,
 		&o.Fulfilment, &o.FulfilmentAt, &o.DeadlineAt,
-		&o.MoneyCollector, &o.PickupPerson,
+		&o.MoneyCollectorID, &o.MoneyCollectorName,
+		&o.PickupPersonID, &o.PickupPersonName,
 		&o.CurrencyCode, &o.MinOrderValueCents, &o.DeliveryFeeCents,
 		&o.ItemCount, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
@@ -62,8 +66,8 @@ type NewOrder struct {
 	FulfilmentAt time.Time
 	DeadlineAt   time.Time
 
-	MoneyCollector string
-	PickupPerson   string
+	MoneyCollectorID *uuid.UUID
+	PickupPersonID   *uuid.UUID
 }
 
 // CreateOrder inserts an order, copying the restaurant's money fields.
@@ -81,16 +85,16 @@ func CreateOrder(ctx context.Context, q Querier, in NewOrder) (model.Order, erro
 
 	_, err = q.Exec(ctx, `
 		INSERT INTO food_order (id, creator_id, restaurant_id, fulfilment,
-		                        fulfilment_at, deadline_at, money_collector, pickup_person,
+						        fulfilment_at, deadline_at, money_collector_id, pickup_person_id,
 		                        currency_code, min_order_value_cents, delivery_fee_cents,
 		                        created_by, updated_by)
-		SELECT $1, $2, r.id, $4, $5, $6, nullif($7, ''), nullif($8, ''),
+		SELECT $1, $2, r.id, $4, $5, $6, $7::uuid, $8::uuid,
 		       r.currency_code, r.min_order_value_cents, r.delivery_fee_cents,
 		       $2, $2
 		FROM restaurant r
 		WHERE r.id = $3 AND r.deleted_at IS NULL`,
 		id, in.CreatorID, in.RestaurantID, in.Fulfilment,
-		in.FulfilmentAt, in.DeadlineAt, in.MoneyCollector, in.PickupPerson)
+		in.FulfilmentAt, in.DeadlineAt, in.MoneyCollectorID, in.PickupPersonID)
 	if err != nil {
 		return model.Order{}, err
 	}
@@ -140,12 +144,12 @@ func ListOrders(ctx context.Context, q Querier, now time.Time) ([]model.Order, e
 // The restaurant is here because F5.8 allows changing it while the order has no
 // items; the handler enforces that condition.
 type OrderUpdate struct {
-	RestaurantID   *uuid.UUID
-	Fulfilment     *string
-	FulfilmentAt   *time.Time
-	DeadlineAt     *time.Time
-	MoneyCollector *string
-	PickupPerson   *string
+	RestaurantID     *uuid.UUID
+	Fulfilment       *string
+	FulfilmentAt     *time.Time
+	DeadlineAt       *time.Time
+	MoneyCollectorID **uuid.UUID
+	PickupPersonID   **uuid.UUID
 }
 
 // UpdateOrder applies the fields that are set.
@@ -179,11 +183,14 @@ func UpdateOrder(ctx context.Context, q Querier, id, actor uuid.UUID, in OrderUp
 	if in.DeadlineAt != nil {
 		add("deadline_at = $%d", *in.DeadlineAt)
 	}
-	if in.MoneyCollector != nil {
-		add("money_collector = nullif($%d, '')", *in.MoneyCollector)
+	// A set pointer to a nil pointer is "clear this", which PATCH has to be able
+	// to say: an order that no longer has anybody collecting the money is not
+	// the same as a request that said nothing about who does.
+	if in.MoneyCollectorID != nil {
+		add("money_collector_id = $%d", *in.MoneyCollectorID)
 	}
-	if in.PickupPerson != nil {
-		add("pickup_person = nullif($%d, '')", *in.PickupPerson)
+	if in.PickupPersonID != nil {
+		add("pickup_person_id = $%d", *in.PickupPersonID)
 	}
 	if len(sets) == 0 {
 		return OrderByID(ctx, q, id)

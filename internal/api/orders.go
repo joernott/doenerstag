@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -18,11 +19,13 @@ import (
 )
 
 // Field limits, matching migration 000007.
+//
+// The two 200-character limits that were here went with the columns: who
+// collects the money and who fetches the food are accounts now, and an account
+// reference is either a real one or nothing.
 const (
-	MaxMoneyCollectorLength = 200
-	MaxPickupPersonLength   = 200
-	MaxOrderNoteLength      = 500
-	MaxOrderItemQuantity    = 99
+	MaxOrderNoteLength   = 500
+	MaxOrderItemQuantity = 99
 )
 
 // OrderHandlers serves orders and their items.
@@ -68,12 +71,15 @@ func (h *OrderHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPatch, "/orders/:id", h.patch)
 	r.HandleFunc(http.MethodDelete, "/orders/:id", h.remove)
 
+	r.HandleFunc(http.MethodPost, "/orders/:id/pickup-person", h.claimPickup)
+
 	r.HandleFunc(http.MethodGet, "/orders/:id/summary", h.summary)
 	r.HandleFunc(http.MethodGet, "/orders/:id/events", h.events)
 
 	r.HandleFunc(http.MethodPost, "/orders/:id/items", h.addItem)
 	r.HandleFunc(http.MethodPatch, "/orders/:id/items/:iid", h.patchItem)
 	r.HandleFunc(http.MethodDelete, "/orders/:id/items/:iid", h.deleteItem)
+	r.HandleFunc(http.MethodPut, "/orders/:id/items/:iid/paid", h.setItemPaid)
 }
 
 // orderHeaderBody is what every caller sees, anonymous included.
@@ -103,8 +109,10 @@ type orderHeaderBody struct {
 	// creator lives on orderDetailBody, which only an authenticated caller
 	// receives. See docs/adr/0011-tiered-order-visibility.md.
 
-	MoneyCollector string `json:"money_collector"`
-	PickupPerson   string `json:"pickup_person"`
+	// Neither is the money collector nor the person fetching the food. They
+	// were free text here until sprint 17 made them accounts, and an account is
+	// a named person: the same rule that keeps the creator out of this struct
+	// keeps them out of it. They are on orderDetailBody.
 
 	CurrencyCode       string `json:"currency_code"`
 	MinOrderValueCents *int64 `json:"min_order_value_cents"`
@@ -128,6 +136,13 @@ type orderDetailBody struct {
 	CreatorID   string `json:"creator_id"`
 	CreatorName string `json:"creator_name"`
 
+	// Null when nobody is doing the job, which is a thing an order says rather
+	// than a thing it fails to say: 17.8 offers a "Me!" button on exactly that.
+	MoneyCollectorID   *string `json:"money_collector_id"`
+	MoneyCollectorName string  `json:"money_collector_name"`
+	PickupPersonID     *string `json:"pickup_person_id"`
+	PickupPersonName   string  `json:"pickup_person_name"`
+
 	Items           []orderItemBody `json:"items"`
 	ItemTotalCents  int64           `json:"item_total_cents"`
 	GrandTotalCents int64           `json:"grand_total_cents"`
@@ -146,6 +161,9 @@ type orderItemBody struct {
 	Note           string                  `json:"note"`
 	Modifications  []orderModificationBody `json:"modifications"`
 	LineTotalCents int64                   `json:"line_total_cents"`
+
+	// Paid is a tick against a line, not a payment: the application takes none.
+	Paid bool `json:"paid"`
 
 	CreatedAt string `json:"created_at"`
 }
@@ -167,8 +185,6 @@ func (h *OrderHandlers) publicHeader(o model.Order) orderHeaderBody {
 		FulfilmentAt:       o.FulfilmentAt.UTC().Format(time.RFC3339),
 		DeadlineAt:         o.DeadlineAt.UTC().Format(time.RFC3339),
 		Status:             o.Status(h.now()),
-		MoneyCollector:     o.MoneyCollector,
-		PickupPerson:       o.PickupPerson,
 		CurrencyCode:       o.CurrencyCode,
 		MinOrderValueCents: o.MinOrderValueCents,
 		DeliveryFeeCents:   o.DeliveryFeeCents,
@@ -195,6 +211,7 @@ func publicOrderItem(i model.OrderItem) orderItemBody {
 		Note:           i.Note,
 		Modifications:  make([]orderModificationBody, 0, len(i.Modifications)),
 		LineTotalCents: i.LineTotalCents(),
+		Paid:           i.Paid,
 		CreatedAt:      i.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	for _, m := range i.Modifications {
@@ -220,6 +237,28 @@ type orderListEntry struct {
 	orderHeaderBody
 	CreatorID   string `json:"creator_id"`
 	CreatorName string `json:"creator_name"`
+
+	// The other two people an order has. Here for the same reason the creator
+	// is: the tile and the live event both want them, and neither may reach an
+	// anonymous subscriber.
+	MoneyCollectorID   *string `json:"money_collector_id"`
+	MoneyCollectorName string  `json:"money_collector_name"`
+	PickupPersonID     *string `json:"pickup_person_id"`
+	PickupPersonName   string  `json:"pickup_person_name"`
+}
+
+// listEntry is the authenticated shape of one order, built in one place so the
+// list and the live event cannot come to disagree about what it contains.
+func (h *OrderHandlers) listEntry(o model.Order) orderListEntry {
+	return orderListEntry{
+		orderHeaderBody:    h.publicHeader(o),
+		CreatorID:          o.CreatorID.String(),
+		CreatorName:        o.CreatorName,
+		MoneyCollectorID:   idString(o.MoneyCollectorID),
+		MoneyCollectorName: o.MoneyCollectorName,
+		PickupPersonID:     idString(o.PickupPersonID),
+		PickupPersonName:   o.PickupPersonName,
+	}
 }
 
 // list serves the order list.
@@ -245,11 +284,7 @@ func (h *OrderHandlers) list(w http.ResponseWriter, r *http.Request) {
 
 	bodies := make([]orderListEntry, 0, len(orders))
 	for i := range orders {
-		bodies = append(bodies, orderListEntry{
-			orderHeaderBody: h.publicHeader(orders[i]),
-			CreatorID:       orders[i].CreatorID.String(),
-			CreatorName:     orders[i].CreatorName,
-		})
+		bodies = append(bodies, h.listEntry(orders[i]))
 	}
 	_ = WriteJSON(w, http.StatusOK, map[string]any{"orders": bodies})
 }
@@ -283,10 +318,14 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 	}
 
 	body := orderDetailBody{
-		orderHeaderBody: h.publicHeader(order),
-		CreatorID:       order.CreatorID.String(),
-		CreatorName:     order.CreatorName,
-		Items:           make([]orderItemBody, 0, len(items)),
+		orderHeaderBody:    h.publicHeader(order),
+		CreatorID:          order.CreatorID.String(),
+		CreatorName:        order.CreatorName,
+		MoneyCollectorID:   idString(order.MoneyCollectorID),
+		MoneyCollectorName: order.MoneyCollectorName,
+		PickupPersonID:     idString(order.PickupPersonID),
+		PickupPersonName:   order.PickupPersonName,
+		Items:              make([]orderItemBody, 0, len(items)),
 	}
 	for i := range items {
 		rendered := publicOrderItem(items[i])
@@ -311,12 +350,14 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 }
 
 type createOrderRequest struct {
-	RestaurantID   string `json:"restaurant_id"`
-	Fulfilment     string `json:"fulfilment"`
-	FulfilmentAt   string `json:"fulfilment_at"`
-	DeadlineAt     string `json:"deadline_at"`
-	MoneyCollector string `json:"money_collector"`
-	PickupPerson   string `json:"pickup_person"`
+	RestaurantID string `json:"restaurant_id"`
+	Fulfilment   string `json:"fulfilment"`
+	FulfilmentAt string `json:"fulfilment_at"`
+	DeadlineAt   string `json:"deadline_at"`
+	// Accounts, as identifiers. The empty string is "nobody", which is what a
+	// form that offers "nobody" as its first option submits.
+	MoneyCollectorID string `json:"money_collector_id"`
+	PickupPersonID   string `json:"pickup_person_id"`
 }
 
 func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
@@ -376,23 +417,25 @@ func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateFreeText(body.MoneyCollector, "money_collector", MaxMoneyCollectorLength); err != nil {
-		WriteError(w, r, err)
+	moneyCollector, refErr := h.optionalUserRef(r.Context(), body.MoneyCollectorID, "money_collector_id")
+	if refErr != nil {
+		WriteError(w, r, refErr)
 		return
 	}
-	if err := validateFreeText(body.PickupPerson, "pickup_person", MaxPickupPersonLength); err != nil {
-		WriteError(w, r, err)
+	pickupPerson, refErr := h.optionalUserRef(r.Context(), body.PickupPersonID, "pickup_person_id")
+	if refErr != nil {
+		WriteError(w, r, refErr)
 		return
 	}
 
 	created, dbErr := db.CreateOrder(r.Context(), h.Pool, db.NewOrder{
-		CreatorID:      principal.User.ID,
-		RestaurantID:   restaurantID,
-		Fulfilment:     fulfilment,
-		FulfilmentAt:   fulfilmentAt,
-		DeadlineAt:     deadlineAt,
-		MoneyCollector: strings.TrimSpace(body.MoneyCollector),
-		PickupPerson:   strings.TrimSpace(body.PickupPerson),
+		CreatorID:        principal.User.ID,
+		RestaurantID:     restaurantID,
+		Fulfilment:       fulfilment,
+		FulfilmentAt:     fulfilmentAt,
+		DeadlineAt:       deadlineAt,
+		MoneyCollectorID: moneyCollector,
+		PickupPersonID:   pickupPerson,
 	})
 	switch {
 	case errors.Is(dbErr, db.ErrNotFound):
@@ -411,12 +454,12 @@ func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
 }
 
 type patchOrderRequest struct {
-	RestaurantID   *string `json:"restaurant_id"`
-	Fulfilment     *string `json:"fulfilment"`
-	FulfilmentAt   *string `json:"fulfilment_at"`
-	DeadlineAt     *string `json:"deadline_at"`
-	MoneyCollector *string `json:"money_collector"`
-	PickupPerson   *string `json:"pickup_person"`
+	RestaurantID     *string `json:"restaurant_id"`
+	Fulfilment       *string `json:"fulfilment"`
+	FulfilmentAt     *string `json:"fulfilment_at"`
+	DeadlineAt       *string `json:"deadline_at"`
+	MoneyCollectorID *string `json:"money_collector_id"`
+	PickupPersonID   *string `json:"pickup_person_id"`
 }
 
 // patch updates an order. Creator or administrator, and only while active.
@@ -537,19 +580,21 @@ func (h *OrderHandlers) validateOrderPatch(
 		return update, &Error{Code: CodeDeadlineAfterFulfil, Field: "deadline_at"}
 	}
 
-	if body.MoneyCollector != nil {
-		if err := validateFreeText(*body.MoneyCollector, "money_collector", MaxMoneyCollectorLength); err != nil {
+	// Present-and-empty clears the field; absent leaves it alone. The double
+	// pointer is what carries that distinction as far as the UPDATE.
+	if body.MoneyCollectorID != nil {
+		ref, err := h.optionalUserRef(r.Context(), *body.MoneyCollectorID, "money_collector_id")
+		if err != nil {
 			return update, err
 		}
-		value := strings.TrimSpace(*body.MoneyCollector)
-		update.MoneyCollector = &value
+		update.MoneyCollectorID = &ref
 	}
-	if body.PickupPerson != nil {
-		if err := validateFreeText(*body.PickupPerson, "pickup_person", MaxPickupPersonLength); err != nil {
+	if body.PickupPersonID != nil {
+		ref, err := h.optionalUserRef(r.Context(), *body.PickupPersonID, "pickup_person_id")
+		if err != nil {
 			return update, err
 		}
-		value := strings.TrimSpace(*body.PickupPerson)
-		update.PickupPerson = &value
+		update.PickupPersonID = &ref
 	}
 
 	return update, nil
@@ -665,4 +710,103 @@ func validateFreeText(value, field string, limit int) *Error {
 		}
 	}
 	return nil
+}
+
+// idString renders an optional identifier for JSON, where absent is null.
+func idString(id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	s := id.String()
+	return &s
+}
+
+// optionalUserRef parses an account reference that may be absent or cleared.
+//
+// The empty string is "nobody", not a bad identifier: it is what a select whose
+// first option is "nobody" submits, and what clearing the field means. A
+// non-empty value must parse and must name an account that exists, because an
+// order pointing at an account that does not is a foreign key violation the
+// caller would see as a database error rather than as the mistake it is.
+func (h *OrderHandlers) optionalUserRef(
+	ctx context.Context, value, field string,
+) (*uuid.UUID, *Error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	id, err := uuid.Parse(trimmed)
+	if err != nil {
+		return nil, &Error{
+			Code:   CodeInvalidField,
+			Field:  field,
+			Detail: "this is not a valid identifier",
+		}
+	}
+
+	// The placeholder that owns what deleted accounts left behind is a row in
+	// the table and not a person. Nobody fetches food.
+	if id == model.DeletedUserID {
+		return nil, &Error{Code: CodeInvalidField, Field: field, Detail: "this is not a person"}
+	}
+
+	switch _, dbErr := db.UserByID(ctx, h.Pool, id); {
+	case errors.Is(dbErr, db.ErrNotFound):
+		return nil, &Error{Code: CodeInvalidField, Field: field, Detail: "no account has this id"}
+	case dbErr != nil:
+		return nil, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+	}
+	return &id, nil
+}
+
+// claimPickup puts the caller down as the person fetching the food.
+//
+// Deliberately not part of PATCH. PATCH belongs to the creator (F5.7), and the
+// point of this is that it does not: whoever is willing to walk to the
+// restaurant should be able to say so without going through whoever opened the
+// order. Making it a route of its own means the rule is one sentence at one
+// place rather than an exception threaded through the general edit path.
+//
+// It only fills a vacancy. Taking the job off somebody who already has it is a
+// different act with a different social meaning, and the creator can do it from
+// the editor.
+func (h *OrderHandlers) claimPickup(w http.ResponseWriter, r *http.Request) {
+	order, lookupErr := h.lookup(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
+	principal, authErr := RequireAuthenticated(r)
+	if authErr != nil {
+		WriteError(w, r, authErr)
+		return
+	}
+
+	if !order.Active(h.now()) {
+		WriteError(w, r, &Error{Code: CodeOrderClosed})
+		return
+	}
+	if order.PickupPersonID != nil {
+		WriteError(w, r, &Error{Code: CodeJobTaken, Field: "pickup_person_id"})
+		return
+	}
+
+	me := principal.User.ID
+	ref := &me
+	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, db.OrderUpdate{
+		PickupPersonID: &ref,
+	})
+	switch {
+	case errors.Is(dbErr, db.ErrNotFound):
+		WriteError(w, r, &Error{Code: CodeNotFound})
+		return
+	case dbErr != nil:
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		return
+	}
+
+	h.publishOrderChange(updated)
+	h.writeDetail(w, r, updated, http.StatusOK)
 }

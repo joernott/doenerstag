@@ -183,8 +183,6 @@ export async function seedOrder(
     fulfilment: "pickup",
     fulfilment_at: hours(3),
     deadline_at: hours(2),
-    money_collector: "",
-    pickup_person: "",
   });
   return order.id;
 }

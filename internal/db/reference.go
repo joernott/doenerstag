@@ -16,7 +16,8 @@ import (
 // named by the frontend's i18n catalog. See docs/07_i18n.md.
 func ListCurrencies(ctx context.Context, q Querier) ([]model.Currency, error) {
 	rows, err := q.Query(ctx,
-		`SELECT code, symbol, minor_unit, sort_order FROM currency ORDER BY sort_order, code`)
+		`SELECT code, symbol, minor_unit, minor_per_major, sort_order
+		 FROM currency ORDER BY sort_order, code`)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +26,7 @@ func ListCurrencies(ctx context.Context, q Querier) ([]model.Currency, error) {
 	currencies := make([]model.Currency, 0, 16)
 	for rows.Next() {
 		var c model.Currency
-		if err := rows.Scan(&c.Code, &c.Symbol, &c.MinorUnit, &c.SortOrder); err != nil {
+		if err := rows.Scan(&c.Code, &c.Symbol, &c.MinorUnit, &c.MinorPerMajor, &c.SortOrder); err != nil {
 			return nil, err
 		}
 		currencies = append(currencies, c)

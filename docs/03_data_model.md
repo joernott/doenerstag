@@ -276,6 +276,67 @@ modifications are not stored here — they live in `order_item.note`.
 
 ---
 
+### `availability_filter`
+
+When a dish can be had, which is a different question from whether it exists.
+`menu_item.available` is a switch somebody flips — sold out today, back
+tomorrow. This is the standing rule beside it: the pasta is made from Friday to
+Sunday between five and ten, and no amount of wanting it on a Tuesday changes
+that.
+
+One row is one named rule, reusable across a menu.
+
+| Column          | Type          | Null | Notes                                                   |
+| --------------- | ------------- | ---- | ------------------------------------------------------- |
+| `id`            | `uuid`        | no   | PK, UUIDv7.                                              |
+| `restaurant_id` | `uuid`        | no   | FK `restaurant`, `ON DELETE CASCADE`.                    |
+| `name`          | `text`        | no   | Chosen by a person: "Mittagsmenü", "Fri-Sun after 5".    |
+| `on_date`       | `date`        | yes  | One calendar date. Several dates are several filters.    |
+| `weekdays`      | `smallint[]`  | no   | ISO days, 1 = Monday. Empty means every day.             |
+| `start_time`    | `time`        | yes  | With `end_time`, or neither.                             |
+| `end_time`      | `time`        | yes  | Earlier than `start_time` crosses midnight.              |
+| `sort_order`    | `integer`     | no   | Default 0.                                               |
+
+- A filter's own parts are **ANDed**: weekdays *and* a time means those days and
+  only during those hours. A part left null is "no opinion" — a filter with only
+  a time applies on every day.
+- A filter that says nothing is refused by a `CHECK`. It would match everything
+  while reading as though it restricted something.
+- `weekdays` is an array rather than a row per day, because a filter is one
+  rule. `opening_hours` has a row per day because there each row is an
+  independent period.
+
+### `menu_category_availability`, `menu_item_availability`
+
+Which filters are attached to what. Two tables rather than one with a nullable
+pair of columns: a row pointing at a category and an item at once would be
+meaningless, and the constraint forbidding it is harder to read than two tables
+that cannot express it.
+
+| Column                        | Type   | Null | Notes                                    |
+| ----------------------------- | ------ | ---- | ---------------------------------------- |
+| `category_id` / `menu_item_id`| `uuid` | no   | PK with `filter_id`. `ON DELETE CASCADE`. |
+| `filter_id`                   | `uuid` | no   | FK `availability_filter`, `ON DELETE CASCADE`. |
+
+**How they combine, which is deliberately asymmetric:**
+
+- Several filters on **one element** are alternatives — **OR**. A Monday filter
+  and a Friday filter on one category make it available on both.
+- A **category's** filters and an **item's** must both be satisfied — **AND**.
+- No filters at all means available always, so a menu that has never heard of
+  this behaves exactly as it did.
+
+A consequence worth stating because it looks like a bug and is not: a
+Monday-only category containing a Wednesday-only item hides that item
+permanently. That is what "this category is only served on Mondays" has to
+mean, and it is what the operator asked for.
+
+Everything is tested against the **order's pickup or delivery time**, not
+against now. Somebody ordering on Thursday for Friday lunch is offered Friday's
+menu.
+
+---
+
 ## Classification entities
 
 Free tags and regulated classifications are kept in separate tables so that the
@@ -430,8 +491,8 @@ Primary key is the column pair. These tables carry audit columns as well.
 | `fulfilment`            | `text`        | no   | `pickup` or `delivery`. `CHECK`ed.                        |
 | `fulfilment_at`         | `timestamptz` | no   | When the food is picked up or delivered.                  |
 | `deadline_at`           | `timestamptz` | no   | Last moment items may be added or changed.                |
-| `money_collector`       | `text`        | yes  | Free text: who collects the money.                        |
-| `pickup_person`         | `text`        | yes  | Free text: who fetches the order.                         |
+| `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. |
+| `pickup_person_id`      | `uuid`        | yes  | The account fetching the order. `ON DELETE SET NULL`.     |
 | `currency_code`         | `char(3)`     | no   | Copied from the restaurant at creation.                   |
 | `min_order_value_cents` | `bigint`      | yes  | Copied from the restaurant at creation.                   |
 | `delivery_fee_cents`    | `bigint`      | yes  | Copied from the restaurant at creation.                   |
@@ -535,11 +596,21 @@ Seeded lookup table so the UI can render a symbol next to every price.
 | ------------ | ---------- | ---- | ------------------------------------------------ |
 | `code`       | `char(3)`  | no   | PK. ISO 4217 alphabetic code. i18n key.           |
 | `symbol`     | `text`     | no   | E.g. `€`, `$`, `CHF`.                             |
-| `minor_unit` | `smallint` | no   | Decimal digits. 2 for EUR, 0 for JPY.             |
+| `minor_unit` | `smallint` | no   | Decimal digits an amount is written with. 2 for EUR, 0 for JPY, 1 for MGA. |
+| `minor_per_major` | `integer` | no | Minor units in one major unit. 100 for EUR, 1 for JPY, 5 for MGA and MRU. |
 | `sort_order` | `integer`  | no   | Puts the likely candidates at the top of the list.|
 
 Seeded with `EUR`, `CHF`, `GBP`, `USD`, `PLN`, `CZK`, `DKK`, `SEK`, `NOK`,
-`HUF`. `EUR` is the default offered when creating a restaurant.
+`HUF`, `MGA` and `MRU`. `EUR` is the default offered when creating a restaurant.
+
+**`minor_per_major` is a column and not `10^minor_unit`.** For every currency
+but two it is exactly that, and the application derived it that way until it
+met the last two non-decimal currencies still in use: the Malagasy ariary is
+five iraimbilanja and the Mauritanian ouguiya is five khoums. Deriving the
+divisor from the number of written places makes ten iraimbilanja one ariary
+when they are two -- an error of a factor of two, in the direction nobody
+checks. Migration 10 backfilled every existing row with `10^minor_unit`, so
+nothing that was right changed.
 
 Currency **names** are not stored — the frontend translates the ISO code through
 `currency.EUR`, as described under

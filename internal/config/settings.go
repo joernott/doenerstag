@@ -168,6 +168,13 @@ var Settings = []Setting{
 		Scopes: ScopeServer,
 	},
 	{
+		Flag: "behind-tls-proxy", Key: "server.behind_tls_proxy",
+		Kind: KindBool, Default: false,
+		Usage: "a reverse proxy in front terminates TLS; keep cookies Secure and " +
+			"send HSTS although this server speaks plain HTTP",
+		Scopes: ScopeServer,
+	},
+	{
 		Flag: "tls-cert", Short: "t", Key: "server.tls_cert",
 		Kind: KindString, Default: "server.crt",
 		Usage:  "PEM certificate chain",

@@ -955,3 +955,90 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 58
 
 > The rotated secret is stored in the repository secrets though
+
+---
+
+### Prompt 59
+
+> Please start sprint 17 and add the following tasks to it:
+>
+> 1. On the user page, on the password tab, the text below the password field
+>    lists "3 of five groups" and then lists 6 istems, repeating the 10
+>    character limit. Please remove that bullet point, as it is redundant.
+> 2. add a x/10 counter next to the input field for the password. The first
+>    number shows the number of already typed characters and turns green as soon
+>    as there are 10 or more
+> 3. you are replacing the bullte points by checkmarks, when a requirement has
+>    been fulfilled. Make those green, too
+> 4. I have created an order for Ali Baba:
+>    01a08c18-d305-77d0-bcaa-5b82c551ac96 on the order page, the address is
+>    shown twice. When I am not using a label for the address, I expect it to
+>    show the content of the value field, but only once.
+> 5. The address does not show up on the summary page
+> 6. On the order page, the "Add an item" button resizes, depending on the
+>    number of tags, allergens and additives. That messes up the design. Make
+>    sure, it is always one line and move the price above the button and make it
+>    bold.
+> 7. This is a data structure change: Convert the fields "fetches the food" and
+>    "collect the monesy" into a reference to a user. Convert those fields from
+>    freetext to a dropdown/search field on the "edit order" page.
+> 8. If the field "fetches the food" is empty, show a button "Me!" on the order
+>    page to every signed in user. When they click on it, they are selected.
+> 9. This is a data structure change: On top of tracking the decimals for
+>    currencies, you should a multiplicator/divisor field for major/minor coins.
+>    The Malagasy ariary from Madagascar and the Mauritanian ouguiya have a
+>    conversion rate of 5 minor coins to one major coin, using the number of
+>    decimals and specifying 1 there breaks the logic as 10 minor coins are not
+>    one but two major coins.
+> 10. This is another data structure change: Add a boolean field "Paid" to the
+>     order items. that should be clickable by the person who added that order
+>     item and the person who created the order as well as the person in the
+>     "collect the money" field. On summary page add a checkbox field for that
+>     next to the price of every item a person has ordered. Do not add the
+>     prices of paid items to the sum shown for that person.
+> 11. This is another data change: Not every item on the menu is always
+>     available. For example, dishes in the "Nudeln" section of the Ali Baba
+>     menu are only available from Friday to Sunday between 17: and 22:00. They
+>     should show up on the menu on the restaurant page but not on the menu for
+>     the order. Add a data table for availability, where multiple filters can
+>     be combined: A special date (e.g. a christmas menu), a day of the week
+>     (pasta on fridays to sundays) and a time (pasta between 17:00 and 22:00).
+>     These filter are applied to the pickup/delivery time. Eqach filter is an
+>     AND filter for its elements. Choosing a weekday and time means that the
+>     food is only available on those days and only during those hours. Every
+>     filter has a name, e.g. "Mittagsmenü" or "Weihnachtsessen" or "Fri-Sun
+>     after 5". Multiple of those filters can be attached to a category or to
+>     single menu items. Multiple filters on the same element are OR filters, so
+>     I can attach a "Monday" andf a "Friday" filter to a category to make food
+>     available on both days. Filters on categories and items are AND-Filters.
+>     If a user makes the category only available on Monday and the food item
+>     only available after 17:00, that item only shows, if both conditions are
+>     met. If the food item is only available on Wednesdays, it would never show
+>     up if the category is limited to Mondays. That is intentional.
+
+---
+
+### Prompt 60
+
+> There are two more tasks related to the docker-compose.yaml:
+>
+> - Add an update and an import job, similar to the install job to the
+>   docker-compose.yml
+> - Also make a second variant of that file where you add a traefik reverse
+>   proxy with Let's encrypt support and the doenerstag server not using https
+>   but relying on traefik as reverse proxy to do the ssl offloading.
+
+---
+
+### Prompt 61
+
+> Running that command as non root fails as the log file is not accessible:
+> {"level":"fatal","component":"config","error":"open log file
+> /var/log/doenerstag/doenerstag.log: open /var/log/doenerstag/doenerstag.log:
+> permission denied","time":"2026-09-10T20:18:56.137Z","message":"cannot start"}
+
+---
+
+### Prompt 62
+
+> Please go ahead, squash-merge back into main and trigger the release v0.3.0

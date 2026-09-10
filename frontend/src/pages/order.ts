@@ -12,6 +12,8 @@
 import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
+import { accountChoices, listAccounts } from "../accounts";
+import { contactTarget } from "../contacts";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -24,7 +26,7 @@ import { button, checkbox, field, form, input, select, textarea } from "../compo
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
 import { confirmDialog, openModal } from "../components/modal";
-import { minorUnitOf, referenceData } from "../reference";
+import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
 import {
@@ -79,10 +81,10 @@ export async function orderPage(
     referenceData().catch(() => null),
     api.get<RestaurantDetail>(`/restaurants/${order.restaurant_id}`).catch(() => null),
     getList<Category>(`/restaurants/${order.restaurant_id}/categories`, "categories").catch(() => []),
-    getList<MenuItem>(`/restaurants/${order.restaurant_id}/menu-items`, "menu_items").catch(() => []),
+    getList<MenuItem>(menuPath(order), "menu_items").catch(() => []),
   ]);
 
-  const minorUnit = minorUnitOf(reference?.currencies ?? [], order.currency_code);
+  const moneyFormat = moneyFormatOf(reference?.currencies ?? [], order.currency_code);
   const status = statusLine();
 
   const left = el("div", { class: "order-column" });
@@ -140,7 +142,7 @@ export async function orderPage(
   async function reloadMenu(): Promise<void> {
     [categoryList, menuItems] = await Promise.all([
       getList<Category>(`/restaurants/${order.restaurant_id}/categories`, "categories"),
-      getList<MenuItem>(`/restaurants/${order.restaurant_id}/menu-items`, "menu_items"),
+      getList<MenuItem>(menuPath(order), "menu_items"),
     ]);
     renderMenu();
   }
@@ -184,26 +186,26 @@ export async function orderPage(
       ],
     ];
 
-    if (order.money_collector) {
-      rows.push([t.t("order.money_collector"), order.money_collector]);
-    }
-    if (order.pickup_person) {
-      rows.push([t.t("order.pickup_person"), order.pickup_person]);
-    }
+    // Who does what. Only an authenticated caller is told, because both are
+    // named people (ADR-0011), and both rows are shown even when empty: an
+    // order with nobody fetching the food is the case worth seeing, and it is
+    // where the "Me!" button goes.
     const own = detail();
     if (own) {
+      rows.push([t.t("order.money_collector"), personRow(own.money_collector_name, false)]);
+      rows.push([t.t("order.pickup_person"), personRow(own.pickup_person_name, true)]);
       rows.push([t.t("order.creator"), own.creator_name]);
     }
     if (order.min_order_value_cents !== null) {
       rows.push([
         t.t("order.minimum"),
-        formatMoney(app.language, order.min_order_value_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.min_order_value_cents, order.currency_code, moneyFormat),
       ]);
     }
     if (order.delivery_fee_cents !== null) {
       rows.push([
         t.t("order.delivery_fee"),
-        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, moneyFormat),
       ]);
     }
 
@@ -242,7 +244,7 @@ export async function orderPage(
         button({
           label: t.t("order.edit"),
           onclick: () => {
-            openOrderEditor();
+            void openOrderEditor();
           },
         }),
       );
@@ -263,6 +265,59 @@ export async function orderPage(
   }
 
   /** The restaurant, with its contacts as the links they are meant to be. */
+  /**
+   * One of the two jobs an order has, and -- for fetching the food -- a way to
+   * take it.
+   *
+   * The row is shown even when nobody is doing the job, because that is the
+   * case worth seeing. The button is offered to every signed-in visitor and not
+   * only to the creator: the point of it is that whoever is willing can say so
+   * without finding the creator first, which is how this gets decided in the
+   * room anyway. It is not offered on a closed order, where nothing can be
+   * changed, and never to an anonymous visitor, who has no name to put there.
+   */
+  function personRow(name: string, offerToVolunteer: boolean): Child {
+    if (name) {
+      return name;
+    }
+
+    const nobody = el("span", { class: "muted", text: t.t("order.nobody") });
+    if (!offerToVolunteer || !app.session.isAuthenticated || !active()) {
+      return nobody;
+    }
+
+    return el(
+      "span",
+      { class: "order-person" },
+      nobody,
+      button({
+        label: t.t("order.volunteer"),
+        ariaLabel: `${t.t("order.volunteer")}: ${t.t("order.pickup_person")}`,
+        onclick: () => {
+          void volunteerToFetch();
+        },
+      }),
+    );
+  }
+
+  /**
+   * Takes on fetching the food.
+   *
+   * Its own endpoint rather than a PATCH, because PATCH belongs to the creator
+   * and this deliberately does not. Putting "unless the only field is
+   * pickup_person_id and its value is your own id and it was empty before"
+   * inside the general edit path would be a rule nobody could find later.
+   */
+  async function volunteerToFetch(): Promise<void> {
+    status.clear();
+    try {
+      await api.post(`/orders/${id}/pickup-person`, {});
+      await refresh();
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    }
+  }
+
   function restaurantLine(): HTMLElement {
     const line = el("div", { class: "restaurant-line" });
     append(
@@ -280,24 +335,36 @@ export async function orderPage(
     return line;
   }
 
+  /**
+   * One contact, as the link it is meant to be.
+   *
+   * Where it leads comes from contacts.ts, which is where that rule lives for
+   * every page that shows one. This function used to decide for itself and had
+   * drifted: an address fell through to the text branch because the list here
+   * had never gained the case, a telephone number kept the spaces people write
+   * it with, and a website typed without a scheme became a relative link.
+   *
+   * A contact with no label is its own label. Printing "value: value" -- which
+   * is what the text branch did -- says the address twice and reads as though
+   * something is missing.
+   */
   function contactLink(contact: Contact): HTMLElement {
-    const label = contact.label || contact.value;
-    switch (contact.render_as) {
-      case "tel":
-        return el("a", { class: "link contact", href: `tel:${contact.value}`, text: label });
-      case "mailto":
-        return el("a", { class: "link contact", href: `mailto:${contact.value}`, text: label });
-      case "url":
-        return el("a", {
-          class: "link contact",
-          href: contact.value,
-          rel: "noreferrer",
-          target: "_blank",
-          text: label,
-        });
-      default:
-        return el("span", { class: "contact muted", text: `${label}: ${contact.value}` });
+    const label = contact.label.trim();
+    const target = contactTarget(contact);
+
+    if (!target) {
+      return el("span", {
+        class: "contact muted",
+        text: label ? `${label}: ${contact.value}` : contact.value,
+      });
     }
+
+    return el("a", {
+      class: "link contact",
+      href: target.href,
+      ...(target.external ? { rel: "noreferrer", target: "_blank" } : {}),
+      text: label || contact.value,
+    });
   }
 
   /** The items, grouped by the person who ordered them. */
@@ -326,7 +393,7 @@ export async function orderPage(
           items[0]?.user_name ?? "",
           el("span", {
             class: "person-total",
-            text: formatMoney(app.language, personTotal, order.currency_code, minorUnit),
+            text: formatMoney(app.language, personTotal, order.currency_code, moneyFormat),
           }),
         ),
         el("ul", { class: "plain-list" }, ...rows),
@@ -367,7 +434,7 @@ export async function orderPage(
       ),
       el("span", {
         class: "menu-price",
-        text: formatMoney(app.language, item.line_total_cents, order.currency_code, minorUnit),
+        text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
       }),
       // Own items only, and only while the order is open: F6.5 and F6.6.
       mine && canOrder()
@@ -392,12 +459,12 @@ export async function orderPage(
 
   function totalsCard(own: OrderDetail): HTMLElement {
     const rows: [string, string][] = [
-      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, minorUnit)],
+      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, moneyFormat)],
     ];
     if (order.delivery_fee_cents) {
       rows.push([
         t.t("order.delivery_fee"),
-        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, minorUnit),
+        formatMoney(app.language, order.delivery_fee_cents, order.currency_code, moneyFormat),
       ]);
     }
 
@@ -410,7 +477,7 @@ export async function orderPage(
     list.appendChild(
       el("dd", {
         class: "grand",
-        text: formatMoney(app.language, own.grand_total_cents, order.currency_code, minorUnit),
+        text: formatMoney(app.language, own.grand_total_cents, order.currency_code, moneyFormat),
       }),
     );
 
@@ -444,12 +511,17 @@ export async function orderPage(
 
   // --- the order's own fields ---------------------------------------------
 
-  function openOrderEditor(): void {
+  async function openOrderEditor(): Promise<void> {
     const own = detail();
     if (!own) {
       return;
     }
     const editorStatus = statusLine();
+
+    // The accounts to choose between, fetched when the dialog is opened rather
+    // than with the page: only the creator ever opens it, and an anonymous
+    // visitor would be refused the list.
+    const accounts = await listAccounts().catch(() => []);
 
     const fulfilment = select(
       [
@@ -463,8 +535,9 @@ export async function orderPage(
       value: localValue(order.fulfilment_at),
     });
     const deadlineAt = input({ type: "datetime-local", value: localValue(order.deadline_at) });
-    const moneyCollector = input({ value: order.money_collector });
-    const pickupPerson = input({ value: order.pickup_person });
+    const choices = accountChoices(accounts, t.t("order.nobody"));
+    const moneyCollector = select(choices, { value: own.money_collector_id ?? "" });
+    const pickupPerson = select(choices, { value: own.pickup_person_id ?? "" });
 
     // F5.8: the restaurant is locked once the order has items, because the
     // prices and the currency were copied from it. Disabled with the reason
@@ -512,8 +585,8 @@ export async function orderPage(
           fulfilment: fulfilment.value,
           fulfilment_at: fulfils.toISOString(),
           deadline_at: closes.toISOString(),
-          money_collector: moneyCollector.value.trim(),
-          pickup_person: pickupPerson.value.trim(),
+          money_collector_id: moneyCollector.value,
+          pickup_person_id: pickupPerson.value,
         });
         modal.close();
         await refresh();
@@ -614,7 +687,7 @@ export async function orderPage(
                 reference,
                 restaurantID: order.restaurant_id,
                 categories: categoryList,
-                minorUnit,
+                money: moneyFormat,
                 item: null,
                 onSaved: reloadMenu,
               });
@@ -628,6 +701,15 @@ export async function orderPage(
   }
 
   function matchesFilter(item: MenuItem): boolean {
+    // What the kitchen will not make at this order's time is not on this menu
+    // at all -- not greyed out, not behind a filter box. There is nothing to
+    // decide about it: the order is for Tuesday and the pasta is a weekend
+    // dish. The restaurant page still shows it, because that is the menu.
+    // available_at is null when the menu was asked for without a time, which
+    // the order page never does.
+    if (item.available_at === false) {
+      return false;
+    }
     if (filters.availableOnly && !item.available) {
       return false;
     }
@@ -800,21 +882,32 @@ export async function orderPage(
         item.description ? el("p", { class: "muted", text: item.description }) : null,
         marks.length > 0 ? el("div", { class: "chips" }, ...marks) : null,
       ),
-      el("span", {
-        class: "menu-price",
-        text: formatMoney(app.language, item.price_cents, order.currency_code, minorUnit),
-      }),
-      addable
-        ? button({
-            label: t.t("item.add"),
-            variant: "primary",
-            // Named for the dish: the menu column has one of these per item.
-            ariaLabel: `${t.t("item.add")}: ${item.name}`,
-            onclick: () => {
-              void openItemEditor(null, item);
-            },
-          })
-        : null,
+      // The price and the button share a column at the end of the row rather
+      // than sitting beside each other in it. Side by side, the two of them
+      // and the chips competed for one line: a dish with four allergens
+      // squeezed the button until its label wrapped, and a column of buttons
+      // that are one line tall next to some dishes and two next to others is
+      // what made the list look broken. The column is `flex: none`, so the
+      // chips can no longer take width from it.
+      el(
+        "div",
+        { class: "menu-item-side" },
+        el("span", {
+          class: "menu-price",
+          text: formatMoney(app.language, item.price_cents, order.currency_code, moneyFormat),
+        }),
+        addable
+          ? button({
+              label: t.t("item.add"),
+              variant: "primary",
+              // Named for the dish: the menu column has one of these per item.
+              ariaLabel: `${t.t("item.add")}: ${item.name}`,
+              onclick: () => {
+                void openItemEditor(null, item);
+              },
+            })
+          : null,
+      ),
     );
   }
 
@@ -881,7 +974,7 @@ export async function orderPage(
         app.language,
         count * (source.price_cents + deltas),
         order.currency_code,
-        minorUnit,
+        moneyFormat,
       )}`;
     };
 
@@ -893,7 +986,7 @@ export async function orderPage(
     for (const modification of modifications) {
       const label = `${modification.name} (${
         modification.price_delta_cents >= 0 ? "+" : ""
-      }${moneyInputValue(modification.price_delta_cents, minorUnit)})`;
+      }${moneyInputValue(modification.price_delta_cents, moneyFormat)})`;
       const row = checkbox(label, {
         checked: chosen.has(modification.id),
         onchange: updateTotal,
@@ -1056,4 +1149,17 @@ function localValue(iso: string): string {
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
+}
+
+/**
+ * The menu as it will be when the food is fetched.
+ *
+ * `at` is the order's fulfilment time, not now: somebody ordering on Thursday
+ * for Friday lunch is offered Friday's menu. The server answers with a verdict
+ * per item rather than with the rules, so the question "is this served then"
+ * has one implementation and it is the one that also refuses the order.
+ */
+function menuPath(order: OrderHeader): string {
+  const at = encodeURIComponent(order.fulfilment_at);
+  return `/restaurants/${order.restaurant_id}/menu-items?at=${at}`;
 }

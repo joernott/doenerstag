@@ -305,11 +305,13 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Register an account                           | ✓ | – | – | – |
 | Create an order                               | – | ✓ | ✓ | ✓ |
 | Edit an order's fields                        | – | – | ✓ | ✓ |
+| Take on fetching the food, when nobody has    | – | ✓ | ✓ | ✓ |
 | Change an order's restaurant (no items yet)   | – | – | ✓ | ✓ |
 | Delete an order                               | – | – | ✓ | ✓ |
 | Add an order item to an active order          | – | ✓ | ✓ | ✓ |
 | Edit or delete an order item                  | – | – | ✓ | ✓ |
 | Edit or delete an order item after deadline   | – | – | – | – |
+| Tick an order item as paid, deadline or not   | – | – | ✓ | ✓ |
 | Create a restaurant                           | – | ✓ | ✓ | ✓ |
 | Edit a restaurant, contacts, opening hours    | – | ✓ | ✓ | ✓ |
 | Delete a restaurant                           | – | – | – | ✓ |
@@ -320,7 +322,8 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Upload an image                               | – | ✓ | ✓ | ✓ |
 | Edit own profile, manage own API tokens       | – | – | ✓ | ✓ |
 | Delete own account                            | – | – | ✓ | ✓ |
-| List all users                                | – | – | – | ✓ |
+| List the accounts (id, name, display name)    | – | ✓ | ✓ | ✓ |
+| List all users with addresses and login times | – | – | – | ✓ |
 | Replace imprint / legal notes                 | – | – | – | ✓ |
 | Shut the application down                     | – | – | – | ✓ |
 

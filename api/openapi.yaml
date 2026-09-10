@@ -394,10 +394,20 @@ paths:
     get:
       tags: [users]
       operationId: listUsers
-      summary: Every account. Administrator only.
+      summary: Every account. Signed in for the names, administrator for the rest.
+      description: |
+        Two shapes, chosen by who is asking. An administrator gets `AdminUser`,
+        with the e-mail address and the login times. Anybody else who is signed
+        in gets `User` -- id, user name, display name -- which is what
+        `GET /users/{id}` already serves to anyone at all.
+
+        The second tier exists so that an order can name accounts rather than
+        typed names: both the person collecting the money and the person
+        fetching the food are chosen from this list. What it adds over the
+        per-user endpoint is enumeration, and that is why it needs a session.
       responses:
         "200":
-          description: All accounts.
+          description: All accounts, in the shape the caller is entitled to.
           content:
             application/json:
               schema:
@@ -407,9 +417,11 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: "#/components/schemas/AdminUser"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                      oneOf:
+                        - $ref: "#/components/schemas/AdminUser"
+                        - $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /users/{id}:
     parameters:
@@ -1136,6 +1148,200 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /restaurants/{id}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+    get:
+      tags: [menu]
+      operationId: listAvailability
+      summary: The restaurant's availability filters.
+      description: |
+        Public, like the menu: when a dish is served is part of what a menu
+        says.
+      security: []
+      responses:
+        "200":
+          description: The filters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [menu]
+      operationId: createAvailability
+      summary: Define a filter.
+      description: |
+        Any signed-in user, like the rest of menu editing. A filter must
+        restrict something — a date, some weekdays or a time — because one that
+        restricts nothing matches everything while reading as though it did
+        not.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "201":
+          description: The filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/availability/{fid}:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: fid
+        in: path
+        required: true
+        description: The filter's id.
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [menu]
+      operationId: patchAvailability
+      summary: Change a filter.
+      description: |
+        Only the fields present are changed, and each is judged against the
+        filter as it stands — so a request setting only `start_time` is refused
+        when there is no `end_time` to go with it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "200":
+          description: The filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [menu]
+      operationId: deleteAvailability
+      summary: Remove a filter. Administrator only.
+      description: |
+        Administrator only, like every other delete of menu structure: a filter
+        is shared by everything it is attached to, and those attachments go
+        with it.
+      responses:
+        "204":
+          description: Gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/categories/{cid}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The category's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [menu]
+      operationId: setCategoryAvailability
+      summary: Replace the filters attached to a category.
+      description: |
+        A replacement rather than an addition: an editor shows a set of ticked
+        boxes and submits the set it now has.
+
+        A filter belonging to another restaurant is refused rather than
+        silently dropped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityAttachRequest"
+      responses:
+        "200":
+          description: What is attached now.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items/{mid}/availability:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: mid
+        in: path
+        required: true
+        description: The menu item's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [menu]
+      operationId: setMenuItemAvailability
+      summary: Replace the filters attached to a menu item.
+      description: |
+        As for a category. An item's filters and its category's must **both**
+        be satisfied, so a Monday-only category holding a Wednesday-only item
+        hides that item always. See docs/03_data_model.md.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityAttachRequest"
+      responses:
+        "200":
+          description: What is attached now.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [availability]
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityFilter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /restaurants/{id}/categories:
     parameters:
       - $ref: "#/components/parameters/RestaurantId"
@@ -1696,6 +1902,97 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /orders/{id}/items/{iid}/paid:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+      - name: iid
+        in: path
+        required: true
+        description: The order item's id.
+        schema: { type: string, format: uuid }
+    put:
+      tags: [orders]
+      operationId: setOrderItemPaid
+      summary: Record a line as settled, or as not settled.
+      description: |
+        A tick against a line on a list. **Not a payment** — the application
+        handles none, and this only records that somebody said the money
+        changed hands.
+
+        Three people may set it: the person whose item it is, the person who
+        opened the order, and whoever is collecting the money. Those are the
+        three who plausibly know. Anybody else gets 3002.
+
+        Unlike everything else about an item, this is **not** frozen by the
+        deadline. The order closes before the food is ordered and the money
+        changes hands when it arrives, so the moment somebody wants to tick
+        this box is always after the deadline.
+
+        A paid line is left out of that person's `total_cents` on the summary
+        and counted in `paid_cents` instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paid]
+              properties:
+                paid: { type: boolean }
+      responses:
+        "200":
+          description: The item, with its new state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}/pickup-person:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      tags: [orders]
+      operationId: claimOrderPickup
+      summary: Take on fetching the food.
+      description: |
+        Puts the calling account down as the person fetching the food, if
+        nobody is doing it yet.
+
+        Deliberately not part of `PATCH /orders/{id}`, which belongs to the
+        creator: the point of this route is that anybody signed in may
+        volunteer without going through whoever opened the order.
+
+        It only fills a vacancy. Taking the job off somebody who already has it
+        is 4007, and is something the creator does from the editor. An order
+        past its deadline is 4001.
+
+        The body is ignored; there is nothing to say beyond who is calling.
+      responses:
+        "200":
+          description: The order, with the caller now fetching the food.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Somebody is already fetching (4007), or the order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /orders/{id}/summary:
     parameters:
       - $ref: "#/components/parameters/OrderId"
@@ -2089,15 +2386,81 @@ components:
           type: string
           description: RFC 3339, in the future. Empty means the token never expires.
 
+    AvailabilityFilter:
+      type: object
+      required: [id, restaurant_id, name, weekdays, sort_order]
+      description: |
+        A named rule about when food can be had. Its own parts are ANDed: a
+        filter naming weekdays and a time means those days and only during
+        those hours. A part left null has no opinion.
+
+        Several filters on one element are alternatives; a category's and an
+        item's must both hold. See docs/03_data_model.md.
+      properties:
+        id: { type: string, format: uuid }
+        restaurant_id: { type: string, format: uuid }
+        name:
+          type: string
+          examples: ["Fri-Sun after 5"]
+        on_date:
+          type: [string, "null"]
+          format: date
+          description: One calendar date. Several dates are several filters.
+        weekdays:
+          type: array
+          description: ISO days, 1 = Monday. Empty means every day.
+          items: { type: integer, minimum: 1, maximum: 7 }
+        start_time:
+          type: [string, "null"]
+          examples: ["17:00"]
+          description: With end_time, or neither. HH:MM on a 24-hour clock.
+        end_time:
+          type: [string, "null"]
+          examples: ["22:00"]
+          description: Earlier than start_time crosses midnight.
+        sort_order: { type: integer }
+
+    AvailabilityRequest:
+      type: object
+      description: |
+        Only the fields present are changed. Sending `null` for `on_date`,
+        `start_time` or `end_time` clears it.
+      properties:
+        name: { type: string }
+        on_date: { type: [string, "null"], format: date }
+        weekdays:
+          type: array
+          items: { type: integer, minimum: 1, maximum: 7 }
+        start_time: { type: [string, "null"] }
+        end_time: { type: [string, "null"] }
+        sort_order: { type: integer }
+
+    AvailabilityAttachRequest:
+      type: object
+      required: [filter_ids]
+      description: The set of filters this element should have. Replaces what it had.
+      properties:
+        filter_ids:
+          type: array
+          items: { type: string, format: uuid }
+
     Currency:
       type: object
-      required: [code, symbol, minor_unit, sort_order]
+      required: [code, symbol, minor_unit, minor_per_major, sort_order]
       properties:
         code: { type: string, examples: ["CHF"] }
         symbol: { type: string }
         minor_unit:
           type: integer
-          description: Decimal places. Money is carried as integers of this unit.
+          description: >-
+            Decimal places an amount is written with. Money is carried as
+            integers of the minor unit.
+        minor_per_major:
+          type: integer
+          description: >-
+            Minor units in one major unit: 100 for EUR, 1 for JPY, 5 for the
+            Malagasy ariary and the Mauritanian ouguiya. Not always
+            10^minor_unit, which is the whole reason it is sent.
         sort_order: { type: integer }
 
     ContactType:
@@ -2385,8 +2748,6 @@ components:
           type: string
           enum: [active, expired]
           description: Derived from the deadline. There is no manual transition.
-        money_collector: { type: string }
-        pickup_person: { type: string }
         currency_code: { type: string }
         min_order_value_cents: { type: [integer, "null"], format: int64 }
         delivery_fee_cents: { type: [integer, "null"], format: int64 }
@@ -2402,11 +2763,20 @@ components:
         - type: object
           required: [creator_id, creator_name]
           description: >-
-            What a logged-in caller gets in the list: the header plus who
-            opened it.
+            What a logged-in caller gets in the list: the header plus the
+            people. Named people are not in the header, because the header is
+            what an anonymous caller receives (ADR-0011).
           properties:
             creator_id: { type: string, format: uuid }
             creator_name: { type: string }
+            money_collector_id: { type: [string, "null"], format: uuid }
+            money_collector_name:
+              type: string
+              description: Empty when nobody is collecting the money.
+            pickup_person_id: { type: [string, "null"], format: uuid }
+            pickup_person_name:
+              type: string
+              description: Empty when nobody is fetching the food.
 
     OrderDetail:
       allOf:
@@ -2438,10 +2808,17 @@ components:
         - note
         - modifications
         - line_total_cents
+        - paid
       properties:
         id: { type: string, format: uuid }
         user_id: { type: string, format: uuid }
         user_name: { type: string }
+        paid:
+          type: boolean
+          description: >-
+            Somebody recorded this line as settled. Not a payment: the
+            application handles none. Set through PUT .../paid, which three
+            people may call and which the deadline does not freeze.
         menu_item_id: { type: string, format: uuid }
         quantity: { type: integer, minimum: 1 }
         item_name:
@@ -2481,8 +2858,16 @@ components:
         fulfilment: { type: string, enum: [pickup, delivery] }
         fulfilment_at: { type: string, format: date-time }
         deadline_at: { type: string, format: date-time }
-        money_collector: { type: string }
-        pickup_person: { type: string }
+        money_collector_id:
+          type: string
+          format: uuid
+          description: >-
+            The account collecting the money. The empty string is nobody, which
+            is what a form offering "nobody" as its first option submits.
+        pickup_person_id:
+          type: string
+          format: uuid
+          description: The account fetching the food, or the empty string for nobody.
 
     PatchOrderRequest:
       type: object
@@ -2492,8 +2877,14 @@ components:
         fulfilment: { type: string, enum: [pickup, delivery] }
         fulfilment_at: { type: string, format: date-time }
         deadline_at: { type: string, format: date-time }
-        money_collector: { type: string }
-        pickup_person: { type: string }
+        money_collector_id:
+          type: string
+          format: uuid
+          description: The empty string clears it; an absent field leaves it alone.
+        pickup_person_id:
+          type: string
+          format: uuid
+          description: The empty string clears it; an absent field leaves it alone.
 
     CreateOrderItemRequest:
       type: object
@@ -2575,7 +2966,7 @@ components:
 
     SummaryPerson:
       type: object
-      required: [user_id, display_name, items, total_cents]
+      required: [user_id, display_name, items, total_cents, paid_cents]
       properties:
         user_id: { type: string, format: uuid }
         display_name:
@@ -2585,4 +2976,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderItem"
-        total_cents: { type: integer, format: int64 }
+        total_cents:
+          type: integer
+          format: int64
+          description: >-
+            What this person still owes: every line of theirs not ticked as
+            settled. A line marked paid is counted in paid_cents instead.
+        paid_cents: { type: integer, format: int64 }

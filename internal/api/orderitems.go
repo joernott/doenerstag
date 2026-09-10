@@ -260,6 +260,8 @@ func itemWriteError(err error) *Error {
 		return &Error{Code: CodeItemWrongRestaurant, Field: "menu_item_id"}
 	case errors.Is(err, db.ErrItemUnavailable):
 		return &Error{Code: CodeItemUnavailable, Field: "menu_item_id"}
+	case errors.Is(err, db.ErrItemNotServedThen):
+		return &Error{Code: CodeItemNotServedThen, Field: "menu_item_id"}
 	case errors.Is(err, db.ErrModificationWrongItem):
 		return &Error{Code: CodeModificationWrongItem, Field: "modification_ids"}
 	case errors.Is(err, db.ErrNotFound):
@@ -281,4 +283,76 @@ func validateQuantity(quantity int) *Error {
 		}
 	}
 	return nil
+}
+
+// setItemPaid records that a line has been settled, or that it has not.
+//
+// A route of its own, for two reasons that both come from the same place: the
+// tick is not a property of the food, it is a property of the debt.
+//
+//  1. **Three people may set it.** The person whose item it is, the person who
+//     opened the order, and whoever is collecting the money -- because those
+//     are the three people who plausibly know. That is a wider rule than
+//     "owner", and threading it through patchItem as an exception for one field
+//     would put it somewhere nobody would find it.
+//
+//  2. **The deadline does not apply.** Everything else about an item freezes
+//     when the order closes (F6.6), and it has to: the order has been placed
+//     and the prices are agreed. But the money changes hands when the food
+//     arrives, which is always after the deadline. A tick that could only be
+//     made while the order was open could never be made at all.
+func (h *OrderHandlers) setItemPaid(w http.ResponseWriter, r *http.Request) {
+	order, item, lookupErr := h.lookupItem(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
+	principal, authErr := RequireAuthenticated(r)
+	if authErr != nil {
+		WriteError(w, r, authErr)
+		return
+	}
+
+	me := principal.User.ID
+	mayTick := principal.User.IsAdmin ||
+		item.UserID == me ||
+		order.CreatorID == me ||
+		(order.MoneyCollectorID != nil && *order.MoneyCollectorID == me)
+	if !mayTick {
+		WriteError(w, r, &Error{Code: CodeNotItemOwner})
+		return
+	}
+
+	var body struct {
+		Paid *bool `json:"paid"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.Paid == nil {
+		WriteError(w, r, &Error{Code: CodeMissingField, Field: "paid"})
+		return
+	}
+
+	if err := db.SetOrderItemPaid(r.Context(), h.Pool, item.ID, me, *body.Paid); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			WriteError(w, r, &Error{Code: CodeNotFound})
+			return
+		}
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
+
+	updated, err := db.OrderItemByID(r.Context(), h.Pool, item.ID)
+	if err != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
+
+	// The same event an edit publishes: a second browser watching the summary
+	// should see the tick appear.
+	h.publishItemChange(order.ID, sse.EventItemUpdated, publicOrderItem(updated))
+
+	_ = WriteJSON(w, http.StatusOK, publicOrderItem(updated))
 }

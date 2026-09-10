@@ -27,18 +27,26 @@ export interface OrderHeader {
   fulfilment_at: string;
   deadline_at: string;
   status: string;
-  money_collector: string;
-  pickup_person: string;
   currency_code: string;
   min_order_value_cents: number | null;
   delivery_fee_cents: number | null;
   item_count: number;
 }
 
-/** The list entry a logged-in caller receives: the header plus who opened it. */
+/**
+ * The list entry a logged-in caller receives: the header plus the people.
+ *
+ * Who opened the order, who collects the money and who fetches the food are all
+ * here rather than on OrderHeader, because OrderHeader is what an anonymous
+ * caller is served and it names nobody (ADR-0011).
+ */
 export interface OrderListEntry extends OrderHeader {
   creator_id?: string;
   creator_name?: string;
+  money_collector_id?: string | null;
+  money_collector_name?: string;
+  pickup_person_id?: string | null;
+  pickup_person_name?: string;
 }
 
 /** One order item, which only an authenticated caller ever sees. */
@@ -59,6 +67,10 @@ export interface OrderItem {
 export interface OrderDetail extends OrderHeader {
   creator_id: string;
   creator_name: string;
+  money_collector_id: string | null;
+  money_collector_name: string;
+  pickup_person_id: string | null;
+  pickup_person_name: string;
   items: OrderItem[];
   item_total_cents: number;
   grand_total_cents: number;

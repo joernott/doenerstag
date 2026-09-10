@@ -35,6 +35,7 @@
   --accent-text: #1a1206;
   --danger: #ff6b6f;
   --danger-text: #1a0405;
+  --ok: #4cc98a;
   --focus: #7cc4ff;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.45);
 }
@@ -53,6 +54,7 @@
   --accent-text: #ffffff;
   --danger: #b3261e;
   --danger-text: #ffffff;
+  --ok: #116b33;
   --focus: #0b5cad;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.12);
 }
@@ -1090,7 +1092,47 @@ a {
   display: none;
 }
 
+/* The "nobody yet" note and the button that fixes it, on one line. */
+.order-person {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Several addresses stack rather than run together on one line. */
+.summary-addresses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 /* --- password rules ------------------------------------------------------ */
+
+/* The input and its counter share a line, the counter keeping its natural
+   width so the field does not jump as the number of digits changes. */
+.password-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.password-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-count {
+  flex: none;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.password-count-met {
+  color: var(--ok);
+  font-weight: 600;
+}
 
 .rules {
   margin: 0.35rem 0 0;
@@ -1113,6 +1155,12 @@ a {
 .rule-mark {
   width: 1rem;
   text-align: center;
+}
+
+/* The tick is the signal that a rule is satisfied, so it carries the colour;
+   the text beside it only stops being muted. */
+.rule-met .rule-mark {
+  color: var(--ok);
 }
 
 /* --- images -------------------------------------------------------------- */
@@ -1281,6 +1329,26 @@ a {
 
 .menu-price {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The price and the "add" button, as one column at the end of a menu row.
+   `flex: none` is the point of it: the chips beside it can take width from the
+   description but not from here, so the button keeps its natural width and its
+   label stays on one line whatever the dish is marked with. */
+.menu-item-side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.menu-item-side .menu-price {
+  font-weight: 700;
+}
+
+.menu-item-side .button {
   white-space: nowrap;
 }
 
@@ -1704,4 +1772,60 @@ a {
 .filter-group[open] > summary {
   border-block-end: 1px solid var(--border);
   margin-block-end: 0.35rem;
+}
+
+/* The tick beside a price on the summary: whether that line has been settled.
+   Fixed width so the column of prices stays a column. */
+.paid-box {
+  flex: none;
+  display: flex;
+  align-items: center;
+  margin-inline-start: 0.6rem;
+}
+
+/* What somebody has already handed over, beside what they still owe. */
+.person-paid {
+  margin-inline-start: 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ok);
+}
+
+/* --- availability -------------------------------------------------------- */
+
+/* One rule per line: what it is called, and what it actually says. */
+.availability-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-block: 0.5rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.availability-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+/* The seven days, as a row that wraps rather than a column seven tall. */
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+/* A dish that is not always available says so on the menu, beside its tags. */
+.availability-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.availability-chip .icon {
+  width: 0.9rem;
+  height: 0.9rem;
 }

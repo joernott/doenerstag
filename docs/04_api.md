@@ -131,6 +131,8 @@ falls back to `message` when no translation exists.
 | 4004 | 409  | Menu item is marked unavailable.                                |
 | 4005 | 409  | Name already exists within this restaurant.                     |
 | 4006 | 405  | The HTTP method is not allowed on this path.                    |
+| 4007 | 409  | Somebody is already doing this job.                             |
+| 4008 | 409  | The kitchen does not make this at the order's time.             |
 | 5000 | 429  | Too many login attempts.                                        |
 | 9000 | 500  | Unexpected server error.                                        |
 | 9001 | 503  | Database unavailable.                                           |
@@ -420,7 +422,7 @@ loud rather than storing silently.
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "commit": "7c81636",
   "build_date": "2026-09-06T09:12:44Z",
   "swagger": true,

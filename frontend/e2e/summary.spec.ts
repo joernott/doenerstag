@@ -34,7 +34,7 @@ test.describe("the summary", () => {
     await expect(page.getByRole("heading", { name: "Totals" })).toBeVisible();
     await expect(page.getByRole("link", { name: "+41 44 123 45 67" })).toHaveAttribute(
       "href",
-      "tel:+41 44 123 45 67",
+      "tel:+41441234567",
     );
 
     // One of the dish, at 9.50, in the restaurant's currency.

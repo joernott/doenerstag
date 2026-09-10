@@ -176,6 +176,21 @@ func contentRows() []contentCase {
 			},
 		},
 		{
+			// Deliberately open to anybody signed in, which is the whole point
+			// of the row: the person willing to walk to the restaurant should
+			// not have to find the creator first.
+			row:    "Take on fetching the food, when nobody has",
+			method: http.MethodPost,
+			path:   func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/pickup-person" },
+			body:   func(*contentMatrix) any { return map[string]any{} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
 			row:    "Change an order's restaurant (no items yet)",
 			method: http.MethodPatch,
 			path:   func(c *contentMatrix) string { return "/orders/" + c.emptyOrder },

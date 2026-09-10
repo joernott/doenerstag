@@ -210,22 +210,33 @@ func TestTheOrderEventSplitsOnTheCreatorToo(t *testing.T) {
 	loggedIn := o.openStream(o.order.ID, watcher)
 	waitForSubscribers(t, o, 2)
 
-	if rec := o.patch("/orders/"+o.order.ID,
-		map[string]any{"pickup_person": "Anna"}, o.cookies...); rec.Code != http.StatusOK {
+	// One change an anonymous reader may see and one they may not, in the same
+	// request: the fulfilment is a fact about the order, and the person fetching
+	// the food is a named person.
+	if rec := o.patch("/orders/"+o.order.ID, map[string]any{
+		"fulfilment":       "delivery",
+		"pickup_person_id": o.userID("cook"),
+	}, o.cookies...); rec.Code != http.StatusOK {
 		t.Fatalf("patching the order: %s", rec.Body.String())
 	}
 
 	_, anonymousData := anonymous.waitFor("order.updated")
 	if strings.Contains(anonymousData, "creator_name") || strings.Contains(anonymousData, "cook") {
-		t.Errorf("the anonymous order event names the creator: %s", anonymousData)
+		t.Errorf("the anonymous order event names somebody: %s", anonymousData)
 	}
-	if !strings.Contains(anonymousData, "Anna") {
+	if strings.Contains(anonymousData, "pickup_person") {
+		t.Errorf("the anonymous order event carries the pickup person: %s", anonymousData)
+	}
+	if !strings.Contains(anonymousData, "delivery") {
 		t.Errorf("the anonymous order event is missing the change: %s", anonymousData)
 	}
 
 	_, loggedInData := loggedIn.waitFor("order.updated")
 	if !strings.Contains(loggedInData, "creator_name") {
 		t.Errorf("the logged-in order event omits the creator: %s", loggedInData)
+	}
+	if !strings.Contains(loggedInData, "pickup_person_name") {
+		t.Errorf("the logged-in order event omits the pickup person: %s", loggedInData)
 	}
 }
 

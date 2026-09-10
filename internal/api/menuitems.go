@@ -37,6 +37,10 @@ func (h *MenuHandlers) listItems(w http.ResponseWriter, r *http.Request) {
 	for i := range items {
 		bodies = append(bodies, publicMenuItem(items[i]))
 	}
+	if err := h.decorateItems(r, restaurantID, bodies, items); err != nil {
+		WriteError(w, r, err)
+		return
+	}
 	_ = WriteJSON(w, http.StatusOK, map[string]any{"menu_items": bodies})
 }
 

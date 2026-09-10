@@ -48,7 +48,13 @@ export function stubServer(routes: Record<string, unknown>): {
     const path = input.replace("/api/v1", "");
     calls.push({ method, path, body: decodeBody(init?.body) });
 
-    const entry = routes[`${method} ${path}`];
+    // A stub keyed on the bare path answers a request that carries a query
+    // string, the way a real router matches the path and leaves the query to
+    // the handler. A stub that names the query wins, for the tests that care
+    // what was asked -- the order page asks for its menu "?at=" the fulfilment
+    // time, and most tests have no opinion about that.
+    const entry =
+      routes[`${method} ${path}`] ?? routes[`${method} ${path.split("?")[0] ?? path}`];
     if (entry === undefined) {
       return Promise.resolve(response(404, { error: { code: 4000, message: "not stubbed" } }));
     }

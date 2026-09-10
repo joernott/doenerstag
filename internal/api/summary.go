@@ -53,7 +53,13 @@ type personLine struct {
 	UserID      string          `json:"user_id"`
 	DisplayName string          `json:"display_name"`
 	Items       []orderItemBody `json:"items"`
-	TotalCents  int64           `json:"total_cents"`
+
+	// TotalCents is what this person still owes: every line they ordered that
+	// has not been ticked as settled. PaidCents is the rest, so that a page can
+	// say "nothing outstanding" rather than showing a zero that might mean the
+	// person ordered nothing.
+	TotalCents int64 `json:"total_cents"`
+	PaidCents  int64 `json:"paid_cents"`
 }
 
 // summary serves the aggregated order.
@@ -284,6 +290,10 @@ func perPerson(items []model.OrderItem) []personLine {
 		}
 
 		line.Items = append(line.Items, publicOrderItem(item))
+		if item.Paid {
+			line.PaidCents += item.LineTotalCents()
+			continue
+		}
 		line.TotalCents += item.LineTotalCents()
 	}
 

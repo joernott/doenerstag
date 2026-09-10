@@ -71,9 +71,24 @@ func adminUser(u model.User) adminUserBody {
 	return body
 }
 
-// list returns every account. Administrator only.
+// list returns every account, in the shape the caller is entitled to.
+//
+// Two tiers, the same way GET /orders/{id} has two: an administrator gets the
+// administrative shape, with e-mail addresses and login times, and anybody else
+// who is signed in gets the public profile -- id, name, display name -- which is
+// what GET /users/{id} already serves to anyone at all.
+//
+// The second tier exists because an order names two people besides its creator,
+// and picking somebody from a list is the only way to name an account rather
+// than type a name at it. What it adds over the per-user endpoint is
+// enumeration: a signed-in caller can learn who has an account here rather than
+// only ask about one they can already name. That is a real difference and the
+// reason this needs a session at all, and it is a much smaller one than
+// handing out the addresses and last-seen times the administrative shape
+// carries.
 func (h *UserHandlers) list(w http.ResponseWriter, r *http.Request) {
-	if _, err := RequireAdmin(r); err != nil {
+	principal, err := RequireAuthenticated(r)
+	if err != nil {
 		WriteError(w, r, err)
 		return
 	}
@@ -81,6 +96,15 @@ func (h *UserHandlers) list(w http.ResponseWriter, r *http.Request) {
 	users, dbErr := db.ListUsers(r.Context(), h.Pool)
 	if dbErr != nil {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		return
+	}
+
+	if !principal.User.IsAdmin {
+		bodies := make([]userBody, 0, len(users))
+		for i := range users {
+			bodies = append(bodies, publicUser(users[i]))
+		}
+		_ = WriteJSON(w, http.StatusOK, map[string]any{"users": bodies})
 		return
 	}
 

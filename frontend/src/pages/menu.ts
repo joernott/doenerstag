@@ -17,14 +17,23 @@ import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
 import { confirmDialog, openModal } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
-import { minorUnitOf, type ReferenceData } from "../reference";
+import { moneyFormatOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
+import { availabilityChip, openAttachmentEditor } from "./availability";
 import { actions, card, statusLine } from "./page";
 
 /** The marks an item carries: its tags, allergens and additives, as chips. */
 export function itemChips(app: App, item: MenuItem): HTMLElement[] {
   const { t } = app;
+
+  // A dish with a rule says so, and says which rule, so that somebody reading
+  // the menu can tell "we are out of it today" from "we make it at weekends".
+  // Only on the restaurant page: the order page has already left out what its
+  // order cannot have.
+  const when = availabilityChip(app, item.availability ?? []);
+
   return [
+    ...(when === null ? [] : [when]),
     ...item.tags.map((tag) => chip(tagName(t, tag), "chip-tag")),
     ...item.allergens.map((allergen) =>
       chip(referenceName(t, "allergen", allergen.code), "chip-allergen"),
@@ -54,7 +63,7 @@ export function menuSection(
   const { t } = app;
   const status = statusLine();
   const body = el("div", { class: "menu-editor" });
-  const minorUnit = minorUnitOf(reference.currencies, restaurant.currency_code);
+  const moneyFormat = moneyFormatOf(reference.currencies, restaurant.currency_code);
 
   let categories: Category[] = [];
   let items: MenuItem[] = [];
@@ -82,7 +91,7 @@ export function menuSection(
       reference,
       restaurantID: restaurant.id,
       categories,
-      minorUnit,
+      money: moneyFormat,
       item,
       categoryID,
       onSaved: reload,
@@ -205,6 +214,25 @@ export function menuSection(
         },
       }),
       button({
+        label: t.t("availability.title"),
+        variant: "quiet",
+        // Named for the category, like the Edit beside it and for the same
+        // reason: every category has one of these.
+        title: `${t.t("availability.attached")}: ${category.name}`,
+        ariaLabel: `${t.t("availability.attached")}: ${category.name}`,
+        onclick: () => {
+          openAttachmentEditor({
+            app,
+            restaurantID: restaurant.id,
+            kind: "categories",
+            elementID: category.id,
+            title: category.name,
+            attached: category.availability ?? [],
+            onSaved: reload,
+          });
+        },
+      }),
+      button({
         label: t.t("menu.category.move_up"),
         variant: "quiet",
         disabled: index === 0,
@@ -267,10 +295,25 @@ export function menuSection(
       el("h3", { class: "menu-group-title", text: category.name }),
     );
 
+    // The rule beside the name it belongs to.
+    //
+    // A category's rule binds every dish inside it, and the dishes themselves
+    // carry nothing to show for it -- so without this, a menu where the whole
+    // Nudeln section is a weekend thing looks exactly like one where it is not.
+    // It goes on the category rather than being copied onto each item because
+    // that is where somebody would go to change it.
+    const when = availabilityChip(app, category.availability ?? []);
+
     return el(
       "div",
       { class: "menu-group" },
-      el("div", { class: "menu-group-header" }, toggle, controls),
+      el(
+        "div",
+        { class: "menu-group-header" },
+        toggle,
+        ...(when === null ? [] : [when]),
+        controls,
+      ),
       items,
     );
   }
@@ -316,7 +359,7 @@ export function menuSection(
       ),
       el("span", {
         class: "menu-price",
-        text: formatMoney(app.language, item.price_cents, restaurant.currency_code, minorUnit),
+        text: formatMoney(app.language, item.price_cents, restaurant.currency_code, moneyFormat),
       }),
       actions(
         button({

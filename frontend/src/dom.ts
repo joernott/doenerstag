@@ -125,6 +125,8 @@ const iconPaths: Record<string, string[]> = {
   mail: ["M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z", "M3 6l9 7 9-7"],
   globe: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M3 12h18", "M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"],
   "map-pin": ["M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"],
+  // Availability: when a dish is served, which is a question about the clock.
+  clock: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 7v5l3 2"],
   trash: [
     "M3 6h18",
     "M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",

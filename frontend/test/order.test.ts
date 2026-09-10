@@ -26,6 +26,24 @@ const restaurant = {
       label: "",
       sort_order: 10,
     },
+    {
+      id: "c2",
+      contact_type_id: "ct-address",
+      contact_type_code: "address",
+      render_as: "address",
+      value: "Bahnhofstrasse 1, 8001 Zürich",
+      label: "",
+      sort_order: 20,
+    },
+    {
+      id: "c3",
+      contact_type_id: "ct-other",
+      contact_type_code: "other",
+      render_as: "text",
+      value: "ring twice",
+      label: "Doorbell",
+      sort_order: 30,
+    },
   ],
   opening_hours: [{ id: "h1", day_of_week: 1, start: "11:00", end: "14:00", crosses_midnight: false }],
 };
@@ -64,8 +82,6 @@ function header(overrides: Record<string, unknown> = {}): Record<string, unknown
     fulfilment_at: soon(3),
     deadline_at: soon(2),
     status: "active",
-    money_collector: "Jo",
-    pickup_person: "",
     currency_code: "CHF",
     min_order_value_cents: 2000,
     delivery_fee_cents: 350,
@@ -96,6 +112,10 @@ function detail(overrides: Record<string, unknown> = {}): Record<string, unknown
     ...header(),
     creator_id: "u1",
     creator_name: "Jo",
+    money_collector_id: "u1",
+    money_collector_name: "Jo",
+    pickup_person_id: null,
+    pickup_person_name: "",
     items: [orderItem],
     item_total_cents: 2100,
     grand_total_cents: 2450,
@@ -364,6 +384,161 @@ describe("creating an order", () => {
 });
 
 describe("the order page", () => {
+  // Reported from a real order: the address in the restaurant line read
+  // "Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich". An
+  // unlabelled contact was printed as "label: value" with the value standing in
+  // for the missing label.
+  it("prints an unlabelled contact once, and a labelled one as label and value", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const line = rendered.querySelector(".restaurant-line");
+    const contacts = [...(line?.querySelectorAll(".contact") ?? [])];
+    const texts = contacts.map((node) => node.textContent);
+
+    expect(texts).toContain("Bahnhofstrasse 1, 8001 Zürich");
+    expect(texts).not.toContain("Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich");
+    // A label is worth showing beside the value when there is one, because
+    // "ring twice" alone says nothing about what to ring.
+    expect(texts).toContain("Doorbell: ring twice");
+
+    // The address leads to a map, which is the rule contacts.ts states and the
+    // order page used to be missing: it had no address case at all.
+    const address = contacts.find((node) => node.textContent?.startsWith("Bahnhofstrasse"));
+    expect(address?.getAttribute("href")).toContain("google.com/maps");
+  });
+
+  /*
+   * A dish the kitchen does not make at this order's time is not on this menu.
+   *
+   * Not greyed out and not behind a filter box: there is nothing to decide
+   * about it. The order is for Tuesday and the pasta is a weekend dish. The
+   * restaurant page still lists it, because that is the menu.
+   */
+  it("leaves out what is not served at the order's time", async () => {
+    const pasta = {
+      ...menuItem,
+      id: "m2",
+      name: "Spaghetti",
+      available_at: false,
+    };
+    const doener = { ...menuItem, available_at: true };
+
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "GET /restaurants/r1/menu-items": { menu_items: [doener, pasta] },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.textContent).toContain("Döner Kebap");
+    expect(rendered.textContent).not.toContain("Spaghetti");
+
+    // And it asked about the order's fulfilment time rather than about now.
+    const asked = stubs.calls.find((call) => call.path.startsWith("/restaurants/r1/menu-items"));
+    expect(asked?.path).toContain("at=");
+  });
+
+  // The button used to sit beside the price in the row, where the chips could
+  // take width from it: a dish with five allergens squeezed it until its label
+  // wrapped, and the column of buttons came out three different heights. jsdom
+  // has no layout, so what is asserted here is the structure that fixed it --
+  // the measurement itself was done in a browser.
+  it("puts the price above the add button in a column of their own", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const side = rendered.querySelector(".menu-item .menu-item-side");
+    expect(side).not.toBeNull();
+
+    const children = [...(side?.children ?? [])];
+    expect(children[0]?.classList.contains("menu-price")).toBe(true);
+    expect(children[1]?.tagName).toBe("BUTTON");
+
+    // And nothing is left in the row itself to compete with the description.
+    expect(rendered.querySelector(".menu-item > .menu-price")).toBeNull();
+    expect(rendered.querySelector(".menu-item > button")).toBeNull();
+  });
+
+  // 17.7: both jobs are accounts now, so the row shows the joined name.
+  it("names the people the order has, and says so when nobody does", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const definitions = rendered.querySelector(".definitions")?.textContent ?? "";
+    expect(definitions).toContain(app.t.t("order.money_collector"));
+    expect(definitions).toContain(app.t.t("order.pickup_person"));
+    // Nobody is fetching the food in the fixture, and the row says so rather
+    // than disappearing.
+    expect(definitions).toContain(app.t.t("order.nobody"));
+  });
+
+  // 17.8: the volunteering button, which is deliberately not the creator's.
+  it("offers 'Me!' for fetching the food, and takes the job when pressed", async () => {
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "POST /orders/o1/pickup-person": detail({
+        pickup_person_id: "u9",
+        pickup_person_name: "Robin",
+      }),
+      "GET /orders/o1": detail(),
+    });
+
+    const app = mountApp(() => []);
+    // Somebody who did not open this order: the point of the button.
+    app.session.set({ id: "u9", name: "robin", display_name: "Robin", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const volunteer = rendered.querySelector<HTMLButtonElement>(".order-person button");
+    expect(volunteer?.textContent).toBe(app.t.t("order.volunteer"));
+
+    volunteer?.click();
+    await settle();
+
+    expect(stubs.calls.some((call) => call.path === "/orders/o1/pickup-person")).toBe(true);
+  });
+
+  it("offers nobody the button once somebody is fetching", async () => {
+    stubServer(
+      orderStubs(detail({ pickup_person_id: "u2", pickup_person_name: "Alex" })),
+    );
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.querySelector(".order-person button")).toBeNull();
+    expect(rendered.querySelector(".definitions")?.textContent).toContain("Alex");
+  });
+
+  it("offers an anonymous visitor nothing to volunteer for", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(rendered.querySelector(".order-person button")).toBeNull();
+    // The rows are not there at all: an anonymous caller is told about no
+    // person, the creator included (ADR-0011).
+    expect(rendered.textContent).not.toContain(app.t.t("order.pickup_person"));
+  });
   it("shows an anonymous visitor the count and a way in, and no items", async () => {
     stubServer(orderStubs(header()));
 

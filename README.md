@@ -13,26 +13,33 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.2.0.** Everything the specification describes is built: accounts and
+**0.3.0.** Everything the specification describes is built: accounts and
 sessions, restaurants with menus and opening hours, orders with a deadline and a
 pickup or delivery time, per-person items, a summary page for whoever is calling
 the restaurant, live updates over SSE, German and English, and an administration
 surface.
 
-New since 0.1.0, most of it from using the thing and finding out:
+New since 0.2.0, nearly all of it from placing a real order at a real restaurant
+and finding out:
 
-- **Forgotten passwords.** A reset link by mail, and the SMTP settings to send
-  it with. An administrator can send the same link from the Users page or from
-  the command line.
-- **Command line administration.** `doenerstag user`, `doenerstag order` and
-  `doenerstag restaurant`, the last of which exports a restaurant with its menu
-  as YAML or JSON and imports it somewhere else — a menu is an hour of typing
-  and should only be typed once. Every verb and flag is in
-  [docs/15_cli_reference.md](docs/15_cli_reference.md).
-- **A session the server has forgotten** no longer makes the application
-  unreachable. It used to answer every request, the page included, with a JSON
-  error until somebody cleared their cookies by hand.
-- **Logging in returns you where you were** rather than to your account page.
+- **When a dish is served**, as data rather than as a sentence in its
+  description. A named rule — "Fri-Sun after 5", "Mittagsmenü" — attached to a
+  category or to single dishes, tested against the order's pickup time. The
+  restaurant page shows the whole menu; the order page shows what the kitchen
+  will actually make on the day, and the API refuses the rest.
+- **Who fetches the food and who collects the money** are accounts rather than
+  typed names, so a "Me!" button can put you there without going through
+  whoever opened the order.
+- **A line can be ticked as settled** by the person who ordered it, the person
+  who opened the order or the person holding the money, and what is settled
+  leaves what that person owes. It is not a payment: the application still
+  handles none.
+- **Currencies that do not divide by ten.** The Malagasy ariary is five
+  iraimbilanja, not ten, and ten of them are two ariary rather than one.
+- **A second compose stack** with Traefik in front and Let's Encrypt
+  certificates, plus `update` and `import` as jobs of their own.
+- Smaller things a real order found: an address printed twice, a button that
+  changed width with every dish, a password field that repeated itself.
 
 Still a 0.x release, and marked as a pre-release for the reason it was at
 0.1.0: it works, and not many people have used it yet.
@@ -43,13 +50,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.2.0-1_amd64.deb
+apt install ./doenerstag_0.3.0-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.2.0-1.x86_64.rpm
+dnf install ./doenerstag-0.3.0-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.2.0
+docker pull docker.io/joernott/doenerstag:0.3.0
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```

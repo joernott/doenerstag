@@ -33,6 +33,9 @@ var expectedTables = []string{
 	"menu_item_additive",
 	"menu_item_allergen",
 	"menu_item_modification",
+	"menu_category_availability",
+	"menu_item_availability",
+	"availability_filter",
 	"menu_item_tag",
 	"opening_hours",
 	"order_item",
@@ -300,8 +303,8 @@ func TestSeededCurrencies(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM currency").Scan(&count); err != nil {
 		t.Fatalf("counting currencies: %v", err)
 	}
-	if count != 10 {
-		t.Errorf("currency has %d rows, want 10", count)
+	if count != 12 {
+		t.Errorf("currency has %d rows, want 12", count)
 	}
 
 	// EUR is the default offered when creating a restaurant, and the minor unit
@@ -395,4 +398,61 @@ func execErr(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) error {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), sql, args...)
 	return err
+}
+
+// The two currencies that do not divide by ten.
+//
+// The Malagasy ariary is five iraimbilanja and the Mauritanian ouguiya is five
+// khoums, and they are the reason minor_per_major is a column rather than
+// 10^minor_unit worked out at the point of use. Every other seeded currency
+// must still satisfy the relation that used to be assumed, or migration 10's
+// backfill did something other than preserve what was there.
+func TestTheNonDecimalCurrencies(t *testing.T) {
+	pool := testdb.Migrated(t)
+	ctx := context.Background()
+
+	rows, err := pool.Query(ctx,
+		"SELECT code, minor_unit, minor_per_major FROM currency ORDER BY code")
+	if err != nil {
+		t.Fatalf("reading currencies: %v", err)
+	}
+	defer rows.Close()
+
+	seen := map[string]int{}
+	for rows.Next() {
+		var code string
+		var minorUnit, perMajor int
+		if err := rows.Scan(&code, &minorUnit, &perMajor); err != nil {
+			t.Fatal(err)
+		}
+		seen[code] = perMajor
+
+		if code == "MGA" || code == "MRU" {
+			if perMajor != 5 {
+				t.Errorf("%s divides into %d, want 5", code, perMajor)
+			}
+			if minorUnit != 1 {
+				t.Errorf("%s is written with %d places, want 1", code, minorUnit)
+			}
+			continue
+		}
+
+		want := 1
+		for range minorUnit {
+			want *= 10
+		}
+		if perMajor != want {
+			t.Errorf("%s divides into %d with %d places, want %d",
+				code, perMajor, minorUnit, want)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, code := range []string{"MGA", "MRU", "EUR"} {
+		if _, ok := seen[code]; !ok {
+			t.Errorf("%s is not seeded", code)
+		}
+	}
 }

@@ -88,8 +88,11 @@ func (a *appContext) setup(cmd *cobra.Command, scope config.Scope) error {
 
 	logger, err := logging.New(logOptions)
 	if err != nil {
-		reportFatal(cmd, err)
-		return errAlreadyReported
+		logger, err = logToStderrInstead(cmd, logOptions, err)
+		if err != nil {
+			reportFatal(cmd, err)
+			return errAlreadyReported
+		}
 	}
 
 	ctx, cancel := context.WithCancel(cmd.Context())
@@ -179,4 +182,52 @@ func writesDataToStdout(cmd *cobra.Command) bool {
 	// With --output the document goes to a file and standard output is free
 	// for the log again.
 	return cmd.Flags().Lookup("output") == nil || cmd.Flags().Lookup("output").Value.String() == ""
+}
+
+// logToStderrInstead salvages a run whose log file cannot be opened.
+//
+// The configuration file names one log destination, and it is the one the
+// server writes to: /var/log/doenerstag/doenerstag.log, owned by the service
+// user and readable by nobody else. Every administrative verb reads the same
+// file to find the database, so `doenerstag update` run by a person at a
+// terminal tried to open that log and exited FATAL before doing anything —
+// "permission denied" on a file the operator never meant to write. Reported by
+// a user, who had to pass -L to get anywhere.
+//
+// So for the verbs a person runs, a log destination that cannot be opened is a
+// reason to log somewhere else and say so, not a reason to refuse to work. The
+// server is the exception and stays fatal: it is a daemon started by systemd,
+// it is meant to run as the user that owns that file, and one that could not
+// write its log would run for months with nobody noticing it had never
+// recorded anything.
+//
+// Standard error rather than standard output, because the verb's own output may
+// be a document (`restaurant export`) and because a diagnostic belongs there.
+func logToStderrInstead(
+	cmd *cobra.Command,
+	opts logging.Options,
+	cause error,
+) (*logging.Logger, error) {
+	if opts.File == "" || topLevelVerb(cmd) == "server" {
+		return nil, cause
+	}
+
+	out := cmd.ErrOrStderr()
+	if out == nil {
+		out = os.Stderr
+	}
+
+	logger, err := logging.New(logging.Options{Level: opts.Level, Output: out})
+	if err != nil {
+		// The fallback failed too. Report the original problem, which is the
+		// one worth reading.
+		return nil, cause
+	}
+
+	logger.Component("config").Warn().
+		Str("log_file", opts.File).
+		Err(cause).
+		Msg("cannot write the configured log file; logging to standard error instead")
+
+	return logger, nil
 }

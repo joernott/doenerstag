@@ -1,0 +1,209 @@
+# The same stack with Traefik in front, holding a Let's Encrypt certificate.
+#
+# The difference from docker-compose.yml is where TLS ends. There, the
+# application holds the certificate and serves HTTPS on 8443. Here Traefik holds
+# it, answers 443 for the world, and speaks plain HTTP to the application on an
+# internal network that is not published at all.
+#
+# Use this one when the host has a public name and port 80 reachable from the
+# internet, which is what the ACME HTTP challenge needs. Use the other when it
+# does not -- an internal network with a self-signed or organisation-issued
+# certificate is not a worse deployment, it is a different one.
+#
+# Everything else is the same file: the same database service, the same one-shot
+# install, update, import and cleanup jobs, run the same way.
+
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      # Routing comes from labels on the containers, and only from containers
+      # that ask for it: without exposedbydefault=false, every service in this
+      # file would get a route, the database included.
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=doenerstag_edge"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Everything on :80 is redirected to :443. The ACME challenge is answered
+      # before this applies, so the redirect does not break renewal.
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # The HTTP challenge rather than TLS-ALPN or DNS: it needs port 80 open
+      # and nothing else. DNS would need an API token for the provider, which
+      # is more to get right than this file should assume.
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
+      # Uncomment while testing. Let's Encrypt rate-limits certificates per
+      # registered domain per week, and five failed attempts at the real
+      # endpoint is a week of waiting.
+      # - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Read-only, and it is still the whole daemon: anything that can read this
+      # socket can read every container's configuration. Traefik needs it to see
+      # the labels. A socket proxy is the hardening step if this host runs
+      # anything else.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The certificates and the account key. Losing it means re-issuing rather
+      # than losing the site, but re-issuing counts against the rate limit.
+      - acme:/acme
+    networks: [edge]
+    restart: unless-stopped
+
+  db:
+    image: postgres:18-alpine
+    # The superuser, and only the superuser. The doenerstag database and its
+    # runtime role are created by `doenerstag install`, which needs a role
+    # permitted to do that; presetting POSTGRES_DB and POSTGRES_USER here would
+    # hand install a database it is supposed to create.
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    # The mount is at /var/lib/postgresql, not .../data. From 18 the image
+    # stores the cluster in a version-named subdirectory of that path, and
+    # refuses to start with a volume mounted over the old location.
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+    networks: [internal]
+    restart: unless-stopped
+
+  # Run once, before the first start: `docker compose run --rm install`.
+  #
+  # The server settings are given as environment variables rather than as flags
+  # because `install` does not carry the server's flags -- it is a different
+  # verb with a different set. It does resolve every setting from the
+  # environment whatever the verb, and writes them all, so this is how the
+  # written configuration comes out saying plain HTTP behind a proxy rather than
+  # naming a certificate that will never exist.
+  #
+  # The base URL is here for the same reason: password-reset mail carries a link
+  # built from it, and the container cannot work out what name the world calls
+  # it by.
+  install:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["install", "-o", "/config/doenerstag.yaml", "-R", "postgres"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+      DOENER_NO_HTTPS: "true"
+      DOENER_BEHIND_TLS_PROXY: "true"
+      DOENER_PORT: "8080"
+      DOENER_BASE_URL: "https://${DOENERSTAG_HOST:?set DOENERSTAG_HOST in .env}"
+      # Asked for interactively when unset, which is the normal way to run it.
+      DOENER_DATABASE_ROOT_PASSWORD: ${DOENER_DATABASE_ROOT_PASSWORD:-}
+    volumes:
+      - ./config:/config
+    networks: [internal]
+    profiles: ["install"]
+
+  update:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["update", "-c", "/config/doenerstag.yaml"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+      DOENER_DATABASE_ADMIN_USER: ${DOENER_DATABASE_ADMIN_USER:-doenerstag_admin}
+      DOENER_DATABASE_ADMIN_PASSWORD: ${DOENER_DATABASE_ADMIN_PASSWORD:-}
+    volumes:
+      - ./config:/config
+    networks: [internal]
+    profiles: ["update"]
+
+  import:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: >-
+      restaurant import -c /config/doenerstag.yaml
+      -f /import/${DOENERSTAG_IMPORT_FILE:-restaurant.json}
+      ${DOENERSTAG_IMPORT_ARGS:-}
+    environment:
+      DOENER_DATABASE_SERVER: db
+    volumes:
+      - ./config:/config:ro
+      - ./import:/import:ro
+    networks: [internal]
+    profiles: ["import"]
+
+  doenerstag:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    # The flags are already in the configuration file that install wrote, and
+    # they are repeated here so that reading this file tells you how the thing
+    # is deployed. --no-https stops it looking for a certificate;
+    # --behind-tls-proxy says the browser's side of the connection is encrypted
+    # anyway, so session cookies keep the Secure flag and HSTS is still sent.
+    # Without the second, this would be a working site that had quietly stopped
+    # marking its session cookie Secure.
+    command:
+      - "server"
+      - "-c"
+      - "/config/doenerstag.yaml"
+      - "--no-https"
+      - "--behind-tls-proxy"
+      - "--port"
+      - "8080"
+    environment:
+      DOENER_DATABASE_SERVER: db
+    # No ports. The only way in is through Traefik, which is the point: a
+    # published port would be an unencrypted one, and a browser reaching it
+    # directly would be handed Secure cookies it will not send back.
+    volumes:
+      - ./config:/config:ro
+    networks: [edge, internal]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=doenerstag_edge"
+      - "traefik.http.routers.doenerstag.rule=Host(`${DOENERSTAG_HOST:?set DOENERSTAG_HOST in .env}`)"
+      - "traefik.http.routers.doenerstag.entrypoints=websecure"
+      - "traefik.http.routers.doenerstag.tls.certresolver=letsencrypt"
+      - "traefik.http.services.doenerstag.loadbalancer.server.port=8080"
+    restart: unless-stopped
+
+  # Behind a profile so it never starts with the stack. Run it from the host's
+  # cron: 17 3 * * * cd /srv/doenerstag && docker compose run --rm cleanup
+  cleanup:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["cleanup", "-c", "/config/doenerstag.yaml"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+    volumes:
+      - ./config:/config:ro
+    networks: [internal]
+    profiles: ["cleanup"]
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+
+# Two networks so that the database is on neither the internet nor the same
+# segment as the thing holding the docker socket. Only the application is on
+# both, because only the application is spoken to from outside and speaks to the
+# database.
+#
+# The name is fixed rather than left to compose's project-name prefix, because
+# the Traefik labels have to name it and a label cannot interpolate the project.
+networks:
+  edge:
+    name: doenerstag_edge
+  internal:
+    name: doenerstag_internal
+    internal: true
+
+volumes:
+  pgdata:
+  acme:

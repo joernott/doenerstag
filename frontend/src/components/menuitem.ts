@@ -9,18 +9,43 @@
 import type { App } from "../app";
 import { api, errorMessage } from "../api";
 import { el } from "../dom";
-import { moneyInputValue, parseMoney } from "../format";
+import { moneyInputValue, parseMoney, type MoneyFormat } from "../format";
 import { referenceName, tagName } from "../i18n";
 import type { Classification, ReferenceData, Tag } from "../reference";
 import { button, checkbox, field, form, input, select, textarea } from "./forms";
 import { imageField } from "./images";
 import { confirmDialog, openModal } from "./modal";
+import { filterPicker, loadFilters, saveAttachments } from "../pages/availability";
 import { statusLine } from "../pages/page";
+
+/**
+ * A named rule about when food can be had.
+ *
+ * Its own parts are ANDed: weekdays plus a time means those days and only
+ * during those hours. A part left null has no opinion. Several filters on one
+ * element are alternatives; a category's and an item's must both hold. The
+ * server decides all of that -- this type is what the page shows and edits.
+ */
+export interface AvailabilityFilter {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  /** "YYYY-MM-DD", or null for any date. */
+  on_date: string | null;
+  /** ISO days, 1 = Monday. Empty means every day. */
+  weekdays: number[];
+  /** "HH:MM", or null for any time. Both or neither. */
+  start_time: string | null;
+  end_time: string | null;
+  sort_order: number;
+}
 
 export interface Category {
   id: string;
   name: string;
   sort_order: number;
+  /** The filters attached to this category. Empty means always available. */
+  availability?: AvailabilityFilter[];
 }
 
 export interface Modification {
@@ -43,6 +68,17 @@ export interface MenuItem {
   allergens: Classification[];
   additives: Classification[];
   modifications?: Modification[];
+
+  /** The filters attached to this item. Empty means always available. */
+  availability?: AvailabilityFilter[];
+
+  /**
+   * Whether it can be had at the moment the menu was asked about: this item's
+   * filters and its category's taken together, decided by the server. Null when
+   * no moment was named, which is how the restaurant page asks -- it shows the
+   * menu, because it is the menu.
+   */
+  available_at?: boolean | null;
 }
 
 export interface MenuItemEditorOptions {
@@ -51,8 +87,8 @@ export interface MenuItemEditorOptions {
   restaurantID: string;
   /** The categories to choose from. May be empty. */
   categories: readonly Category[];
-  /** How many decimals the restaurant's currency has. */
-  minorUnit: number;
+  /** How the restaurant's currency is written and how it divides. */
+  money: MoneyFormat;
   /** The item being changed, or null to create one. */
   item: MenuItem | null;
   /** Which category a new item lands in. */
@@ -65,7 +101,7 @@ export interface MenuItemEditorOptions {
 
 /** Opens the editor. */
 export function openMenuItemEditor(options: MenuItemEditorOptions): void {
-  const { app, reference, restaurantID, categories, minorUnit, item } = options;
+  const { app, reference, restaurantID, categories, money, item } = options;
   const { t } = app;
   const status = statusLine();
 
@@ -73,7 +109,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
   const externalId = input({ value: item?.external_id ?? "" });
   const price = input({
     inputMode: "decimal",
-    value: item ? moneyInputValue(item.price_cents, minorUnit) : "",
+    value: item ? moneyInputValue(item.price_cents, money) : "",
     required: true,
   });
   const description = textarea({ value: item?.description ?? "", rows: 2 });
@@ -125,11 +161,26 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
     })),
   );
 
+  // When the kitchen makes this, which is a different question from whether it
+  // has sold out. The filters are the restaurant's, loaded when the dialog
+  // opens rather than passed in, so a rule added on the Availability tab is
+  // here without a page reload.
+  const availabilityHolder = el("div", { class: "stack" });
+  let availability: { selected: () => string[] } | null = null;
+  void loadFilters(restaurantID).then((filters) => {
+    if (filters.length === 0) {
+      return;
+    }
+    const picker = filterPicker(app, filters, (item?.availability ?? []).map((f) => f.id));
+    availability = picker;
+    availabilityHolder.replaceChildren(picker.element);
+  });
+
   const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
 
   async function store(): Promise<void> {
     status.clear();
-    const cents = parseMoney(price.value, minorUnit);
+    const cents = parseMoney(price.value, money);
     if (cents === null) {
       price.focus();
       return;
@@ -150,10 +201,22 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
 
     save.disabled = true;
     try {
-      if (item) {
-        await api.patch(`/restaurants/${restaurantID}/menu-items/${item.id}`, payload);
+      // The filters are a second request, because they are a different
+      // resource: a set of links rather than fields of the item. A new item
+      // has no id until the first request answers, which is the other reason
+      // the order is this way round.
+      let id = item?.id;
+      if (id !== undefined) {
+        await api.patch(`/restaurants/${restaurantID}/menu-items/${id}`, payload);
       } else {
-        await api.post(`/restaurants/${restaurantID}/menu-items`, payload);
+        const created = await api.post<{ id: string }>(
+          `/restaurants/${restaurantID}/menu-items`,
+          payload,
+        );
+        id = created.id;
+      }
+      if (availability !== null) {
+        await saveAttachments(restaurantID, "menu-items", id, availability.selected());
       }
       modal.close();
       await options.onSaved();
@@ -208,6 +271,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
     tags.element,
     allergens.element,
     additives.element,
+    availabilityHolder,
     item && options.withModifications !== false
       ? modificationsBlock(options, item)
       : null,
@@ -248,7 +312,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
  * machinery to express them would be larger than everything else here.
  */
 function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTMLElement {
-  const { app, restaurantID, minorUnit } = options;
+  const { app, restaurantID, money } = options;
   const { t } = app;
   const status = statusLine();
   const list = el("div", { class: "rows" });
@@ -266,7 +330,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
     const name = input({ value: modification.name });
     const delta = input({
       inputMode: "decimal",
-      value: moneyInputValue(modification.price_delta_cents, minorUnit),
+      value: moneyInputValue(modification.price_delta_cents, money),
     });
 
     const save = async (): Promise<void> => {
@@ -276,7 +340,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications/${modification.id}`,
           {
             name: name.value.trim(),
-            price_delta_cents: parseMoney(delta.value, minorUnit) ?? 0,
+            price_delta_cents: parseMoney(delta.value, money) ?? 0,
           },
         );
         status.say(t.t("state.saved"));
@@ -325,7 +389,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
 
   function newRow(): HTMLElement {
     const name = input({});
-    const delta = input({ inputMode: "decimal", value: moneyInputValue(0, minorUnit) });
+    const delta = input({ inputMode: "decimal", value: moneyInputValue(0, money) });
 
     const add = async (): Promise<void> => {
       status.clear();
@@ -338,7 +402,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications`,
           {
             name: name.value.trim(),
-            price_delta_cents: parseMoney(delta.value, minorUnit) ?? 0,
+            price_delta_cents: parseMoney(delta.value, money) ?? 0,
             sort_order: (modifications[modifications.length - 1]?.sort_order ?? 0) + 10,
           },
         );

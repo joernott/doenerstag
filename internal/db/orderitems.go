@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,15 +19,21 @@ var ErrWrongRestaurant = errors.New("db: menu item belongs to another restaurant
 // ErrItemUnavailable is returned when a menu item is marked sold out.
 var ErrItemUnavailable = errors.New("db: menu item is unavailable")
 
+// ErrItemNotServedThen is returned when a menu item exists and is not sold out,
+// but its availability filters say the kitchen does not make it at the order's
+// fulfilment time. A different problem with a different fix: come back on
+// Friday, rather than ask whether they have any left.
+var ErrItemNotServedThen = errors.New("db: menu item is not served at that time")
+
 const orderItemColumns = `i.id, i.order_id, i.user_id, coalesce(u.display_name, u.name),
 	i.menu_item_id, i.quantity, i.item_name, i.unit_price_cents,
-	coalesce(i.note, ''), i.created_at, i.updated_at`
+	coalesce(i.note, ''), i.paid, i.created_at, i.updated_at`
 
 func scanOrderItem(row pgx.Row) (model.OrderItem, error) {
 	var i model.OrderItem
 	err := row.Scan(&i.ID, &i.OrderID, &i.UserID, &i.UserName,
 		&i.MenuItemID, &i.Quantity, &i.ItemName, &i.UnitPriceCents,
-		&i.Note, &i.CreatedAt, &i.UpdatedAt)
+		&i.Note, &i.Paid, &i.CreatedAt, &i.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.OrderItem{}, ErrNotFound
@@ -72,18 +79,20 @@ func AddOrderItem(ctx context.Context, pool Pool, in NewOrderItem) (model.OrderI
 	// the order to the menu item rather than by comparing two reads, so the
 	// answer cannot change between the check and the insert.
 	var (
-		name      string
-		price     int64
-		available bool
+		name       string
+		price      int64
+		available  bool
+		categoryID *uuid.UUID
+		fulfilment time.Time
 	)
 	err = tx.QueryRow(ctx, `
-		SELECT m.name, m.price_cents, m.available
+		SELECT m.name, m.price_cents, m.available, m.category_id, o.fulfilment_at
 		FROM menu_item m
 		JOIN food_order o ON o.id = $1
 		WHERE m.id = $2
 		  AND m.deleted_at IS NULL
 		  AND m.restaurant_id = o.restaurant_id`,
-		in.OrderID, in.MenuItemID).Scan(&name, &price, &available)
+		in.OrderID, in.MenuItemID).Scan(&name, &price, &available, &categoryID, &fulfilment)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Either the menu item does not exist, or it belongs to another
@@ -95,6 +104,18 @@ func AddOrderItem(ctx context.Context, pool Pool, in NewOrderItem) (model.OrderI
 	}
 	if !available {
 		return model.OrderItem{}, ErrItemUnavailable
+	}
+
+	// And whether the kitchen makes it at the time the food is being fetched,
+	// which is a different question from whether it has sold out today. The rule
+	// lives in the model and is applied here rather than in the handler so that
+	// every path into an order goes through it.
+	servedThen, err := itemServedAt(ctx, tx, in.MenuItemID, categoryID, fulfilment.Local())
+	if err != nil {
+		return model.OrderItem{}, err
+	}
+	if !servedThen {
+		return model.OrderItem{}, ErrItemNotServedThen
 	}
 
 	id, err := uuid.NewV7()
@@ -343,6 +364,25 @@ func UpdateOrderItem(ctx context.Context, pool Pool, id uuid.UUID, in OrderItemU
 // DeleteOrderItem removes an item and its modifications, which cascade.
 func DeleteOrderItem(ctx context.Context, q Querier, id uuid.UUID) error {
 	tag, err := q.Exec(ctx, `DELETE FROM order_item WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetOrderItemPaid records, or unrecords, that a line has been settled.
+//
+// Its own function rather than a field on OrderItemUpdate, because it is the
+// only thing about an item that somebody other than its owner may change and
+// the only thing that may change after the deadline. Keeping it separate keeps
+// both of those rules in one place instead of as conditions inside a general
+// update.
+func SetOrderItemPaid(ctx context.Context, q Querier, id, actor uuid.UUID, paid bool) error {
+	tag, err := q.Exec(ctx,
+		`UPDATE order_item SET paid = $2, updated_by = $3 WHERE id = $1`, id, paid, actor)
 	if err != nil {
 		return err
 	}

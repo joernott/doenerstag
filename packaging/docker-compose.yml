@@ -30,7 +30,7 @@ services:
   # It is the only service that mounts the configuration directory writable,
   # because it is the only one that writes to it.
   install:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["install", "-o", "/config/doenerstag.yaml", "-R", "postgres"]
@@ -42,8 +42,61 @@ services:
       - ./config:/config
     profiles: ["install"]
 
+  # Run after raising DOENERSTAG_VERSION and pulling: it applies the outstanding
+  # migrations and brings the configuration file forward.
+  #
+  # It mounts config/ writable for the second of those. `update` adds the
+  # settings a new version introduced and keeps every value already set, which
+  # means rewriting the file -- so this is the second service, with install, that
+  # cannot have it read-only.
+  #
+  # It needs the role that owns the schema, which is never stored in the
+  # configuration file. Run interactively it asks; to script it, pass
+  # DOENER_DATABASE_ADMIN_PASSWORD and add --non-interactive.
+  update:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    command: ["update", "-c", "/config/doenerstag.yaml"]
+    environment:
+      DOENER_DATABASE_SERVER: db
+      DOENER_DATABASE_ADMIN_USER: ${DOENER_DATABASE_ADMIN_USER:-doenerstag_admin}
+      DOENER_DATABASE_ADMIN_PASSWORD: ${DOENER_DATABASE_ADMIN_PASSWORD:-}
+    volumes:
+      - ./config:/config
+    profiles: ["update"]
+
+  # A restaurant and its menu, from a file: a menu is an hour of typing and
+  # should only be typed once.
+  #
+  # The file comes from import/ beside the compose file, and which file is an
+  # environment variable rather than an argument because `docker compose run
+  # SERVICE ARGS…` replaces the command rather than appending to it. So:
+  #
+  #   DOENERSTAG_IMPORT_FILE=ali_baba.json docker compose run --rm import
+  #
+  # Add DOENERSTAG_IMPORT_ARGS=--overwrite to replace a restaurant that is
+  # already there. That deletes it and its orders first; see 10_operations.md.
+  import:
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
+    depends_on:
+      db: { condition: service_healthy }
+    # Written as one string rather than a list so that an empty
+    # DOENERSTAG_IMPORT_ARGS disappears instead of becoming an empty argument.
+    # Compose splits it into an argv itself; there is no shell in the image.
+    command: >-
+      restaurant import -c /config/doenerstag.yaml
+      -f /import/${DOENERSTAG_IMPORT_FILE:-restaurant.json}
+      ${DOENERSTAG_IMPORT_ARGS:-}
+    environment:
+      DOENER_DATABASE_SERVER: db
+    volumes:
+      - ./config:/config:ro
+      - ./import:/import:ro
+    profiles: ["import"]
+
   doenerstag:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["server", "-c", "/config/doenerstag.yaml"]
@@ -58,7 +111,7 @@ services:
   # Behind a profile so it never starts with the stack. Run it from the host's
   # cron: 17 3 * * * cd /srv/doenerstag && docker compose run --rm cleanup
   cleanup:
-    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.2.0}
+    image: docker.io/joernott/doenerstag:${DOENERSTAG_VERSION:-0.3.0}
     depends_on:
       db: { condition: service_healthy }
     command: ["cleanup", "-c", "/config/doenerstag.yaml"]

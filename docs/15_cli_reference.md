@@ -76,6 +76,7 @@ Usage:
 
 Flags:
       --absolute-timeout string          session lifetime regardless of activity (default "7d")
+      --behind-tls-proxy                 a reverse proxy in front terminates TLS; keep cookies Secure and send HSTS although this server speaks plain HTTP
   -b, --bind-address string              address to bind to; empty binds to all addresses
       --cors-allowed-origins string      comma-separated origins allowed to call the API cross-origin; empty sends no CORS headers
   -h, --help                             help for server

@@ -9,29 +9,32 @@ import (
 
 	"github.com/joernott/doenerstag/internal/api"
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/model"
 )
 
 type orderResponse struct {
-	ID             string          `json:"id"`
-	Title          string          `json:"title"`
-	RestaurantID   string          `json:"restaurant_id"`
-	RestaurantName string          `json:"restaurant_name"`
-	Fulfilment     string          `json:"fulfilment"`
-	FulfilmentAt   string          `json:"fulfilment_at"`
-	DeadlineAt     string          `json:"deadline_at"`
-	Status         string          `json:"status"`
-	CreatorID      string          `json:"creator_id"`
-	CreatorName    string          `json:"creator_name"`
-	MoneyCollector string          `json:"money_collector"`
-	PickupPerson   string          `json:"pickup_person"`
-	CurrencyCode   string          `json:"currency_code"`
-	MinOrderValue  *int64          `json:"min_order_value_cents"`
-	DeliveryFee    *int64          `json:"delivery_fee_cents"`
-	ItemCount      int             `json:"item_count"`
-	Items          []orderItemResp `json:"items"`
-	ItemTotalCents int64           `json:"item_total_cents"`
-	GrandTotal     int64           `json:"grand_total_cents"`
-	BelowMinimum   bool            `json:"below_minimum"`
+	ID                 string          `json:"id"`
+	Title              string          `json:"title"`
+	RestaurantID       string          `json:"restaurant_id"`
+	RestaurantName     string          `json:"restaurant_name"`
+	Fulfilment         string          `json:"fulfilment"`
+	FulfilmentAt       string          `json:"fulfilment_at"`
+	DeadlineAt         string          `json:"deadline_at"`
+	Status             string          `json:"status"`
+	CreatorID          string          `json:"creator_id"`
+	CreatorName        string          `json:"creator_name"`
+	MoneyCollectorID   *string         `json:"money_collector_id"`
+	MoneyCollectorName string          `json:"money_collector_name"`
+	PickupPersonID     *string         `json:"pickup_person_id"`
+	PickupPersonName   string          `json:"pickup_person_name"`
+	CurrencyCode       string          `json:"currency_code"`
+	MinOrderValue      *int64          `json:"min_order_value_cents"`
+	DeliveryFee        *int64          `json:"delivery_fee_cents"`
+	ItemCount          int             `json:"item_count"`
+	Items              []orderItemResp `json:"items"`
+	ItemTotalCents     int64           `json:"item_total_cents"`
+	GrandTotal         int64           `json:"grand_total_cents"`
+	BelowMinimum       bool            `json:"below_minimum"`
 }
 
 type orderItemResp struct {
@@ -44,6 +47,7 @@ type orderItemResp struct {
 	UnitPriceCents int64  `json:"unit_price_cents"`
 	Note           string `json:"note"`
 	LineTotalCents int64  `json:"line_total_cents"`
+	Paid           bool   `json:"paid"`
 	Modifications  []struct {
 		ID              string  `json:"id"`
 		ModificationID  *string `json:"modification_id"`
@@ -718,4 +722,16 @@ func TestAccountDeletionAgainstRealOrders(t *testing.T) {
 	if _, err := db.UserByName(ctx, o.pool, "scheidend"); err == nil {
 		t.Error("the account still exists")
 	}
+}
+
+// The placeholder that owns what deleted accounts left behind is a row in
+// app_user, and it is not a person. An order cannot name it as the one holding
+// the money, and the form does not offer it.
+func TestThePlaceholderCannotBeGivenAJob(t *testing.T) {
+	o := newOrderFixture(t)
+
+	rec := o.patch("/orders/"+o.order.ID, map[string]any{
+		"pickup_person_id": model.DeletedUserID.String(),
+	}, o.cookies...)
+	expectError(t, rec, http.StatusBadRequest, api.CodeInvalidField)
 }

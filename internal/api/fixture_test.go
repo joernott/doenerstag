@@ -523,6 +523,11 @@ func (f *apiFixture) patch(path string, body any, cookies ...*http.Cookie) *http
 	return f.do(request{method: http.MethodPatch, path: path, body: body, cookies: cookies})
 }
 
+func (f *apiFixture) put(path string, body any, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	f.t.Helper()
+	return f.do(request{method: http.MethodPut, path: path, body: body, cookies: cookies})
+}
+
 func (f *apiFixture) remove(path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	f.t.Helper()
 	return f.do(request{method: http.MethodDelete, path: path, cookies: cookies})

@@ -61,7 +61,17 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	}
 
 	cfg := opts.Config
-	secure := !cfg.Server.NoHTTPS
+
+	// Whether the browser's side of the connection is encrypted, which is not
+	// the same question as whether this process is doing the encrypting.
+	//
+	// Behind a reverse proxy that terminates TLS, the server speaks plain HTTP
+	// and the browser speaks HTTPS: cookies must keep Secure and HSTS is a
+	// promise the deployment does keep. --behind-tls-proxy says so. Set without
+	// such a proxy it produces the failure --no-https exists to avoid -- the
+	// browser refuses to return a Secure cookie over plain HTTP, so logging in
+	// appears to work and the next request is anonymous.
+	secure := !cfg.Server.NoHTTPS || cfg.Server.BehindTLSProxy
 
 	routerOptions := Options{
 		CORSOrigins: ParseCORSOrigins(cfg.Server.CORSAllowedOrigins),
@@ -316,8 +326,13 @@ func tlsFlagFor(what string) string {
 // ListenAndServe starts serving and blocks until the context is cancelled or
 // the server stops.
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	// What this process speaks, which since --behind-tls-proxy is a different
+	// question from whether the browser's side is encrypted. TLS is served or
+	// not served on --no-https alone.
+	servesTLS := !s.cfg.Server.NoHTTPS
+
 	scheme := "https"
-	if !s.secure {
+	if !servesTLS {
 		scheme = "http"
 	}
 
@@ -329,17 +344,27 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		Dur("idle_timeout", s.cfg.Server.HTTPIdleTimeout).
 		Msg("server listening")
 
-	if !s.secure {
+	switch {
+	case servesTLS:
+	case s.secure:
+		// --behind-tls-proxy: plain HTTP here, HTTPS at the proxy. Still worth
+		// saying, because it is only true if something really is in front.
+		s.logger.Info().Msg(
+			"serving plain HTTP behind a TLS-terminating proxy: cookies keep the " +
+				"Secure flag and HSTS is sent. Reaching this port directly from a " +
+				"browser will not work, which is the point.")
+	default:
 		s.logger.Warn().Msg(
 			"serving plain HTTP: session cookies lose the Secure flag, HSTS is not " +
 				"sent, and credentials cross the network in the clear. Intended only " +
-				"for development or behind a TLS-terminating proxy.")
+				"for development. Behind a proxy that terminates TLS, add " +
+				"--behind-tls-proxy.")
 	}
 
 	errs := make(chan error, 1)
 	go func() {
 		var err error
-		if s.secure {
+		if servesTLS {
 			err = s.http.ListenAndServeTLS(s.cfg.Server.TLSCert, s.cfg.Server.TLSKey)
 		} else {
 			err = s.http.ListenAndServe()

@@ -23,6 +23,15 @@ const restaurant = {
       label: "",
       sort_order: 10,
     },
+    {
+      id: "c2",
+      contact_type_id: "ct-address",
+      contact_type_code: "address",
+      render_as: "address",
+      value: "Bahnhofstrasse 1, 8001 Zürich",
+      label: "",
+      sort_order: 20,
+    },
   ],
   opening_hours: [],
 };
@@ -81,9 +90,11 @@ const summary = {
           note: "",
           modifications: [{ name: "Mit Käse" }],
           line_total_cents: 2100,
+          paid: false,
         },
       ],
       total_cents: 2100,
+      paid_cents: 0,
     },
     {
       user_id: "u2",
@@ -96,9 +107,11 @@ const summary = {
           note: "ohne Zwiebeln",
           modifications: [],
           line_total_cents: 850,
+          paid: false,
         },
       ],
       total_cents: 850,
+      paid_cents: 0,
     },
   ],
   item_total_cents: 4000,
@@ -158,8 +171,26 @@ describe("the summary", () => {
     await settle();
 
     const phone = rendered.querySelector("a.phone");
-    expect(phone?.getAttribute("href")).toBe("tel:+41 44 123 45 67");
+    // The punctuation people write a number with is not valid in a tel: URI,
+    // so the href is the digits and the visible text is what was typed.
+    expect(phone?.getAttribute("href")).toBe("tel:+41441234567");
     expect(phone?.textContent).toBe("+41 44 123 45 67");
+  });
+
+  // The page for the person going to fetch the food, which had every detail
+  // except where to go.
+  it("puts the address in the header, as a link to a map", async () => {
+    stubServer(summaryStubs());
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const address = rendered.querySelector(".summary-addresses a");
+    expect(address?.textContent).toBe("Bahnhofstrasse 1, 8001 Zürich");
+    expect(address?.getAttribute("href")).toContain("google.com/maps");
+    expect(address?.getAttribute("href")).toContain(encodeURIComponent("Bahnhofstrasse 1"));
   });
 
   it("aggregates the order into the lines somebody reads out", async () => {
@@ -329,5 +360,108 @@ describe("when the browser has no clipboard", () => {
     expect(fallback?.hidden).toBe(false);
     expect(fallback?.value).toBe(summary.plain_text);
     expect(rendered.querySelector(".status")?.textContent).toBe(app.t.t("summary.copy_failed"));
+  });
+});
+
+/*
+ * The tick beside a price.
+ *
+ * Not a payment -- the application handles none. It is the person with the
+ * money marking a line off a list, which is what they were doing on paper.
+ */
+describe("recording that a line has been settled", () => {
+  function summaryWithPaidItem() {
+    const paid = structuredClone(summary);
+    paid.per_person[0]!.items[0]!.paid = true;
+    paid.per_person[0]!.total_cents = 0;
+    paid.per_person[0]!.paid_cents = 2100;
+    return paid;
+  }
+
+  it("offers the owner a live checkbox and shows it ticked", async () => {
+    stubServer(summaryStubs({ "GET /orders/o1/summary": summaryWithPaidItem() }));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const boxes = [...rendered.querySelectorAll<HTMLInputElement>(".paid-box input")];
+    expect(boxes.length).toBe(2);
+    expect(boxes[0]?.checked).toBe(true);
+    expect(boxes[0]?.disabled).toBe(false);
+
+    // Somebody else's line: readable, not tickable, because this visitor is
+    // neither its owner nor the creator nor the collector.
+    expect(boxes[1]?.disabled).toBe(true);
+  });
+
+  it("leaves a settled line out of what that person owes", async () => {
+    stubServer(summaryStubs({ "GET /orders/o1/summary": summaryWithPaidItem() }));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const group = rendered.querySelector(".person-group");
+    expect(group?.querySelector(".person-total")?.textContent).toContain("0.00");
+    // And says what was settled, so a zero cannot be read as "ordered nothing".
+    expect(group?.querySelector(".person-paid")?.textContent).toContain("21.00");
+  });
+
+  it("tells the server when the box is ticked", async () => {
+    const stubs = stubServer(
+      summaryStubs({ "PUT /orders/o1/items/i1/paid": { ok: true } }),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const box = rendered.querySelector<HTMLInputElement>(".paid-box input");
+    box!.checked = true;
+    box?.dispatchEvent(new Event("change"));
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.path === "/orders/o1/items/i1/paid");
+    expect(call?.method).toBe("PUT");
+    expect(call?.body).toEqual({ paid: true });
+  });
+
+  // The creator and the money collector may tick anybody's line, because they
+  // are the two people who would know.
+  it("lets the money collector tick a line that is not theirs", async () => {
+    stubServer(
+      summaryStubs({
+        "GET /orders/o1": { ...order, creator_id: "u9", money_collector_id: "u7" },
+      }),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u7", name: "kasse", display_name: "Kasse", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const boxes = [...rendered.querySelectorAll<HTMLInputElement>(".paid-box input")];
+    expect(boxes.every((box) => !box.disabled)).toBe(true);
+  });
+
+  it("offers a bystander no way to tick anything", async () => {
+    stubServer(
+      summaryStubs({
+        "GET /orders/o1": { ...order, creator_id: "u9", money_collector_id: null },
+      }),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u8", name: "wer", display_name: "Wer", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const boxes = [...rendered.querySelectorAll<HTMLInputElement>(".paid-box input")];
+    expect(boxes.length).toBe(2);
+    expect(boxes.every((box) => box.disabled)).toBe(true);
   });
 });

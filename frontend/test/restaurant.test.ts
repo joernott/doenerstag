@@ -136,7 +136,7 @@ describe("the overview", () => {
 });
 
 describe("the restaurant page", () => {
-  it("presents the four sections as tabs, with the menu first", async () => {
+  it("presents the five sections as tabs, with the menu first", async () => {
     stubServer(restaurantStubs());
 
     const app = mountApp(() => []);
@@ -149,14 +149,15 @@ describe("the restaurant page", () => {
       app.t.t("restaurant.data"),
       app.t.t("restaurant.contacts"),
       app.t.t("restaurant.opening_hours"),
+      app.t.t("availability.title"),
     ]);
 
     // The menu is the one somebody almost always came for, so it is the one
-    // that is open; the other three are in the document and hidden, which is
-    // what makes them a click away rather than a fetch away.
+    // that is open; the rest are in the document and hidden, which is what
+    // makes them a click away rather than a fetch away.
     const panels = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")];
-    expect(panels.length).toBe(4);
-    expect(panels.map((panel) => panel.hidden)).toEqual([false, true, true, true]);
+    expect(panels.length).toBe(5);
+    expect(panels.map((panel) => panel.hidden)).toEqual([false, true, true, true, true]);
     // The panel is named by its tab, so it carries no heading repeating that
     // name. What identifies it is what it holds.
     expect(panels[0]?.textContent).toContain(app.t.t("item.add"));

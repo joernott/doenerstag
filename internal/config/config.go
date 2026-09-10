@@ -43,6 +43,7 @@ type ServerConfig struct {
 	Port               int
 	BindAddress        string
 	NoHTTPS            bool
+	BehindTLSProxy     bool
 	TLSCert            string
 	TLSKey             string
 	NoSwagger          bool
@@ -331,6 +332,7 @@ func populate(cfg *Config, v *viper.Viper, flags *pflag.FlagSet, scope Scope,
 		Port:               num("port"),
 		BindAddress:        str("bind-address"),
 		NoHTTPS:            boolean("no-https"),
+		BehindTLSProxy:     boolean("behind-tls-proxy"),
 		TLSCert:            str("tls-cert"),
 		TLSKey:             str("tls-key"),
 		NoSwagger:          boolean("no-swagger"),
