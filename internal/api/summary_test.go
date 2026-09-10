@@ -18,18 +18,6 @@ type summaryPerson struct {
 	PaidCents   int64           `json:"paid_cents"`
 }
 
-// person finds one person's block, failing the test when they have none.
-func (s summaryResponse) person(t *testing.T, userID string) summaryPerson {
-	t.Helper()
-	for _, p := range s.PerPerson {
-		if p.UserID == userID {
-			return p
-		}
-	}
-	t.Fatalf("no summary block for %s", userID)
-	return summaryPerson{}
-}
-
 type summaryResponse struct {
 	OrderID      string `json:"order_id"`
 	Title        string `json:"title"`
@@ -50,6 +38,18 @@ type summaryResponse struct {
 	MinOrderValueCents *int64          `json:"min_order_value_cents"`
 	BelowMinimum       bool            `json:"below_minimum"`
 	PlainText          string          `json:"plain_text"`
+}
+
+// person finds one person's block, failing the test when they have none.
+func (s summaryResponse) person(t *testing.T, userID string) summaryPerson {
+	t.Helper()
+	for _, p := range s.PerPerson {
+		if p.UserID == userID {
+			return p
+		}
+	}
+	t.Fatalf("no summary block for %s", userID)
+	return summaryPerson{}
 }
 
 func (o *orderFixture) readSummary(cookies ...*http.Cookie) summaryResponse {
