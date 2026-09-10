@@ -133,7 +133,25 @@ jobs:
         # Development happens on Windows, where cgo and therefore -race is
         # usually unavailable. Linux CI is where the race detector actually
         # runs, so it must not be optional here.
-        run: go test -race -coverprofile=linux-coverage.out ./...
+        #
+        # The output is echoed as a workflow error annotation on failure, for
+        # the reason the Windows job does it: reading a job's log needs admin
+        # rights on the repository and reading an annotation does not, so
+        # without this a failure here is a red cross and nothing else to
+        # whoever is looking at the run. That asymmetry cost a diagnosis: a
+        # flaky failure in this job went unexplained because there was nothing
+        # to read.
+        run: |
+          set +e
+          output="$(go test -race -coverprofile=linux-coverage.out ./... 2>&1)"
+          status=$?
+          echo "$output"
+          if [ "$status" -ne 0 ]; then
+            encoded="$(printf '%s' "$output" | grep -E '^(---|===|\s+---|FAIL|panic|WARNING|.*\.go:)' \
+              | head -c 3000 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            echo "::error title=go test -race failed::$encoded"
+          fi
+          exit "$status"
 
       - name: Coverage report
         run: |
