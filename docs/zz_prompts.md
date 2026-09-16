@@ -1062,3 +1062,22 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 65
 
 > please create a branch sprint 18 for the fixes
+
+---
+
+### Prompt 66
+
+> please run the most current version without creating a release yet, I will
+> test it a bit more
+
+---
+
+### Prompt 67
+
+> I found two more things:
+> - Please also add a "paid" checkbox on the order page as well, not only on the
+>   summary page
+> - Please add a line "Paid" in the "Totals" box on the orders page and summary.
+>   Paid items should be summed up there. Rename the upper "Total" line to
+>   "Unpaid". The lower "Total" line should contain the sum of both. Make sure,.
+>   these two sums update when clicking "paidf" on an item.

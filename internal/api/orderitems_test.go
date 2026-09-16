@@ -544,4 +544,21 @@ func TestAPaidLineIsNotOwed(t *testing.T) {
 		t.Errorf("the order total moved from %d to %d",
 			before.ItemTotalCents, full.ItemTotalCents)
 	}
+
+	// 18.3: the Totals box splits that same total by the tick, on the summary
+	// and on the order alike, and the two halves always add up to it.
+	if full.PaidTotalCents != lineTotal {
+		t.Errorf("the summary says %d paid, want %d", full.PaidTotalCents, lineTotal)
+	}
+	if full.UnpaidTotalCents+full.PaidTotalCents != full.ItemTotalCents {
+		t.Errorf("unpaid %d + paid %d is not the total %d",
+			full.UnpaidTotalCents, full.PaidTotalCents, full.ItemTotalCents)
+	}
+
+	detail := o.readOrder(o.cookies...)
+	if detail.PaidTotalCents != full.PaidTotalCents || detail.UnpaidTotalCents != full.UnpaidTotalCents {
+		t.Errorf("the order says %d unpaid and %d paid, the summary %d and %d",
+			detail.UnpaidTotalCents, detail.PaidTotalCents,
+			full.UnpaidTotalCents, full.PaidTotalCents)
+	}
 }

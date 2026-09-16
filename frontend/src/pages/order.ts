@@ -14,6 +14,7 @@ import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { accountChoices, listAccounts } from "../accounts";
 import { contactTarget } from "../contacts";
+import { mayTickPaid, paidCheckbox } from "../components/paid";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -436,6 +437,24 @@ export async function orderPage(
         class: "menu-price",
         text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
       }),
+      // The paid tick, as on the summary. Not gated on the order being open
+      // like the two buttons after it: the money changes hands when the food
+      // arrives, which is always after the deadline.
+      paidCheckbox({
+        app,
+        orderID: id,
+        itemID: item.id,
+        itemName: item.item_name,
+        paid: item.paid,
+        allowed: mayTickPaid(app, {
+          ownerID: userID,
+          creatorID: detail()?.creator_id,
+          moneyCollectorID: detail()?.money_collector_id,
+        }),
+        // The whole order is read again, so the Totals box and every other
+        // browser watching it follow from one answer.
+        onChanged: refresh,
+      }),
       // Own items only, and only while the order is open: F6.5 and F6.6.
       mine && canOrder()
         ? actions(
@@ -458,8 +477,15 @@ export async function orderPage(
   }
 
   function totalsCard(own: OrderDetail): HTMLElement {
+    const money = (cents: number): string =>
+      formatMoney(app.language, cents, order.currency_code, moneyFormat);
+
+    // What is still owed and what has been ticked as settled, both from the
+    // API, which sums them from the same items it sends. The delivery fee is
+    // neither: nobody ticks it.
     const rows: [string, string][] = [
-      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, moneyFormat)],
+      [t.t("order.total_unpaid"), money(own.unpaid_total_cents)],
+      [t.t("order.total_paid"), money(own.paid_total_cents)],
     ];
     if (order.delivery_fee_cents) {
       rows.push([

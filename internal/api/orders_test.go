@@ -33,6 +33,8 @@ type orderResponse struct {
 	ItemCount          int             `json:"item_count"`
 	Items              []orderItemResp `json:"items"`
 	ItemTotalCents     int64           `json:"item_total_cents"`
+	UnpaidTotalCents   int64           `json:"unpaid_total_cents"`
+	PaidTotalCents     int64           `json:"paid_total_cents"`
 	GrandTotal         int64           `json:"grand_total_cents"`
 	BelowMinimum       bool            `json:"below_minimum"`
 }

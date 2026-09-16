@@ -147,6 +147,13 @@ type orderDetailBody struct {
 	ItemTotalCents  int64           `json:"item_total_cents"`
 	GrandTotalCents int64           `json:"grand_total_cents"`
 	BelowMinimum    bool            `json:"below_minimum"`
+
+	// The item total split by whether each line has been ticked as settled:
+	// UnpaidTotalCents + PaidTotalCents == ItemTotalCents, always. Summed here
+	// rather than by each page, so the order page and the summary cannot come to
+	// disagree about what is still owed.
+	UnpaidTotalCents int64 `json:"unpaid_total_cents"`
+	PaidTotalCents   int64 `json:"paid_total_cents"`
 }
 
 type orderItemBody struct {
@@ -330,6 +337,11 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 	for i := range items {
 		rendered := publicOrderItem(items[i])
 		body.ItemTotalCents += rendered.LineTotalCents
+		if rendered.Paid {
+			body.PaidTotalCents += rendered.LineTotalCents
+		} else {
+			body.UnpaidTotalCents += rendered.LineTotalCents
+		}
 		body.Items = append(body.Items, rendered)
 	}
 
