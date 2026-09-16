@@ -1093,3 +1093,10 @@ recorded on the branch of the sprint it belongs to.
 > When logges in as admin, I can open the "change password" dialog for every
 > user and trigger sending an email. I'd also like the ability to enter a new
 > password. This way, I can set it for users without email access.
+
+---
+
+### Prompt 69
+
+> everything looks fine now. Please add support for French as third language and
+> then build and release v0.3.1

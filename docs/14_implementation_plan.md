@@ -658,6 +658,7 @@ and released as 0.3.0.
 | ✅ 18.3 | The Totals box on the order page and the summary: the upper "Total" becomes "Unpaid", a "Paid" line sums what is ticked, and the lower "Total" is both together, with the delivery fee where there is one. Both sums follow a tick without a reload | M | [06](06_ui_ux.md) |
 | ✅ 18.4 | The paid tick gets a visible "Paid" label on the order page and the summary, including the printed summary, and moves in front of the amount so the amounts line up in one column. The order page's Edit and Delete become the pencil and bin icons the overview uses, since the label left no room for two words | S | [06](06_ui_ux.md) |
 | ✅ 18.5 | The administrator's password dialog on the Users page can set a new password directly as well as sending a reset link, for somebody with no access to their mail | M | [05](05_auth_and_permissions.md) |
+| ✅ 18.6 | French as a third language: one catalog, `fr.json`, with the `many` plural form French has and German and English do not. Nothing else changes, which is what docs/07 promised | M | [07](07_i18n.md) |
 
 **Exit criteria:** what 0.3.0 got wrong in use is fixed, each with a test that
 fails without the fix.

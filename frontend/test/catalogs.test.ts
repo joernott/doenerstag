@@ -79,9 +79,9 @@ function seededCodes(table: string): string[] {
 }
 
 describe("the catalogs", () => {
-  it("ships at least the two documented languages", () => {
+  it("ships at least the three documented languages", () => {
     expect(files.map((catalog) => catalog.code).sort()).toEqual(
-      expect.arrayContaining(["de", "en"]),
+      expect.arrayContaining(["de", "en", "fr"]),
     );
   });
 
