@@ -418,6 +418,35 @@ describe("the order page", () => {
    * 18.2 and 18.3: the paid tick on the order page, and a Totals box that
    * splits the order into what is still owed and what has been settled.
    */
+
+  // 18.4: the tick carries a visible "Paid" and sits in front of the price,
+  // with the price last, so every amount ends at one edge whether or not the
+  // row also has Edit and Delete.
+  it("labels the tick and puts it just before the price, which is last", async () => {
+    stubServer(orderStubs(detail({ items: [orderItem, { ...orderItem, id: "i2", user_id: "u1", user_name: "Jo" }] })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const rows = [...rendered.querySelectorAll<HTMLElement>(".order-item")];
+    expect(rows.length).toBe(2);
+    for (const row of rows) {
+      const parts = [...row.children];
+      expect(parts.at(-1)?.classList.contains("menu-price")).toBe(true);
+      expect(parts.at(-2)?.classList.contains("paid-box")).toBe(true);
+      expect(parts.at(-2)?.textContent).toBe(app.t.t("item.paid"));
+    }
+    // One row is u1's own, with Edit and Delete; they come before the tick.
+    const own = rows.find((row) => row.querySelector(".actions"));
+    expect(own).toBeDefined();
+    const ownParts = [...own!.children];
+    expect(ownParts.indexOf(own!.querySelector(".actions")!)).toBeLessThan(
+      ownParts.indexOf(own!.querySelector(".paid-box")!),
+    );
+  });
+
   it("shows Unpaid, Paid and Total in the Totals box", async () => {
     stubServer(orderStubs(detail({ unpaid_total_cents: 1500, paid_total_cents: 600 })));
 

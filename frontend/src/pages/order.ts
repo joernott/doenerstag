@@ -31,6 +31,7 @@ import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
 import {
+  iconButton,
   isActive,
   summaryLink,
   type OrderDetail,
@@ -433,12 +434,30 @@ export async function orderPage(
         el("div", { class: "order-item-head" }, ...details),
         extras.length > 0 ? el("div", { class: "order-item-extras" }, ...extras) : null,
       ),
-      el("span", {
-        class: "menu-price",
-        text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
-      }),
+      // Own items only, and only while the order is open: F6.5 and F6.6.
+      //
+      // Before the tick and the price rather than after them. A row with these
+      // two buttons and a row without them would otherwise end at different
+      // places, and the amounts would not line up under each other or under
+      // the person's total -- which is what the right-hand edge is for.
+      //
+      // A pencil and a bin rather than two words, as on the order overview's
+      // tiles and for the same reason: with the paid tick and its label beside
+      // the price, two text buttons squeezed the dish name onto two lines and
+      // stacked on top of each other. Each names the dish, because a list has
+      // one of these per line and "Edit" alone does not say which.
+      mine && canOrder()
+        ? actions(
+            iconButton("pencil", `${t.t("action.edit")}: ${item.item_name}`, "", () => {
+              void openItemEditor(item);
+            }),
+            iconButton("trash", `${t.t("action.delete")}: ${item.item_name}`, "button-danger", () => {
+              void removeItem(item);
+            }),
+          )
+        : null,
       // The paid tick, as on the summary. Not gated on the order being open
-      // like the two buttons after it: the money changes hands when the food
+      // like the two buttons before it: the money changes hands when the food
       // arrives, which is always after the deadline.
       paidCheckbox({
         app,
@@ -455,24 +474,10 @@ export async function orderPage(
         // browser watching it follow from one answer.
         onChanged: refresh,
       }),
-      // Own items only, and only while the order is open: F6.5 and F6.6.
-      mine && canOrder()
-        ? actions(
-            button({
-              label: t.t("action.edit"),
-              onclick: () => {
-                void openItemEditor(item);
-              },
-            }),
-            button({
-              label: t.t("action.delete"),
-              variant: "danger",
-              onclick: () => {
-                void removeItem(item);
-              },
-            }),
-          )
-        : null,
+      el("span", {
+        class: "menu-price",
+        text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
+      }),
     );
   }
 

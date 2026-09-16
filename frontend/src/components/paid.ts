@@ -96,5 +96,10 @@ export function paidCheckbox(options: PaidCheckboxOptions): HTMLElement {
     });
   }
 
-  return el("span", { class: "paid-box" }, box);
+  // A visible label, not only an accessible name. The tick means nothing on
+  // its own -- a column of bare boxes beside prices could be anything -- and
+  // "Paid" is what a person reading the page, or the printed summary with a
+  // pen in hand, needs to see. The input keeps its own name naming the dish,
+  // which contains the visible word, so the two agree (WCAG 2.5.3).
+  return el("label", { class: "paid-box" }, box, el("span", { class: "paid-label", text: t.t("item.paid") }));
 }

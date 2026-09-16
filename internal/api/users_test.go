@@ -384,3 +384,60 @@ func TestPatchRecordsTheActingUser(t *testing.T) {
 		t.Errorf("updated_by is %s, want the administrator", updatedBy)
 	}
 }
+
+// 18.5: the administrator sets somebody's password directly -- for a person
+// with no access to their mail, where a reset link would go nowhere.
+//
+// It ends every session that account had, the same as a reset link does: the
+// reason to set it is that the person cannot get in, or should not be the only
+// one who can, and a browser still signed in with the old password is exactly
+// what is being fixed.
+func TestTheAdministratorCanSetAPasswordAndItEndsTheirSessions(t *testing.T) {
+	f := newAPIFixture(t)
+	theirs := f.register("ohne-mail")
+	admin := f.loginAsAdmin("chief")
+
+	// Signed in, before.
+	if rec := f.get("/users", theirs...); rec.Code != http.StatusOK {
+		t.Fatalf("the account was not signed in to begin with: %d", rec.Code)
+	}
+
+	const chosen = "Neues-Passwort-2026"
+	rec := f.patch("/users/"+f.userID("ohne-mail"), map[string]any{"password": chosen}, admin...)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the administrator could not set the password: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The old session is gone.
+	after := f.get("/users", theirs...)
+	expectError(t, after, http.StatusUnauthorized, api.CodeNotAuthenticated)
+
+	// And the new password is the one that works.
+	login := f.post("/auth/login", map[string]string{"name": "ohne-mail", "password": chosen})
+	if login.Code != http.StatusOK {
+		t.Errorf("the new password does not log in: %d %s", login.Code, login.Body.String())
+	}
+	old := f.post("/auth/login", map[string]string{"name": "ohne-mail", "password": validPassword})
+	if old.Code == http.StatusOK {
+		t.Error("the old password still logs in")
+	}
+
+	// The administrator's own session is untouched.
+	if rec := f.get("/users", admin...); rec.Code != http.StatusOK {
+		t.Errorf("setting somebody else's password ended the administrator's session: %d", rec.Code)
+	}
+}
+
+// Nobody else can do it, and a weak password is refused as it is everywhere.
+func TestOnlyTheAdministratorSetsSomebodyElsesPassword(t *testing.T) {
+	f := newAPIFixture(t)
+	f.register("ziel")
+	stranger := f.register("fremd")
+	admin := f.loginAsAdmin("chief")
+
+	rec := f.patch("/users/"+f.userID("ziel"), map[string]any{"password": "Neues-Passwort-2026"}, stranger...)
+	expectError(t, rec, http.StatusForbidden, api.CodeNotOwner)
+
+	weak := f.patch("/users/"+f.userID("ziel"), map[string]any{"password": "kurz"}, admin...)
+	expectErrorCode(t, weak, api.CodePasswordTooWeak)
+}

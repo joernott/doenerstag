@@ -313,16 +313,23 @@ function perPersonCard(
         // A deleted account is shown as the placeholder's display name, which
         // is what the API sends; the page does not invent a label for it.
         person.display_name,
-        el("span", { class: "person-total", text: money(person.total_cents) }),
-        // Only when something has been settled: a "0.00 paid" beside every name
-        // would be noise on the ordinary case, and a bare 0.00 owed could
-        // otherwise mean either "paid up" or "ordered nothing".
-        person.paid_cents > 0
-          ? el("span", {
-              class: "person-paid",
-              text: t.t("summary.already_paid", { amount: money(person.paid_cents) }),
-            })
-          : null,
+        // The owed amount last, so that it ends at the same edge as every line
+        // price below it. It used to come before the "paid" note, which a
+        // space-between heading then pushed into the middle of the line.
+        el(
+          "span",
+          { class: "person-amounts" },
+          // Only when something has been settled: a "0.00 paid" beside every
+          // name would be noise on the ordinary case, and a bare 0.00 owed
+          // could otherwise mean either "paid up" or "ordered nothing".
+          person.paid_cents > 0
+            ? el("span", {
+                class: "person-paid",
+                text: t.t("summary.already_paid", { amount: money(person.paid_cents) }),
+              })
+            : null,
+          el("span", { class: "person-total", text: money(person.total_cents) }),
+        ),
       ),
       el(
         "ul",
@@ -344,7 +351,8 @@ function perPersonCard(
                 : null,
               item.note ? el("span", { class: "muted item-note", text: ` ${item.note}` }) : null,
             ),
-            el("span", { class: "menu-price", text: money(item.line_total_cents) }),
+            // The tick before the price and the price last, so every amount on
+            // the page ends at the same right edge.
             paidCheckbox({
               app,
               orderID: summary.order_id,
@@ -358,6 +366,7 @@ function perPersonCard(
               }),
               onChanged,
             }),
+            el("span", { class: "menu-price", text: money(item.line_total_cents) }),
           ),
         ),
       ),

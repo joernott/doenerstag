@@ -1081,3 +1081,15 @@ recorded on the branch of the sprint it belongs to.
 >   Paid items should be summed up there. Rename the upper "Total" line to
 >   "Unpaid". The lower "Total" line should contain the sum of both. Make sure,.
 >   these two sums update when clicking "paidf" on an item.
+
+---
+
+### Prompt 68
+
+> The checkbox is still missing a "Paid" label. Please add that on both pages,
+> the order and the summary. On the print version. Also move the checkbox before
+> the amount, so that all amounts are below each other.
+>
+> When logges in as admin, I can open the "change password" dialog for every
+> user and trigger sending an email. I'd also like the ability to enter a new
+> password. This way, I can set it for users without email access.

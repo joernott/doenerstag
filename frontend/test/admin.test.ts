@@ -225,3 +225,92 @@ describe("the content pages", () => {
     expect(rendered.querySelector(".content-page")?.innerHTML).toBe("<p>old</p>");
   });
 });
+
+/*
+ * 18.5: the password dialog offers a reset link and, for somebody the link
+ * cannot reach, a password set directly. The buttons are pressed, because a
+ * footer button that is not linked to its form does nothing -- which is what
+ * 18.1 found in two other dialogs.
+ */
+describe("the administrator's password dialog", () => {
+  async function openFor(app: ReturnType<typeof mountApp>, name: string): Promise<HTMLElement> {
+    const rendered = await usersPage(app);
+    await settle();
+    const row = [...rendered.querySelectorAll<HTMLElement>(".user-row")].find((entry) =>
+      entry.textContent?.includes(name),
+    );
+    const open = [...(row?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === app.t.t("admin.reset_password"),
+    );
+    open!.click();
+    await settle();
+    return document.querySelector<HTMLElement>("[role='dialog']")!;
+  }
+
+  function buttonIn(dialog: HTMLElement, label: string): HTMLButtonElement | undefined {
+    return [...dialog.querySelectorAll("button")].find((button) => button.textContent === label);
+  }
+
+  it("sets a password typed into it, and closes", async () => {
+    const stubs = stubServer({ "GET /users": users, "PATCH /users/u2": users.users[1] });
+    const app = asAdmin();
+    const dialog = await openFor(app, "Jo Ott");
+
+    const field = dialog.querySelector<HTMLInputElement>("input[type='password']");
+    field!.value = "Neues-Passwort-2026";
+    buttonIn(dialog, app.t.t("admin.set_password"))!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "PATCH");
+    expect(call?.path).toBe("/users/u2");
+    expect(call?.body).toEqual({ password: "Neues-Passwort-2026" });
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  it("keeps the dialog open and says why when the server refuses the password", async () => {
+    stubServer({
+      "GET /users": users,
+      "PATCH /users/u2": fails(400, { error: { code: 1006, message: "too weak", field: "password" } }),
+    });
+    const app = asAdmin();
+    const dialog = await openFor(app, "Jo Ott");
+
+    dialog.querySelector<HTMLInputElement>("input[type='password']")!.value = "kurz";
+    buttonIn(dialog, app.t.t("admin.set_password"))!.click();
+    await settle();
+
+    expect(document.querySelector("[role='dialog']")).not.toBeNull();
+    // The failure is in the dialog's own status line, where it can be read
+    // beside the field, rather than behind the dialog on the page.
+    const problem = dialog.querySelector(".status.status-error");
+    expect(problem?.textContent).toBeTruthy();
+  });
+
+  it("still sends a reset link to somebody with an address", async () => {
+    const stubs = stubServer({ "GET /users": users, "POST /auth/password-reset": {} });
+    const app = asAdmin();
+    const dialog = await openFor(app, "Jo Ott");
+
+    const send = buttonIn(dialog, app.t.t("admin.send_reset_link"));
+    expect(send?.disabled).toBe(false);
+    send!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "POST");
+    expect(call?.path).toBe("/auth/password-reset");
+    expect(call?.body).toEqual({ name: "jo" });
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  it("does not offer a link to somebody with no address, and says why", async () => {
+    stubServer({ "GET /users": users });
+    const app = asAdmin();
+    const dialog = await openFor(app, "Administrator");
+
+    const send = buttonIn(dialog, app.t.t("admin.send_reset_link"));
+    expect(send?.disabled).toBe(true);
+    expect(send?.getAttribute("title")).toBe(app.t.t("admin.reset_password_no_email", { name: "root" }));
+    // Setting one is the way in for this person, and it is offered.
+    expect(dialog.querySelector("input[type='password']")).not.toBeNull();
+  });
+});

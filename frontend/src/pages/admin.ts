@@ -10,7 +10,8 @@ import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, form, input, textarea } from "../components/forms";
-import { confirmDialog, openModal } from "../components/modal";
+import { passwordField } from "../components/password";
+import { openModal } from "../components/modal";
 import { actions, page, section, statusLine } from "./page";
 
 interface AdminUser {
@@ -103,14 +104,12 @@ export async function usersPage(app: App): Promise<HTMLElement> {
             edit(user);
           },
         }),
-        // The same thing the login page's link does, and deliberately the same
-        // thing: an administrator pressing this is standing next to somebody
-        // who cannot log in, and the account holder still chooses their own
-        // password rather than being told one.
+        // A reset link, or a password set directly for somebody the link
+        // cannot reach. The dialog offers both; see resetPassword.
         button({
           label: t.t("admin.reset_password"),
           onclick: () => {
-            void resetPassword(user);
+            resetPassword(user);
           },
         }),
         // The one administrator cannot be deleted, and neither can the account
@@ -132,9 +131,9 @@ export async function usersPage(app: App): Promise<HTMLElement> {
   /**
    * Editing somebody else's account.
    *
-   * Name, display name and e-mail. Not the password: an administrator who sets
-   * one knows it, and a password two people know is not a password. The button
-   * next to this is how a password gets changed.
+   * Name, display name and e-mail. Not the password: that has its own dialog
+   * behind the button next to this one, which offers a reset link first,
+   * because a password two people know is not a password.
    */
   function edit(user: AdminUser): void {
     const name = input({ name: "name", required: true, value: user.name });
@@ -185,42 +184,100 @@ export async function usersPage(app: App): Promise<HTMLElement> {
   }
 
   /**
-   * Sending somebody a reset link.
+   * A new password for somebody: a link they use, or one the administrator sets.
    *
-   * This calls the same endpoint the login page's "Forgot your password?" does,
-   * which means it inherits that endpoint's rule: the answer says nothing about
-   * whether the account exists or has an address. Here the administrator can
-   * see both on the row in front of them, so the confirmation says what will
-   * actually have happened rather than the careful wording the login page needs.
+   * The link is the better of the two and comes first, because the account
+   * holder chooses their own password and nobody else ever knows it. It calls
+   * the same endpoint the login page's "Forgot your password?" does, and here
+   * the administrator can see on the row whether there is an address, so the
+   * dialog says what will actually happen rather than the careful wording the
+   * login page needs.
+   *
+   * Setting one directly is for the person the link cannot reach: no address,
+   * or no access to the one on file. The server ends every session that account
+   * has when this happens, the same as a used reset link, so a browser still
+   * signed in with the old password does not survive the change.
    */
-  async function resetPassword(user: AdminUser): Promise<void> {
+  function resetPassword(user: AdminUser): void {
     status.clear();
+    const dialogStatus = statusLine();
 
-    const confirmed = await confirmDialog({
+    const password = passwordField({
       t,
-      title: t.t("admin.reset_password"),
-      message: user.email
-        ? t.t("admin.reset_password_confirm", { name: user.name, email: user.email })
-        : t.t("admin.reset_password_no_email", { name: user.name }),
-      confirmLabel: t.t("admin.reset_password"),
-      danger: false,
+      label: t.t("admin.new_password"),
+      name: "new-password",
+      autocomplete: "new-password",
+      indicator: true,
     });
-    if (!confirmed) {
-      return;
-    }
 
-    try {
-      await api.post("/auth/password-reset", { name: user.name });
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-      return;
-    }
+    const send = button({
+      label: t.t("admin.send_reset_link"),
+      disabled: !user.email,
+      // Never a mystery: a greyed-out button says why it is greyed out.
+      ...(user.email ? {} : { title: t.t("admin.reset_password_no_email", { name: user.name }) }),
+      onclick: () => {
+        void sendLink();
+      },
+    });
+    const set = button({ label: t.t("admin.set_password"), variant: "primary", type: "submit" });
 
-    status.say(
-      user.email
-        ? t.t("admin.reset_password_sent", { email: user.email })
-        : t.t("admin.reset_password_not_sent"),
+    const body = form(
+      () => {
+        void setPassword();
+      },
+      el("p", {
+        text: user.email
+          ? t.t("admin.reset_password_confirm", { name: user.name, email: user.email })
+          : t.t("admin.reset_password_no_email", { name: user.name }),
+      }),
+      password.element,
+      el("p", { class: "field-hint", text: t.t("admin.set_password_hint", { name: user.name }) }),
+      dialogStatus.element,
     );
+
+    async function sendLink(): Promise<void> {
+      dialogStatus.clear();
+      send.disabled = true;
+      try {
+        await api.post("/auth/password-reset", { name: user.name });
+      } catch (error) {
+        dialogStatus.fail(errorMessage(t, error));
+        send.disabled = false;
+        return;
+      }
+      modal.close();
+      status.say(t.t("admin.reset_password_sent", { email: user.email }));
+    }
+
+    async function setPassword(): Promise<void> {
+      dialogStatus.clear();
+      set.disabled = true;
+      try {
+        await api.patch(`/users/${user.id}`, { password: password.value() });
+      } catch (error) {
+        // A password the rules refuse comes back as a named error, and the
+        // indicator above the field already says which rules are unmet.
+        dialogStatus.fail(errorMessage(t, error));
+        set.disabled = false;
+        password.control.focus();
+        return;
+      }
+      modal.close();
+      status.say(t.t("admin.password_set", { name: user.name }));
+    }
+
+    const modal = openModal({
+      title: `${t.t("admin.reset_password")}: ${user.name}`,
+      body,
+      actions: [send, set],
+      closeLabel: t.t("action.close"),
+    });
+
+    // The set button is in the footer, outside the form: without this it does
+    // nothing, which is the mistake 18.1 fixed in two other dialogs.
+    body.id = `admin-password-${user.id}`;
+    set.setAttribute("form", body.id);
+    password.control.focus();
   }
 
   /**

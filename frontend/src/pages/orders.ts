@@ -261,8 +261,13 @@ function iconLink(href: string, name: string, label: string): HTMLElement {
   return el("a", { class: "button button-icon", href, "aria-label": label, title: label }, icon(name));
 }
 
-/** A square icon control that does something. */
-function iconButton(
+/**
+ * A square icon control that does something.
+ *
+ * Exported for the order page's item rows, which have the same problem the
+ * tiles do: a narrow column with no room for two words beside a price.
+ */
+export function iconButton(
   name: string,
   label: string,
   variant: string,

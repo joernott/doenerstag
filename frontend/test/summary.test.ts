@@ -532,3 +532,32 @@ describe("the totals, split by the paid tick", () => {
     expect(valueOf(rendered, app.t.t("order.total"))).toContain("43.50");
   });
 });
+
+// 18.4: on the summary too, the tick is labelled and the price comes last,
+// and a person's owed amount is the last thing in their heading, so all of
+// them end at the same edge.
+describe("the layout of who owes what", () => {
+  it("labels the tick, puts the price last, and puts the owed amount last in the heading", async () => {
+    const settled = structuredClone(summary);
+    settled.per_person[0]!.paid_cents = 500;
+    stubServer(summaryStubs({ "GET /orders/o1/summary": settled }));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    for (const row of rendered.querySelectorAll<HTMLElement>(".person-group .order-item")) {
+      const parts = [...row.children];
+      expect(parts.at(-1)?.classList.contains("menu-price")).toBe(true);
+      expect(parts.at(-2)?.classList.contains("paid-box")).toBe(true);
+      expect(parts.at(-2)?.textContent).toBe(app.t.t("item.paid"));
+    }
+
+    const amounts = rendered.querySelector(".person-group .person-amounts");
+    const inHeading = [...(amounts?.children ?? [])];
+    expect(inHeading.at(-1)?.classList.contains("person-total")).toBe(true);
+    // The "paid" note, when there is one, comes before it rather than after.
+    expect(inHeading[0]?.classList.contains("person-paid")).toBe(true);
+  });
+});

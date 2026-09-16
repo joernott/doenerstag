@@ -183,6 +183,19 @@ func (h *UserHandlers) patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// An administrator setting somebody else's password ends every session that
+	// account has, exactly as a reset link does. The reason to set it is that
+	// the person cannot get in, or should not be the only one who can: either
+	// way, a browser still signed in with the old password is the thing being
+	// fixed. Changing your own password leaves your sessions alone, because the
+	// one making the change is one of them.
+	if update.PasswordHash != nil && !principal.Is(user.ID) {
+		if err := db.DeleteSessionsForUser(r.Context(), h.Pool, user.ID); err != nil {
+			WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+			return
+		}
+	}
+
 	_ = WriteJSON(w, http.StatusOK, publicUser(updated))
 }
 
