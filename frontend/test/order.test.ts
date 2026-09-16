@@ -105,6 +105,7 @@ const orderItem = {
     { id: "om1", modification_id: "mod2", name: "Mit Käse", price_delta_cents: 100 },
   ],
   line_total_cents: 2100,
+  paid: false,
 };
 
 function detail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -118,6 +119,8 @@ function detail(overrides: Record<string, unknown> = {}): Record<string, unknown
     pickup_person_name: "",
     items: [orderItem],
     item_total_cents: 2100,
+    unpaid_total_cents: 2100,
+    paid_total_cents: 0,
     grand_total_cents: 2450,
     below_minimum: false,
     ...overrides,
@@ -409,6 +412,147 @@ describe("the order page", () => {
     // order page used to be missing: it had no address case at all.
     const address = contacts.find((node) => node.textContent?.startsWith("Bahnhofstrasse"));
     expect(address?.getAttribute("href")).toContain("google.com/maps");
+  });
+
+  /*
+   * 18.2 and 18.3: the paid tick on the order page, and a Totals box that
+   * splits the order into what is still owed and what has been settled.
+   */
+
+  // 18.4: the tick carries a visible "Paid" and sits in front of the price,
+  // with the price last, so every amount ends at one edge whether or not the
+  // row also has Edit and Delete.
+  it("labels the tick and puts it just before the price, which is last", async () => {
+    stubServer(orderStubs(detail({ items: [orderItem, { ...orderItem, id: "i2", user_id: "u1", user_name: "Jo" }] })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const rows = [...rendered.querySelectorAll<HTMLElement>(".order-item")];
+    expect(rows.length).toBe(2);
+    for (const row of rows) {
+      const parts = [...row.children];
+      expect(parts.at(-1)?.classList.contains("menu-price")).toBe(true);
+      expect(parts.at(-2)?.classList.contains("paid-box")).toBe(true);
+      expect(parts.at(-2)?.textContent).toBe(app.t.t("item.paid"));
+    }
+    // One row is u1's own, with Edit and Delete; they come before the tick.
+    const own = rows.find((row) => row.querySelector(".actions"));
+    expect(own).toBeDefined();
+    const ownParts = [...own!.children];
+    expect(ownParts.indexOf(own!.querySelector(".actions")!)).toBeLessThan(
+      ownParts.indexOf(own!.querySelector(".paid-box")!),
+    );
+  });
+
+  it("shows Unpaid, Paid and Total in the Totals box", async () => {
+    stubServer(orderStubs(detail({ unpaid_total_cents: 1500, paid_total_cents: 600 })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const totals = [...rendered.querySelectorAll(".totals dt")].map((dt) => dt.textContent);
+    expect(totals).toEqual([
+      app.t.t("order.total_unpaid"),
+      app.t.t("order.total_paid"),
+      app.t.t("order.delivery_fee"),
+      app.t.t("order.total"),
+    ]);
+    const values = [...rendered.querySelectorAll(".totals dd")].map((dd) => dd.textContent);
+    expect(values[0]).toContain("15.00");
+    expect(values[1]).toContain("6.00");
+    // The whole of it, with the delivery fee, which nobody ticks.
+    expect(values[3]).toContain("24.50");
+  });
+
+  it("puts a paid tick beside each price, live for the people who may use it", async () => {
+    stubServer(orderStubs(detail()));
+
+    // u1 opened the order; the item is u2's. The creator may tick it.
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const box = rendered.querySelector<HTMLInputElement>(".order-item .paid-box input");
+    expect(box).not.toBeNull();
+    expect(box?.checked).toBe(false);
+    expect(box?.disabled).toBe(false);
+    expect(box?.getAttribute("aria-label")).toBe(app.t.t("item.paid_for", { item: "Döner Kebap" }));
+  });
+
+  it("shows a bystander the tick but does not let them change it", async () => {
+    stubServer(orderStubs(detail({ money_collector_id: null })));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u8", name: "wer", display_name: "Wer", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const box = rendered.querySelector<HTMLInputElement>(".order-item .paid-box input");
+    expect(box?.disabled).toBe(true);
+  });
+
+  // Everything else about an item freezes at the deadline; the tick does not,
+  // because the money changes hands when the food arrives.
+  it("still offers the tick once the order has closed", async () => {
+    stubServer(orderStubs(detail({ deadline_at: soon(-2), fulfilment_at: soon(-1), status: "expired" })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const box = rendered.querySelector<HTMLInputElement>(".order-item .paid-box input");
+    expect(box?.disabled).toBe(false);
+    // While the edit and delete buttons are gone, as they always were.
+    expect(rendered.querySelector(".order-item .actions")).toBeNull();
+  });
+
+  it("updates Unpaid and Paid when the tick is pressed, without a reload", async () => {
+    const routes: Record<string, unknown> = {
+      ...orderStubs(detail()),
+      "PUT /orders/o1/items/i1/paid": { ...orderItem, paid: true },
+    };
+    const stubs = stubServer(routes);
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const valueOf = (label: string): string | null | undefined => {
+      const terms = [...rendered.querySelectorAll(".totals dt")];
+      const index = terms.findIndex((dt) => dt.textContent === label);
+      return rendered.querySelectorAll(".totals dd")[index]?.textContent;
+    };
+    expect(valueOf(app.t.t("order.total_unpaid"))).toContain("21.00");
+    expect(valueOf(app.t.t("order.total_paid"))).toContain("0.00");
+
+    // What the server answers once the line is settled. The page is not trusted
+    // to do the arithmetic; it reads the order again.
+    routes["GET /orders/o1"] = detail({
+      items: [{ ...orderItem, paid: true }],
+      unpaid_total_cents: 0,
+      paid_total_cents: 2100,
+    });
+
+    const box = rendered.querySelector<HTMLInputElement>(".order-item .paid-box input");
+    box!.checked = true;
+    box!.dispatchEvent(new Event("change"));
+    await settle();
+
+    const put = stubs.calls.find((call) => call.method === "PUT");
+    expect(put?.path).toBe("/orders/o1/items/i1/paid");
+    expect(put?.body).toEqual({ paid: true });
+
+    expect(valueOf(app.t.t("order.total_unpaid"))).toContain("0.00");
+    expect(valueOf(app.t.t("order.total_paid"))).toContain("21.00");
+    expect(rendered.querySelector<HTMLInputElement>(".order-item .paid-box input")?.checked).toBe(true);
   });
 
   /*

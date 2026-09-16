@@ -647,6 +647,24 @@ and released as 0.3.0.
 
 ---
 
+## Sprint 18 — Fixes to 0.3.0
+
+**Goal:** fix what using 0.3.0 finds.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 18.1 | Save did nothing in either availability dialog -- defining a rule, or attaching rules to a category. The button sits in the dialog's footer, outside its form, and every other dialog links the two with the button's `form` attribute; these two did not. No request, no error, and the tests rendered both dialogs without ever pressing Save. They press it now, and fail without the fix. Reported by the user, trying to add a rule with only a date | S | [06](06_ui_ux.md) |
+| ✅ 18.2 | The paid tick on the order page as well as the summary, beside each price, for the same three people and regardless of the deadline | S | [06](06_ui_ux.md) |
+| ✅ 18.3 | The Totals box on the order page and the summary: the upper "Total" becomes "Unpaid", a "Paid" line sums what is ticked, and the lower "Total" is both together, with the delivery fee where there is one. Both sums follow a tick without a reload | M | [06](06_ui_ux.md) |
+| ✅ 18.4 | The paid tick gets a visible "Paid" label on the order page and the summary, including the printed summary, and moves in front of the amount so the amounts line up in one column. The order page's Edit and Delete become the pencil and bin icons the overview uses, since the label left no room for two words | S | [06](06_ui_ux.md) |
+| ✅ 18.5 | The administrator's password dialog on the Users page can set a new password directly as well as sending a reset link, for somebody with no access to their mail | M | [05](05_auth_and_permissions.md) |
+| ✅ 18.6 | French as a third language: one catalog, `fr.json`, with the `many` plural form French has and German and English do not. Nothing else changes, which is what docs/07 promised | M | [07](07_i18n.md) |
+
+**Exit criteria:** what 0.3.0 got wrong in use is fixed, each with a test that
+fails without the fix.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

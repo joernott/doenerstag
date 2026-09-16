@@ -61,6 +61,8 @@ export interface OrderItem {
   note: string;
   modifications: { id: string; modification_id: string | null; name: string; price_delta_cents: number }[];
   line_total_cents: number;
+  /** Ticked as settled. Not a payment: the application takes none. */
+  paid: boolean;
 }
 
 /** The authenticated order shape: the header, the creator and the items. */
@@ -73,6 +75,9 @@ export interface OrderDetail extends OrderHeader {
   pickup_person_name: string;
   items: OrderItem[];
   item_total_cents: number;
+  /** The item total split by the paid tick; the two always add up to it. */
+  unpaid_total_cents: number;
+  paid_total_cents: number;
   grand_total_cents: number;
   below_minimum: boolean;
 }
@@ -256,8 +261,13 @@ function iconLink(href: string, name: string, label: string): HTMLElement {
   return el("a", { class: "button button-icon", href, "aria-label": label, title: label }, icon(name));
 }
 
-/** A square icon control that does something. */
-function iconButton(
+/**
+ * A square icon control that does something.
+ *
+ * Exported for the order page's item rows, which have the same problem the
+ * tiles do: a narrow column with no room for two words beside a price.
+ */
+export function iconButton(
   name: string,
   label: string,
   variant: string,

@@ -259,6 +259,13 @@ export function openFilterEditor(
     actions: [save],
     closeLabel: t.t("action.close"),
   });
+
+  // The save button sits in the dialog's footer, outside the form it submits,
+  // and `form` on the button is what connects the two. Without it Save did
+  // nothing at all -- no request, no error -- which is how 0.3.0 shipped.
+  body.id = `availability-form-${existing?.id ?? "new"}`;
+  save.setAttribute("form", body.id);
+  name.focus();
 }
 
 /**
@@ -414,4 +421,9 @@ export function openAttachmentEditor(options: AttachmentEditorOptions): void {
     actions: [save],
     closeLabel: t.t("action.close"),
   });
+
+  // As in openFilterEditor: the footer button reaches the form only through
+  // its `form` attribute.
+  body.id = `availability-attach-${kind}-${elementID}`;
+  save.setAttribute("form", body.id);
 }

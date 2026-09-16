@@ -9,6 +9,7 @@ import type { App } from "../app";
 import { api, ApiError, errorMessage } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { contactTarget } from "../contacts";
+import { mayTickPaid, paidCheckbox } from "../components/paid";
 import { append, el, type Child } from "../dom";
 import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
 import { button } from "../components/forms";
@@ -54,6 +55,9 @@ interface Summary {
   aggregated: AggregatedLine[];
   per_person: PersonLine[];
   item_total_cents: number;
+  /** The item total split by the paid tick; the two always add up to it. */
+  unpaid_total_cents: number;
+  paid_total_cents: number;
   delivery_fee_cents: number | null;
   grand_total_cents: number;
   min_order_value_cents: number | null;
@@ -102,34 +106,37 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   const money = (cents: number): string =>
     formatMoney(app.language, cents, summary.currency_code, moneyFormat);
 
-  // Ticking a line changes what everybody on the page owes, so the whole
-  // section is rebuilt from the server rather than patched in place: the
-  // arithmetic belongs to the API and there is no version of it here to keep in
-  // step.
+  // Ticking a line changes what each person owes and what the order has
+  // outstanding, so both sections are rebuilt from the server rather than
+  // patched in place: the arithmetic belongs to the API and there is no version
+  // of it here to keep in step. The totals used to be rendered once and left
+  // alone, which was right while nothing on this page could change them.
   const people = el("div", { class: "person-groups" });
-  const renderPeople = (): void => {
-    people.replaceChildren(perPersonCard(app, summary, money, order, refreshPeople));
+  const totals = el("div", { class: "totals-holder" });
+  const render = (): void => {
+    people.replaceChildren(perPersonCard(app, summary, money, order, refresh));
+    totals.replaceChildren(totalsCard(app, summary, money));
   };
-  const refreshPeople = (): void => {
+  const refresh = (): void => {
     api
       .get<Summary>(`/orders/${id}/summary`)
       .then((fresh) => {
         summary = fresh;
-        renderPeople();
+        render();
       })
       .catch(() => {
         // Leave what is on screen. The tick itself succeeded; only the
         // re-read failed, and a page that emptied itself would be worse.
       });
   };
-  renderPeople();
+  render();
 
   return page(
     summary.title,
     headerCard(app, summary, order, restaurant),
     aggregatedCard(app, summary, money),
     people,
-    totalsCard(app, summary, money),
+    totals,
     toolbar(app, summary),
   );
 }
@@ -287,26 +294,6 @@ function aggregatedCard(
 }
 
 /** Who owes what: one block per person, with their own total. */
-/**
- * Whether this visitor may tick a line as settled.
- *
- * The three people who plausibly know: whoever ordered it, whoever opened the
- * order, and whoever is collecting the money. The server decides for real; this
- * decides whether to offer a control that would be refused.
- */
-function mayTick(app: App, order: OrderPeople | null, person: PersonLine): boolean {
-  const me = app.session.user?.id;
-  if (me === undefined) {
-    return false;
-  }
-  return (
-    app.session.isAdmin ||
-    person.user_id === me ||
-    order?.creator_id === me ||
-    (order?.money_collector_id ?? null) === me
-  );
-}
-
 function perPersonCard(
   app: App,
   summary: Summary,
@@ -326,16 +313,23 @@ function perPersonCard(
         // A deleted account is shown as the placeholder's display name, which
         // is what the API sends; the page does not invent a label for it.
         person.display_name,
-        el("span", { class: "person-total", text: money(person.total_cents) }),
-        // Only when something has been settled: a "0.00 paid" beside every name
-        // would be noise on the ordinary case, and a bare 0.00 owed could
-        // otherwise mean either "paid up" or "ordered nothing".
-        person.paid_cents > 0
-          ? el("span", {
-              class: "person-paid",
-              text: t.t("summary.already_paid", { amount: money(person.paid_cents) }),
-            })
-          : null,
+        // The owed amount last, so that it ends at the same edge as every line
+        // price below it. It used to come before the "paid" note, which a
+        // space-between heading then pushed into the middle of the line.
+        el(
+          "span",
+          { class: "person-amounts" },
+          // Only when something has been settled: a "0.00 paid" beside every
+          // name would be noise on the ordinary case, and a bare 0.00 owed
+          // could otherwise mean either "paid up" or "ordered nothing".
+          person.paid_cents > 0
+            ? el("span", {
+                class: "person-paid",
+                text: t.t("summary.already_paid", { amount: money(person.paid_cents) }),
+              })
+            : null,
+          el("span", { class: "person-total", text: money(person.total_cents) }),
+        ),
       ),
       el(
         "ul",
@@ -357,8 +351,22 @@ function perPersonCard(
                 : null,
               item.note ? el("span", { class: "muted item-note", text: ` ${item.note}` }) : null,
             ),
+            // The tick before the price and the price last, so every amount on
+            // the page ends at the same right edge.
+            paidCheckbox({
+              app,
+              orderID: summary.order_id,
+              itemID: item.id,
+              itemName: item.item_name,
+              paid: item.paid,
+              allowed: mayTickPaid(app, {
+                ownerID: person.user_id,
+                creatorID: order?.creator_id,
+                moneyCollectorID: order?.money_collector_id,
+              }),
+              onChanged,
+            }),
             el("span", { class: "menu-price", text: money(item.line_total_cents) }),
-            paidBox(app, summary, order, person, item, onChanged),
           ),
         ),
       ),
@@ -366,56 +374,6 @@ function perPersonCard(
   );
 
   return section(t.t("summary.who_owes_what"), ...blocks);
-}
-
-/**
- * The tick beside a price.
- *
- * Shown to everybody who can read the summary, because whether a line has been
- * settled is part of what the summary says; only the three people who may
- * change it get a live control. For everyone else it is a disabled box, which
- * says "somebody has ticked this" without pretending they could untick it.
- *
- * Its label names the dish rather than saying "paid", because a page with nine
- * checkboxes all called "paid" is a page a screen reader cannot navigate.
- */
-function paidBox(
-  app: App,
-  summary: Summary,
-  order: OrderPeople | null,
-  person: PersonLine,
-  item: PersonItem,
-  onChanged: () => void,
-): HTMLElement {
-  const { t } = app;
-  const allowed = mayTick(app, order, person);
-
-  const box = el("input", {
-    type: "checkbox",
-    class: "checkbox",
-    checked: item.paid,
-    disabled: !allowed,
-    "aria-label": t.t("summary.paid_for", { item: item.item_name }),
-    title: t.t("summary.paid_for", { item: item.item_name }),
-  });
-
-  if (allowed) {
-    box.addEventListener("change", () => {
-      const wanted = box.checked;
-      box.disabled = true;
-      api
-        .put(`/orders/${summary.order_id}/items/${item.id}/paid`, { paid: wanted })
-        .then(onChanged)
-        .catch(() => {
-          // Put the box back where it was: the server did not agree, and a tick
-          // that only exists in this browser is worse than none.
-          box.checked = !wanted;
-          box.disabled = false;
-        });
-    });
-  }
-
-  return el("span", { class: "paid-box" }, box);
 }
 
 function totalsCard(
@@ -431,7 +389,11 @@ function totalsCard(
     list.appendChild(el("dd", { text: value, ...(className ? { class: className } : {}) }));
   };
 
-  add(t.t("order.total"), money(summary.item_total_cents));
+  // What is still owed, what has been ticked as settled, and the whole of it.
+  // The two halves are the API's and always add up to the item total; the
+  // delivery fee belongs to neither, because nobody ticks it.
+  add(t.t("order.total_unpaid"), money(summary.unpaid_total_cents));
+  add(t.t("order.total_paid"), money(summary.paid_total_cents));
   if (summary.delivery_fee_cents) {
     add(t.t("order.delivery_fee"), money(summary.delivery_fee_cents));
   }

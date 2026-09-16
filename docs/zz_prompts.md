@@ -1042,3 +1042,61 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 62
 
 > Please go ahead, squash-merge back into main and trigger the release v0.3.0
+
+---
+
+### Prompt 63
+
+> the VM has been restarted, please deploy and run v0.3.0 on the VM
+
+---
+
+### Prompt 64
+
+> I just tried to create a new availabilityx rule named "xmas" that only has one
+> date set, but clicking on "Save" does not close the modal and add the
+> availability rule
+
+---
+
+### Prompt 65
+
+> please create a branch sprint 18 for the fixes
+
+---
+
+### Prompt 66
+
+> please run the most current version without creating a release yet, I will
+> test it a bit more
+
+---
+
+### Prompt 67
+
+> I found two more things:
+> - Please also add a "paid" checkbox on the order page as well, not only on the
+>   summary page
+> - Please add a line "Paid" in the "Totals" box on the orders page and summary.
+>   Paid items should be summed up there. Rename the upper "Total" line to
+>   "Unpaid". The lower "Total" line should contain the sum of both. Make sure,.
+>   these two sums update when clicking "paidf" on an item.
+
+---
+
+### Prompt 68
+
+> The checkbox is still missing a "Paid" label. Please add that on both pages,
+> the order and the summary. On the print version. Also move the checkbox before
+> the amount, so that all amounts are below each other.
+>
+> When logges in as admin, I can open the "change password" dialog for every
+> user and trigger sending an email. I'd also like the ability to enter a new
+> password. This way, I can set it for users without email access.
+
+---
+
+### Prompt 69
+
+> everything looks fine now. Please add support for French as third language and
+> then build and release v0.3.1

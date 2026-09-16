@@ -33,6 +33,8 @@ type summaryResponse struct {
 	} `json:"aggregated"`
 	PerPerson          []summaryPerson `json:"per_person"`
 	ItemTotalCents     int64           `json:"item_total_cents"`
+	UnpaidTotalCents   int64           `json:"unpaid_total_cents"`
+	PaidTotalCents     int64           `json:"paid_total_cents"`
 	DeliveryFeeCents   *int64          `json:"delivery_fee_cents"`
 	GrandTotalCents    int64           `json:"grand_total_cents"`
 	MinOrderValueCents *int64          `json:"min_order_value_cents"`

@@ -115,6 +115,8 @@ const summary = {
     },
   ],
   item_total_cents: 4000,
+  unpaid_total_cents: 4000,
+  paid_total_cents: 0,
   delivery_fee_cents: 350,
   grand_total_cents: 4350,
   min_order_value_cents: 2000,
@@ -463,5 +465,99 @@ describe("recording that a line has been settled", () => {
     const boxes = [...rendered.querySelectorAll<HTMLInputElement>(".paid-box input")];
     expect(boxes.length).toBe(2);
     expect(boxes.every((box) => box.disabled)).toBe(true);
+  });
+});
+
+/*
+ * 18.3: the summary's Totals box says what is still owed and what has been
+ * settled, and follows a tick. It used to be rendered once and left alone,
+ * which was right while nothing on the page could change it.
+ */
+describe("the totals, split by the paid tick", () => {
+  function valueOf(rendered: HTMLElement, label: string): string | null | undefined {
+    const terms = [...rendered.querySelectorAll(".totals dt")];
+    const index = terms.findIndex((dt) => dt.textContent === label);
+    return rendered.querySelectorAll(".totals dd")[index]?.textContent;
+  }
+
+  it("shows Unpaid, Paid and Total", async () => {
+    stubServer(summaryStubs());
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    const labels = [...rendered.querySelectorAll(".totals dt")].map((dt) => dt.textContent);
+    expect(labels[0]).toBe(app.t.t("order.total_unpaid"));
+    expect(labels[1]).toBe(app.t.t("order.total_paid"));
+    expect(labels.at(-1)).toBe(app.t.t("order.total"));
+    // No "Total" above Paid any more: the upper one is Unpaid now.
+    expect(labels.filter((label) => label === app.t.t("order.total")).length).toBe(1);
+  });
+
+  it("moves a line from Unpaid to Paid when it is ticked", async () => {
+    const routes: Record<string, unknown> = {
+      ...summaryStubs(),
+      "PUT /orders/o1/items/i1/paid": { ok: true },
+    };
+    stubServer(routes);
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    expect(valueOf(rendered, app.t.t("order.total_unpaid"))).toContain("40.00");
+    expect(valueOf(rendered, app.t.t("order.total_paid"))).toContain("0.00");
+
+    const settled = structuredClone(summary);
+    settled.per_person[0]!.items[0]!.paid = true;
+    settled.per_person[0]!.total_cents = 0;
+    settled.per_person[0]!.paid_cents = 2100;
+    routes["GET /orders/o1/summary"] = {
+      ...settled,
+      unpaid_total_cents: 1900,
+      paid_total_cents: 2100,
+    };
+
+    const box = rendered.querySelector<HTMLInputElement>(".paid-box input");
+    box!.checked = true;
+    box!.dispatchEvent(new Event("change"));
+    await settle();
+
+    expect(valueOf(rendered, app.t.t("order.total_unpaid"))).toContain("19.00");
+    expect(valueOf(rendered, app.t.t("order.total_paid"))).toContain("21.00");
+    // The whole does not move: settling with the collector is not a discount.
+    expect(valueOf(rendered, app.t.t("order.total"))).toContain("43.50");
+  });
+});
+
+// 18.4: on the summary too, the tick is labelled and the price comes last,
+// and a person's owed amount is the last thing in their heading, so all of
+// them end at the same edge.
+describe("the layout of who owes what", () => {
+  it("labels the tick, puts the price last, and puts the owed amount last in the heading", async () => {
+    const settled = structuredClone(summary);
+    settled.per_person[0]!.paid_cents = 500;
+    stubServer(summaryStubs({ "GET /orders/o1/summary": settled }));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await summaryPage(app, "o1");
+    await settle();
+
+    for (const row of rendered.querySelectorAll<HTMLElement>(".person-group .order-item")) {
+      const parts = [...row.children];
+      expect(parts.at(-1)?.classList.contains("menu-price")).toBe(true);
+      expect(parts.at(-2)?.classList.contains("paid-box")).toBe(true);
+      expect(parts.at(-2)?.textContent).toBe(app.t.t("item.paid"));
+    }
+
+    const amounts = rendered.querySelector(".person-group .person-amounts");
+    const inHeading = [...(amounts?.children ?? [])];
+    expect(inHeading.at(-1)?.classList.contains("person-total")).toBe(true);
+    // The "paid" note, when there is one, comes before it rather than after.
+    expect(inHeading[0]?.classList.contains("person-paid")).toBe(true);
   });
 });

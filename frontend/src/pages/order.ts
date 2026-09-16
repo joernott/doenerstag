@@ -14,6 +14,7 @@ import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { accountChoices, listAccounts } from "../accounts";
 import { contactTarget } from "../contacts";
+import { mayTickPaid, paidCheckbox } from "../components/paid";
 import { append, el, icon, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
@@ -30,6 +31,7 @@ import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
 import {
+  iconButton,
   isActive,
   summaryLink,
   type OrderDetail,
@@ -432,34 +434,63 @@ export async function orderPage(
         el("div", { class: "order-item-head" }, ...details),
         extras.length > 0 ? el("div", { class: "order-item-extras" }, ...extras) : null,
       ),
+      // Own items only, and only while the order is open: F6.5 and F6.6.
+      //
+      // Before the tick and the price rather than after them. A row with these
+      // two buttons and a row without them would otherwise end at different
+      // places, and the amounts would not line up under each other or under
+      // the person's total -- which is what the right-hand edge is for.
+      //
+      // A pencil and a bin rather than two words, as on the order overview's
+      // tiles and for the same reason: with the paid tick and its label beside
+      // the price, two text buttons squeezed the dish name onto two lines and
+      // stacked on top of each other. Each names the dish, because a list has
+      // one of these per line and "Edit" alone does not say which.
+      mine && canOrder()
+        ? actions(
+            iconButton("pencil", `${t.t("action.edit")}: ${item.item_name}`, "", () => {
+              void openItemEditor(item);
+            }),
+            iconButton("trash", `${t.t("action.delete")}: ${item.item_name}`, "button-danger", () => {
+              void removeItem(item);
+            }),
+          )
+        : null,
+      // The paid tick, as on the summary. Not gated on the order being open
+      // like the two buttons before it: the money changes hands when the food
+      // arrives, which is always after the deadline.
+      paidCheckbox({
+        app,
+        orderID: id,
+        itemID: item.id,
+        itemName: item.item_name,
+        paid: item.paid,
+        allowed: mayTickPaid(app, {
+          ownerID: userID,
+          creatorID: detail()?.creator_id,
+          moneyCollectorID: detail()?.money_collector_id,
+        }),
+        // The whole order is read again, so the Totals box and every other
+        // browser watching it follow from one answer.
+        onChanged: refresh,
+      }),
       el("span", {
         class: "menu-price",
         text: formatMoney(app.language, item.line_total_cents, order.currency_code, moneyFormat),
       }),
-      // Own items only, and only while the order is open: F6.5 and F6.6.
-      mine && canOrder()
-        ? actions(
-            button({
-              label: t.t("action.edit"),
-              onclick: () => {
-                void openItemEditor(item);
-              },
-            }),
-            button({
-              label: t.t("action.delete"),
-              variant: "danger",
-              onclick: () => {
-                void removeItem(item);
-              },
-            }),
-          )
-        : null,
     );
   }
 
   function totalsCard(own: OrderDetail): HTMLElement {
+    const money = (cents: number): string =>
+      formatMoney(app.language, cents, order.currency_code, moneyFormat);
+
+    // What is still owed and what has been ticked as settled, both from the
+    // API, which sums them from the same items it sends. The delivery fee is
+    // neither: nobody ticks it.
     const rows: [string, string][] = [
-      [t.t("order.total"), formatMoney(app.language, own.item_total_cents, order.currency_code, moneyFormat)],
+      [t.t("order.total_unpaid"), money(own.unpaid_total_cents)],
+      [t.t("order.total_paid"), money(own.paid_total_cents)],
     ];
     if (order.delivery_fee_cents) {
       rows.push([

@@ -21,7 +21,11 @@ type summaryBody struct {
 	Aggregated []aggregatedLine `json:"aggregated"`
 	PerPerson  []personLine     `json:"per_person"`
 
-	ItemTotalCents     int64  `json:"item_total_cents"`
+	ItemTotalCents int64 `json:"item_total_cents"`
+	// UnpaidTotalCents + PaidTotalCents == ItemTotalCents, as on the order
+	// itself: the item total split by whether each line is ticked as settled.
+	UnpaidTotalCents   int64  `json:"unpaid_total_cents"`
+	PaidTotalCents     int64  `json:"paid_total_cents"`
 	DeliveryFeeCents   *int64 `json:"delivery_fee_cents"`
 	GrandTotalCents    int64  `json:"grand_total_cents"`
 	MinOrderValueCents *int64 `json:"min_order_value_cents"`
@@ -131,6 +135,13 @@ func buildSummary(
 	}
 
 	body.PerPerson = perPerson(items)
+	for i := range items {
+		if items[i].Paid {
+			body.PaidTotalCents += items[i].LineTotalCents()
+		} else {
+			body.UnpaidTotalCents += items[i].LineTotalCents()
+		}
+	}
 
 	body.GrandTotalCents = body.ItemTotalCents
 	if order.DeliveryFeeCents != nil {

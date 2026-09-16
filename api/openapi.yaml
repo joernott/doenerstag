@@ -2782,13 +2782,24 @@ components:
       allOf:
         - $ref: "#/components/schemas/OrderListEntry"
         - type: object
-          required: [items, item_total_cents, grand_total_cents, below_minimum]
+          required:
+            [items, item_total_cents, unpaid_total_cents, paid_total_cents, grand_total_cents, below_minimum]
           properties:
             items:
               type: array
               items:
                 $ref: "#/components/schemas/OrderItem"
             item_total_cents: { type: integer, format: int64 }
+            unpaid_total_cents:
+              type: integer
+              format: int64
+              description: >-
+                The item total less every line ticked as paid. With
+                paid_total_cents it always adds up to item_total_cents.
+            paid_total_cents:
+              type: integer
+              format: int64
+              description: The lines ticked as paid. Not a payment; see PUT .../paid.
             grand_total_cents:
               type: integer
               format: int64
@@ -2918,6 +2929,8 @@ components:
         - aggregated
         - per_person
         - item_total_cents
+        - unpaid_total_cents
+        - paid_total_cents
         - grand_total_cents
         - below_minimum
         - plain_text
@@ -2934,6 +2947,11 @@ components:
           items:
             $ref: "#/components/schemas/SummaryPerson"
         item_total_cents: { type: integer, format: int64 }
+        unpaid_total_cents:
+          type: integer
+          format: int64
+          description: As on the order. With paid_total_cents it adds up to item_total_cents.
+        paid_total_cents: { type: integer, format: int64 }
         delivery_fee_cents: { type: [integer, "null"], format: int64 }
         grand_total_cents: { type: integer, format: int64 }
         min_order_value_cents: { type: [integer, "null"], format: int64 }

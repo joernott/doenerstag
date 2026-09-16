@@ -1519,9 +1519,12 @@ a {
   font-weight: 400;
 }
 
+/* Its parts centre on one axis: with Edit and Delete in a row, a price and a
+   paid tick aligned to the top sat visibly higher than the buttons beside
+   them. */
 .order-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   padding-block: 0.5rem;
   border-block-end: 1px solid var(--border);
@@ -1774,21 +1777,47 @@ a {
   margin-block-end: 0.35rem;
 }
 
-/* The tick beside a price on the summary: whether that line has been settled.
-   Fixed width so the column of prices stays a column. */
+/* The paid tick and its label, in front of a line's price. It never wraps and
+   never shrinks, so it takes the same width on every row and the prices after
+   it end at one edge. */
 .paid-box {
   flex: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  margin-inline-start: 0.6rem;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.paid-box:has(input:disabled) {
+  cursor: default;
+  color: var(--text-muted);
+}
+
+/* A person's amounts, with what they still owe last so it ends at the same
+   edge as the line prices under it. */
+.person-amounts {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 
 /* What somebody has already handed over, beside what they still owe. */
 .person-paid {
-  margin-inline-start: 0.6rem;
   font-size: 0.875rem;
   font-weight: 400;
   color: var(--ok);
+}
+
+ print {
+  /* Browsers print form controls with their colours stripped by default, which
+     leaves a ticked box looking empty on paper -- the one place a person is
+     checking lines off with a pen. */
+  .paid-box input {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 /* --- availability -------------------------------------------------------- */

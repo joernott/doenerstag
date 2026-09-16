@@ -14,7 +14,7 @@ import {
 
 describe("the language list", () => {
   it("comes from the catalogs in the build", () => {
-    expect(languages().map((meta) => meta.code).sort()).toEqual(["de", "en"]);
+    expect(languages().map((meta) => meta.code).sort()).toEqual(["de", "en", "fr"]);
   });
 
   it("names each language in its own language", () => {
@@ -24,7 +24,7 @@ describe("the language list", () => {
 
   it("knows which languages exist", () => {
     expect(hasLanguage("de")).toBe(true);
-    expect(hasLanguage("fr")).toBe(false);
+    expect(hasLanguage("it")).toBe(false);
   });
 });
 
@@ -36,7 +36,7 @@ describe("resolving the language", () => {
   it("ignores a cookie naming a language this build does not have", () => {
     // The case docs/07_i18n.md calls out: an installation that once shipped a
     // language and no longer does must not produce an empty interface.
-    expect(resolveLanguage("fr", ["de-AT"])).toBe("de");
+    expect(resolveLanguage("it", ["de-AT"])).toBe("de");
   });
 
   it("matches the browser's preferences by primary subtag, in its order", () => {
@@ -45,7 +45,7 @@ describe("resolving the language", () => {
   });
 
   it("falls back to English", () => {
-    expect(resolveLanguage(null, ["fr-CA", "it"])).toBe("en");
+    expect(resolveLanguage(null, ["it-CH", "nl"])).toBe("en");
   });
 });
 
@@ -62,7 +62,7 @@ describe("looking a message up", () => {
   });
 
   it("falls back to a language it does have", () => {
-    expect(new Translator("fr").language).toBe("en");
+    expect(new Translator("it").language).toBe("en");
   });
 
   it("interpolates named placeholders", () => {
@@ -81,6 +81,13 @@ describe("looking a message up", () => {
     const de = new Translator("de");
     expect(de.t("order.items", { count: 1 })).toBe("1 Position");
     expect(de.t("order.items", { count: 9 })).toBe("9 Positionen");
+
+    // French is the first catalog with a third form, and counts zero as one.
+    const fr = new Translator("fr");
+    expect(fr.t("order.items", { count: 0 })).toBe("0 article");
+    expect(fr.t("order.items", { count: 1 })).toBe("1 article");
+    expect(fr.t("order.items", { count: 9 })).toBe("9 articles");
+    expect(fr.t("order.items", { count: 1000000 })).toMatch(/ d'articles$/u);
   });
 
   it("reports whether a key exists", () => {
