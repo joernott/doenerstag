@@ -1042,3 +1042,23 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 62
 
 > Please go ahead, squash-merge back into main and trigger the release v0.3.0
+
+---
+
+### Prompt 63
+
+> the VM has been restarted, please deploy and run v0.3.0 on the VM
+
+---
+
+### Prompt 64
+
+> I just tried to create a new availabilityx rule named "xmas" that only has one
+> date set, but clicking on "Save" does not close the modal and add the
+> availability rule
+
+---
+
+### Prompt 65
+
+> please create a branch sprint 18 for the fixes

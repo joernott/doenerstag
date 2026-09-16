@@ -647,6 +647,19 @@ and released as 0.3.0.
 
 ---
 
+## Sprint 18 — Fixes to 0.3.0
+
+**Goal:** fix what using 0.3.0 finds.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 18.1 | Save did nothing in either availability dialog -- defining a rule, or attaching rules to a category. The button sits in the dialog's footer, outside its form, and every other dialog links the two with the button's `form` attribute; these two did not. No request, no error, and the tests rendered both dialogs without ever pressing Save. They press it now, and fail without the fix. Reported by the user, trying to add a rule with only a date | S | [06](06_ui_ux.md) |
+
+**Exit criteria:** what 0.3.0 got wrong in use is fixed, each with a test that
+fails without the fix.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

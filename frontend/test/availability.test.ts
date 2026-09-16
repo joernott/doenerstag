@@ -5,7 +5,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describeFilter, filterPicker } from "../src/pages/availability";
+import {
+  describeFilter,
+  filterPicker,
+  openAttachmentEditor,
+  openFilterEditor,
+} from "../src/pages/availability";
 import { restaurantPage } from "../src/pages/restaurant";
 import { mountApp, referenceStubs, settle, stubServer } from "./helpers";
 
@@ -160,5 +165,87 @@ describe("the availability tab", () => {
 
     const panel = [...rendered.querySelectorAll<HTMLElement>("[role='tabpanel']")].at(-1);
     expect(panel?.textContent).toContain(app.t.t("availability.none"));
+  });
+});
+
+/*
+ * Saving, by pressing the button a person presses.
+ *
+ * 0.3.0 shipped with Save doing nothing in both of these dialogs: the button
+ * sits in the footer, outside the form, and was never linked to it. The tests
+ * above rendered the dialogs and never clicked Save, which is how it got out.
+ * These click it and assert the request and the closed dialog.
+ */
+describe("saving a rule from its dialog", () => {
+  it("sends a rule with only a date, and closes", async () => {
+    const stubs = stubServer(
+      restaurantStubs({
+        "POST /restaurants/r1/availability": { ...christmas, id: "f9", name: "xmas" },
+      }),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    openFilterEditor(app, "r1", null, () => {});
+
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+    const inputs = [...(dialog?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+    const name = inputs.find((input) => input.type === "text");
+    const date = inputs.find((input) => input.type === "date");
+    name!.value = "xmas";
+    date!.value = "2026-12-24";
+
+    const save = [...(dialog?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === app.t.t("action.save"),
+    );
+    save!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "POST");
+    expect(call?.path).toBe("/restaurants/r1/availability");
+    expect(call?.body).toEqual({
+      name: "xmas",
+      on_date: "2026-12-24",
+      weekdays: [],
+      start_time: null,
+      end_time: null,
+    });
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  it("saves the rules attached to a category, and closes", async () => {
+    const stubs = stubServer(
+      restaurantStubs({
+        "PUT /restaurants/r1/categories/c1/availability": { availability: [pasta] },
+      }),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    openAttachmentEditor({
+      app,
+      restaurantID: "r1",
+      kind: "categories",
+      elementID: "c1",
+      title: "Nudeln",
+      attached: [],
+      onSaved: () => {},
+    });
+    await settle();
+
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+    const boxes = [...(dialog?.querySelectorAll<HTMLInputElement>("input[type='checkbox']") ?? [])];
+    boxes[0]!.checked = true;
+
+    const save = [...(dialog?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === app.t.t("action.save"),
+    );
+    save!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "PUT");
+    expect(call?.path).toBe("/restaurants/r1/categories/c1/availability");
+    expect(call?.body).toEqual({ filter_ids: [pasta.id] });
+    expect(document.querySelector("[role='dialog']")).toBeNull();
   });
 });
