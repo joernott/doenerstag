@@ -6,9 +6,9 @@
 // what happens when keys are pressed, not about what the markup says -- so it
 // is checked here, by pressing keys.
 
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-import { login, loginThroughTheForm, register, seedOrder, seedRestaurant } from "./support";
+import { expect, login, loginThroughTheForm, register, seedOrder, seedRestaurant, test } from "./support";
 
 /** What currently has focus, as a person would describe it. */
 async function focused(page: Page): Promise<string> {
@@ -71,9 +71,16 @@ test.describe("the keyboard alone", () => {
   test("changes the language and the theme without a mouse", async ({ page }) => {
     await page.goto("/");
 
-    const select = page.getByLabel("Language");
-    await select.focus();
-    await select.selectOption("de");
+    // The language list opens from its button and moves the focus into itself,
+    // as the main menu does; Tab walks it and Enter chooses.
+    await page.getByRole("button", { name: /^Language/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#language-menu")).toBeVisible();
+    const german = page.locator("#language-menu").getByRole("button", { name: "Deutsch" });
+    for (let step = 0; step < 5 && !(await german.evaluate((node) => node === document.activeElement)); step++) {
+      await page.keyboard.press("Tab");
+    }
+    await page.keyboard.press("Enter");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
 
     const toggle = page.getByRole("button", { name: /dunkel|hell/i });

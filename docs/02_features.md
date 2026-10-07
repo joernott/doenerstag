@@ -14,10 +14,11 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   ordered them, their modifications or any total. A logged-in user sees the
   full item list.
 - **F1.3** The summary page of an order is visible only to **participants**: the
-  order's creator, any logged-in user who has at least one item in that order,
-  and the administrator. The creator is included even when they have ordered
-  nothing themselves, because the creator is normally the person who calls the
-  restaurant.
+  order's creator, the person collecting the money, the person fetching the
+  food, any logged-in user who has at least one item in that order, and the
+  administrator. The creator is included even when they have ordered nothing
+  themselves, because the creator is normally the person who calls the
+  restaurant; the other two because the summary is where they do their part.
 - **F1.4** Any visitor can see the restaurant list, restaurant details, opening
   hours and menus.
 - **F1.5** Any visitor can see the version, imprint and legal notes pages.

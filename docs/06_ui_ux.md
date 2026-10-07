@@ -31,7 +31,7 @@ Fixed to the top of the viewport on every page. Left to right:
 | Application logo        | Always links back to the order overview. One SVG for both themes: the frame and the calendar text are `currentColor`, so the mark takes the text colour of whatever renders it — white-on-dark and near-black-on-light fall out of the palette rather than out of two asset files. It is inlined into the page rather than referenced with `<img>`, because an image is a separate document and inherits no colour from the page. The same asset serves the tile placeholders and the overview watermark. |
 | Application name        | "doenerstag". Hidden below the small breakpoint.                             |
 | *(spacer)*              |                                                                              |
-| Language selector       | Dropdown listing every translation shipped with the application, each in its own language ("English", "Deutsch"). Not a hardcoded pair — the list is derived from the catalogs present in the build, so adding a translation adds an entry with no change to this component. Hidden entirely when only one translation exists. Writes the `doener_lang` cookie. |
+| Language selector       | A button showing the language in force, opening a list the page draws itself (not a native select, whose open list Firefox lets no page style) of every translation shipped with the application, each in its own language ("English", "Deutsch"). Not a hardcoded pair — the list is derived from the catalogs present in the build, so adding a translation adds an entry with no change to this component. Hidden entirely when only one translation exists. The entry under the pointer or the keyboard is orange; the language in force is not marked in the list, because the button shows it. Writes the `doener_lang` cookie. |
 | Dark/light toggle       | Icon button. Writes the `doener_theme` cookie.                               |
 | Account control         | **Logged out:** a "Login / Register" button. **Logged in:** the display name, which links to the user page, followed by a logout icon button. |
 | Menu button             | Opens the main dropdown menu.                                                |
@@ -107,7 +107,10 @@ administrator.
 - Restaurant name, logo, contacts (as clickable `tel:` / `mailto:` / map links),
   and opening hours.
 - Fulfilment type, fulfilment time, deadline. All shown in local time.
-- Money collector and pickup person, if set.
+- Money collector and pickup person, each shown even when nobody has the job.
+  While the order is open, an empty job offers every signed-in visitor a
+  **Me!** button that takes it, whether or not they opened the order. It only
+  fills a vacancy; changing who has a job is the creator's, in the editor.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
@@ -175,6 +178,11 @@ the count stays current without item detail ever reaching the browser.
 - An **Add menu item** button sits at the end of every category and at the
   bottom of the menu, so a missing item can be added without leaving the order.
 - A "mark unavailable" control on each item for logged-in users.
+- A pencil button beside each item's **Add** button, for logged-in users, opens
+  the same item editor the restaurant page uses, so a wrong price or a missing
+  option can be put right without leaving the order. It edits the restaurant's
+  menu, not the order, so it stays on a closed order; lines already in an order
+  keep the name and price they were added with (ADR-0009).
 
 ### Live updates
 

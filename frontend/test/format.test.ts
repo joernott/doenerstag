@@ -17,6 +17,7 @@ import {
   formatRelativeTime,
   formatWeekday,
   moneyInputValue,
+  orderTitle,
   parseMoney,
   resetFormatterCache,
   toApiTimestamp,
@@ -90,6 +91,14 @@ describe("dates and times", () => {
     // opening hours are wall-clock values with no date (docs/07_i18n.md).
     expect(formatClockTime("de", "11:00")).toBe("11:00");
     expect(formatClockTime("en", "23:30")).toMatch(/11:30\s*PM/u);
+  });
+
+  it("titles an order with the fulfilment time in the viewer's zone", () => {
+    // The tests run in UTC, so 10:30Z is 10:30 here. The server's own title
+    // said 12:30, the time in its zone, beside a fulfilment time of 10:30.
+    const title = orderTitle("de", { restaurant_name: "Pinar Kebap", fulfilment_at: when });
+    expect(title).toBe(`Pinar Kebap — ${formatDateTime("de", when)}`);
+    expect(title).toMatch(/10:30/u);
   });
 
   it("round-trips a timestamp back to what the API wants", () => {

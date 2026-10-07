@@ -11,7 +11,7 @@ import { currentPath, loginHref } from "../returnto";
 import { contactTarget } from "../contacts";
 import { mayTickPaid, paidCheckbox } from "../components/paid";
 import { append, el, type Child } from "../dom";
-import { formatDateTime, formatMoney, formatRelativeTime } from "../format";
+import { formatDateTime, formatMoney, formatRelativeTime, orderTitle } from "../format";
 import { button } from "../components/forms";
 import { moneyFormatOf, referenceData } from "../reference";
 import { isActive, type OrderHeader } from "./orders";
@@ -51,6 +51,9 @@ interface PersonLine {
 interface Summary {
   order_id: string;
   title: string;
+  /** With fulfilment_at, what the page builds its title from (see orderTitle). */
+  restaurant_name: string;
+  fulfilment_at: string;
   currency_code: string;
   aggregated: AggregatedLine[];
   per_person: PersonLine[];
@@ -132,7 +135,7 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   render();
 
   return page(
-    summary.title,
+    orderTitle(app.language, summary),
     headerCard(app, summary, order, restaurant),
     aggregatedCard(app, summary, money),
     people,
@@ -242,7 +245,7 @@ function headerCard(
     list.appendChild(dd);
   }
 
-  return section(summary.title, list);
+  return section(orderTitle(app.language, summary), list);
 }
 
 /**

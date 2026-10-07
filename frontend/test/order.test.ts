@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatDateTime } from "../src/format";
 import { orderPage } from "../src/pages/order";
 import { ordersPage } from "../src/pages/orders";
 import { createOrderPage } from "../src/pages/ordercreate";
@@ -179,6 +180,24 @@ describe("the order overview", () => {
     expect(rendered.textContent).not.toContain("CHF");
   });
 
+  // Reported against 0.3.1: the tile's title gave the fulfilment time in UTC,
+  // because the server formatted it, while every other time on the page was in
+  // the browser's zone.
+  it("titles a tile with the fulfilment time in the viewer's zone", async () => {
+    const when = "2026-09-10T10:30:00Z";
+    stubServer({
+      ...referenceStubs,
+      "GET /orders": { orders: [header({ title: "Pinar Kebap — server time", fulfilment_at: when })] },
+    });
+
+    const app = mountApp(() => []);
+    const rendered = await ordersPage(app);
+
+    const link = rendered.querySelector<HTMLAnchorElement>(".tile-link[href='/orders/o1']");
+    expect(link?.textContent).toContain(`Pinar Kebap — ${formatDateTime(app.language, when)}`);
+    expect(link?.textContent).not.toContain("server time");
+  });
+
   it("still says nothing about items or people once logged in", async () => {
     stubServer({
       ...referenceStubs,
@@ -214,7 +233,7 @@ describe("the order overview", () => {
     stubServer({
       ...referenceStubs,
       "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
-      "GET /orders/o1": detail({ creator_id: "u9", items: [] }),
+      "GET /orders/o1": detail({ creator_id: "u9", money_collector_id: null, items: [] }),
     });
 
     const app = mountApp(() => []);
@@ -222,6 +241,30 @@ describe("the order overview", () => {
     const rendered = await ordersPage(app);
 
     expect(rendered.querySelector("a[href='/orders/o1/summary']")).toBeNull();
+  });
+
+  // 19.2: the two people an order names take part in it without ordering
+  // anything, and the summary is where the collector ticks lines off and the
+  // person fetching the food finds the address.
+  it.each([
+    ["the money collector", { money_collector_id: "u1" }],
+    ["the person fetching the food", { money_collector_id: null, pickup_person_id: "u1" }],
+  ])("offers the summary to %s", async (_who, people) => {
+    const order = detail({ creator_id: "u9", items: [], ...people });
+    stubServer({
+      ...orderStubs(order),
+      "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+
+    const overview = await ordersPage(app);
+    expect(overview.querySelector("a[href='/orders/o1/summary']")).not.toBeNull();
+
+    const orderView = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+    expect(orderView.querySelector("a[href='/orders/o1/summary']")).not.toBeNull();
   });
 
   it("gives the creator a pencil and a bin, and nobody else", async () => {
@@ -387,6 +430,20 @@ describe("creating an order", () => {
 });
 
 describe("the order page", () => {
+  it("titles the page with the fulfilment time in the viewer's zone", async () => {
+    const when = "2026-09-10T10:30:00Z";
+    stubServer(orderStubs(header({ title: "Pinar Kebap — server time", fulfilment_at: when })));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const expected = `Pinar Kebap — ${formatDateTime(app.language, when)}`;
+    const titles = [...rendered.querySelectorAll("h1, .card-title")].map((node) => node.textContent);
+    expect(titles).toContain(expected);
+    expect(rendered.textContent).not.toContain("server time");
+  });
+
   // Reported from a real order: the address in the restaurant line read
   // "Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich". An
   // unlabelled contact was printed as "label: value" with the value standing in
@@ -607,7 +664,12 @@ describe("the order page", () => {
 
     const children = [...(side?.children ?? [])];
     expect(children[0]?.classList.contains("menu-price")).toBe(true);
-    expect(children[1]?.tagName).toBe("BUTTON");
+    // Below it, the pencil (19.4) and the add button on one line, add last so
+    // the add buttons still end at the same edge down the column.
+    expect(children[1]?.classList.contains("menu-item-buttons")).toBe(true);
+    const buttons = [...(children[1]?.children ?? [])];
+    expect(buttons.every((control) => control.tagName === "BUTTON")).toBe(true);
+    expect(buttons.at(-1)?.textContent).toBe(app.t.t("item.add"));
 
     // And nothing is left in the row itself to compete with the description.
     expect(rendered.querySelector(".menu-item > .menu-price")).toBeNull();
@@ -631,15 +693,27 @@ describe("the order page", () => {
     expect(definitions).toContain(app.t.t("order.nobody"));
   });
 
-  // 17.8: the volunteering button, which is deliberately not the creator's.
-  it("offers 'Me!' for fetching the food, and takes the job when pressed", async () => {
+  // 17.8 and 19.3: the volunteering buttons, which are deliberately not the
+  // creator's. Each is found by its accessible name, which names the job:
+  // with both jobs open there are two buttons, both reading "Me!".
+  const jobs = [
+    { job: "fetching the food", path: "pickup-person", field: "pickup_person", label: "order.pickup_person" },
+    { job: "collecting the money", path: "money-collector", field: "money_collector", label: "order.money_collector" },
+  ];
+
+  function volunteerButton(app: App, root: HTMLElement, label: string): HTMLButtonElement | null {
+    const name = `${app.t.t("order.volunteer")}: ${app.t.t(label)}`;
+    return root.querySelector<HTMLButtonElement>(`.order-person button[aria-label='${name}']`);
+  }
+
+  it.each(jobs)("offers 'Me!' for $job, and takes the job when pressed", async (job) => {
+    const vacant = detail({ [`${job.field}_id`]: null, [`${job.field}_name`]: "" });
     const stubs = stubServer({
-      ...orderStubs(detail()),
-      "POST /orders/o1/pickup-person": detail({
-        pickup_person_id: "u9",
-        pickup_person_name: "Robin",
+      ...orderStubs(vacant),
+      [`POST /orders/o1/${job.path}`]: detail({
+        [`${job.field}_id`]: "u9",
+        [`${job.field}_name`]: "Robin",
       }),
-      "GET /orders/o1": detail(),
     });
 
     const app = mountApp(() => []);
@@ -648,18 +722,18 @@ describe("the order page", () => {
     const rendered = await orderPage(app, "o1", { factory: silentFactory });
     await settle();
 
-    const volunteer = rendered.querySelector<HTMLButtonElement>(".order-person button");
+    const volunteer = volunteerButton(app, rendered, job.label);
     expect(volunteer?.textContent).toBe(app.t.t("order.volunteer"));
 
     volunteer?.click();
     await settle();
 
-    expect(stubs.calls.some((call) => call.path === "/orders/o1/pickup-person")).toBe(true);
+    expect(stubs.calls.some((call) => call.path === `/orders/o1/${job.path}`)).toBe(true);
   });
 
-  it("offers nobody the button once somebody is fetching", async () => {
+  it.each(jobs)("offers nobody the button once somebody is $job", async (job) => {
     stubServer(
-      orderStubs(detail({ pickup_person_id: "u2", pickup_person_name: "Alex" })),
+      orderStubs(detail({ [`${job.field}_id`]: "u2", [`${job.field}_name`]: "Alex" })),
     );
 
     const app = mountApp(() => []);
@@ -667,8 +741,73 @@ describe("the order page", () => {
     const rendered = await orderPage(app, "o1", { factory: silentFactory });
     await settle();
 
-    expect(rendered.querySelector(".order-person button")).toBeNull();
+    expect(volunteerButton(app, rendered, job.label)).toBeNull();
     expect(rendered.querySelector(".definitions")?.textContent).toContain("Alex");
+  });
+
+  // 19.5: the × beside a job somebody has, for that person, the creator and
+  // the administrator.
+  function releaseButton(app: App, root: HTMLElement, label: string): HTMLButtonElement | null {
+    const name = `${app.t.t("order.release")}: ${app.t.t(label)}`;
+    return root.querySelector<HTMLButtonElement>(`.order-person button[aria-label='${name}']`);
+  }
+
+  it.each(jobs)("lets the person $job take themselves off it", async (job) => {
+    const held = detail({ creator_id: "u2", [`${job.field}_id`]: "u9", [`${job.field}_name`]: "Robin" });
+    const stubs = stubServer({
+      ...orderStubs(held),
+      [`DELETE /orders/o1/${job.path}`]: detail({ [`${job.field}_id`]: null, [`${job.field}_name`]: "" }),
+    });
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u9", name: "robin", display_name: "Robin", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    releaseButton(app, rendered, job.label)?.click();
+    await settle();
+
+    expect(
+      stubs.calls.some((call) => call.method === "DELETE" && call.path === `/orders/o1/${job.path}`),
+    ).toBe(true);
+  });
+
+  it.each([
+    { who: "the creator", session: { id: "u2", is_admin: false }, shown: true },
+    { who: "the administrator", session: { id: "u7", is_admin: true }, shown: true },
+    { who: "anybody else", session: { id: "u8", is_admin: false }, shown: false },
+  ])("offers the × to $who: $shown", async ({ session, shown }) => {
+    stubServer(
+      orderStubs(
+        detail({
+          creator_id: "u2",
+          money_collector_id: "u3",
+          money_collector_name: "Alex",
+          pickup_person_id: "u3",
+          pickup_person_name: "Alex",
+        }),
+      ),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ ...session, name: "x", display_name: "X" });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    for (const job of jobs) {
+      expect(releaseButton(app, rendered, job.label) !== null).toBe(shown);
+    }
+  });
+
+  it("offers no × on a closed order, which nobody can change", async () => {
+    stubServer(orderStubs(detail({ deadline_at: soon(-2), fulfilment_at: soon(-1), status: "expired" })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(releaseButton(app, rendered, "order.money_collector")).toBeNull();
   });
 
   it("offers an anonymous visitor nothing to volunteer for", async () => {
@@ -879,6 +1018,74 @@ describe("the order page", () => {
 
     const labels = [...rendered.querySelectorAll("button")].map((control) => control.textContent);
     expect(labels).toContain(app.t.t("order.add_missing_item"));
+  });
+
+  // 19.4: a dish is put right from the order, with the restaurant page's editor.
+  function editButton(app: App, root: HTMLElement): HTMLButtonElement | null {
+    const name = `${app.t.t("action.edit")}: ${menuItem.name}`;
+    return root.querySelector<HTMLButtonElement>(`.menu-item button[aria-label='${name}']`);
+  }
+
+  it("edits a dish from the menu column and reloads the menu", async () => {
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "PATCH /restaurants/r1/menu-items/m1": { ...menuItem, price_cents: 1050 },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    editButton(app, rendered)?.click();
+    await settle();
+
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+    const inputs = [...(dialog?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+    // The editor opens on this dish, not on an empty one.
+    expect(inputs.some((field) => field.value === menuItem.name)).toBe(true);
+
+    // The order page asks for the menu at the order's time, in the query.
+    const reads = (): number =>
+      stubs.calls.filter(
+        (call) => call.method === "GET" && call.path.split("?")[0] === "/restaurants/r1/menu-items",
+      ).length;
+    const before = reads();
+
+    // The dialog's own Save, in its footer: each option row has one too.
+    const save = [...(dialog?.querySelectorAll<HTMLButtonElement>(".modal-actions button") ?? [])].find(
+      (control) => control.textContent === app.t.t("action.save"),
+    );
+    save!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "PATCH");
+    expect(call?.path).toBe("/restaurants/r1/menu-items/m1");
+    expect(reads()).toBeGreaterThan(before);
+  });
+
+  it("offers an anonymous visitor no way to edit a dish", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(editButton(app, rendered)).toBeNull();
+  });
+
+  // The menu is the restaurant's, not the order's, so a closed order still
+  // offers it: the price on the menu was wrong whether or not this order is.
+  it("still offers the edit on a closed order, where nothing can be added", async () => {
+    stubServer(orderStubs(detail({ deadline_at: soon(-2), fulfilment_at: soon(-1), status: "expired" })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(editButton(app, rendered)).not.toBeNull();
+    expect(rendered.querySelector(`.menu-item button[aria-label^='${app.t.t("item.add")}:']`)).toBeNull();
   });
 });
 

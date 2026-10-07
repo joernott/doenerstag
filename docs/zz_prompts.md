@@ -1100,3 +1100,78 @@ recorded on the branch of the sprint it belongs to.
 
 > everything looks fine now. Please add support for French as third language and
 > then build and release v0.3.1
+
+---
+
+### Prompt 70
+
+> create a new brnch for sprint 19 and add the following tasks to the
+> implementation plan:
+> - On the orders page, the title of the cards show the time in the title in UTC
+>   and not in the browser time. As the other times are displayed as local time,
+>   this should also display the local time.
+> - The person who is collecting the money for an order should be able to use
+>   the "paid" checkboxes on the summary and orders pages.
+> - Next to the collect money field should be a "Me!" button with a similar
+>   logic implemented in task 17.8
+> - There should be an Edit" button with a pen icon next to the menu in the
+>   order page, that allows editing that menu item similar to how you edit a
+>   menu item on the restaurant page.
+
+---
+
+### Prompt 71
+
+> More tasks for this sprint:
+> Next to the person fetching the food and collecting the money, there should be
+> a button with a remove symbol (x), that is visible to that person, the person
+> who created the order and the administrator user.
+> Also, when using dark mode, hovering over a language in the language
+> selection, it becomes unreadable. instead of using black as font color, this
+> should be orange.
+
+---
+
+### Prompt 72
+
+> pageant has been restarted and the key has been loaded.
+>
+> Did you use the ssh key id_ed25519_claude to access the vm? The user there is
+> named doener and can sudo without password.
+> internet connection has been reestablished, please retry
+
+---
+
+### Prompt 73
+
+> yes, please always install in the VM. Using it for these thest is it's only
+> purpose
+
+---
+
+### Prompt 74
+
+> I just tried the vwrsion deployed on the VM. The selected language now shows
+> in orange, the position I am hovering over still is black  on black, making
+> the entry unreadable. That one should be orange. The selected entry can be
+> inferred by what is visible in the textbox above the dropdown
+
+---
+
+### Prompt 75
+
+> I am using firefox, so I need a solution that works on firefox, edge and
+> chrome
+
+---
+
+### Prompt 76
+
+> vscode complains about 7 failures to resolve $ref in the api/openapi.yaml
+> file, that should be investigated and fixed
+
+---
+
+### Prompt 77
+
+> please sqash merge sprint-19 into main and release it as v0.4.0

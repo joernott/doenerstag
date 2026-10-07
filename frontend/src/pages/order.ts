@@ -22,7 +22,13 @@ import {
   subscribeToOrder,
   type EventSourceFactory,
 } from "../events";
-import { formatDateTime, formatMoney, formatRelativeTime, moneyInputValue } from "../format";
+import {
+  formatDateTime,
+  formatMoney,
+  formatRelativeTime,
+  moneyInputValue,
+  orderTitle,
+} from "../format";
 import { button, checkbox, field, form, input, select, textarea } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
@@ -33,6 +39,7 @@ import { itemChips } from "./menu";
 import {
   iconButton,
   isActive,
+  participates,
   summaryLink,
   type OrderDetail,
   type OrderHeader,
@@ -115,20 +122,12 @@ export async function orderPage(
   /**
    * Whether this visitor may read the summary (F1.3).
    *
-   * The creator, anybody with an item in the order, and the administrator. The
-   * server decides for real; this decides whether the link is worth offering.
+   * The server decides for real; this decides whether the link is worth
+   * offering, and asks the same function the order overview does.
    */
   const isParticipant = (): boolean => {
     const own = detail();
-    if (!own || !app.session.user) {
-      return false;
-    }
-    const me = app.session.user.id;
-    return (
-      app.session.isAdmin ||
-      own.creator_id === me ||
-      own.items.some((item) => item.user_id === me)
-    );
+    return own !== null && participates(app, own);
   };
 
   async function refresh(): Promise<void> {
@@ -190,12 +189,23 @@ export async function orderPage(
 
     // Who does what. Only an authenticated caller is told, because both are
     // named people (ADR-0011), and both rows are shown even when empty: an
-    // order with nobody fetching the food is the case worth seeing, and it is
-    // where the "Me!" button goes.
+    // order with nobody doing a job is the case worth seeing, and it is where
+    // the "Me!" button goes.
     const own = detail();
     if (own) {
-      rows.push([t.t("order.money_collector"), personRow(own.money_collector_name, false)]);
-      rows.push([t.t("order.pickup_person"), personRow(own.pickup_person_name, true)]);
+      rows.push([
+        t.t("order.money_collector"),
+        personRow(
+          own.money_collector_name,
+          own.money_collector_id,
+          "money-collector",
+          t.t("order.money_collector"),
+        ),
+      ]);
+      rows.push([
+        t.t("order.pickup_person"),
+        personRow(own.pickup_person_name, own.pickup_person_id, "pickup-person", t.t("order.pickup_person")),
+      ]);
       rows.push([t.t("order.creator"), own.creator_name]);
     }
     if (order.min_order_value_cents !== null) {
@@ -223,7 +233,7 @@ export async function orderPage(
     // not in this card: all three act on the order as a whole rather than on
     // anything inside the card, and they were the only reason it had a row of
     // buttons at all.
-    return section(order.title, list, status.element);
+    return section(orderTitle(app.language, order), list, status.element);
   }
 
   /**
@@ -268,8 +278,7 @@ export async function orderPage(
 
   /** The restaurant, with its contacts as the links they are meant to be. */
   /**
-   * One of the two jobs an order has, and -- for fetching the food -- a way to
-   * take it.
+   * One of the two jobs an order has, and a way to take it.
    *
    * The row is shown even when nobody is doing the job, because that is the
    * case worth seeing. The button is offered to every signed-in visitor and not
@@ -277,14 +286,40 @@ export async function orderPage(
    * without finding the creator first, which is how this gets decided in the
    * room anyway. It is not offered on a closed order, where nothing can be
    * changed, and never to an anonymous visitor, who has no name to put there.
+   * Fetching the food got it in 17.8 and collecting the money in 19.3.
+   *
+   * A job somebody has carries an × instead (19.5), for the people the server
+   * lets clear it: whoever is doing it, so that "Me!" can be taken back without
+   * finding the creator, the creator, and the administrator. Open orders only,
+   * like everything else that changes the order.
    */
-  function personRow(name: string, offerToVolunteer: boolean): Child {
+  function personRow(
+    name: string,
+    holderID: string | null,
+    job: "pickup-person" | "money-collector",
+    jobName: string,
+  ): Child {
     if (name) {
-      return name;
+      const me = app.session.user?.id;
+      const mayRelease =
+        me !== undefined &&
+        active() &&
+        (app.session.isAdmin || isCreator() || holderID === me);
+      if (!mayRelease) {
+        return name;
+      }
+      return el(
+        "span",
+        { class: "order-person" },
+        el("span", { text: name }),
+        iconButton("close", `${t.t("order.release")}: ${jobName}`, "", () => {
+          void release(job);
+        }),
+      );
     }
 
     const nobody = el("span", { class: "muted", text: t.t("order.nobody") });
-    if (!offerToVolunteer || !app.session.isAuthenticated || !active()) {
+    if (!app.session.isAuthenticated || !active()) {
       return nobody;
     }
 
@@ -294,26 +329,38 @@ export async function orderPage(
       nobody,
       button({
         label: t.t("order.volunteer"),
-        ariaLabel: `${t.t("order.volunteer")}: ${t.t("order.pickup_person")}`,
+        // Two buttons both called "Me!" cannot be told apart by ear.
+        ariaLabel: `${t.t("order.volunteer")}: ${jobName}`,
         onclick: () => {
-          void volunteerToFetch();
+          void volunteer(job);
         },
       }),
     );
   }
 
   /**
-   * Takes on fetching the food.
+   * Takes on one of the two jobs.
    *
    * Its own endpoint rather than a PATCH, because PATCH belongs to the creator
    * and this deliberately does not. Putting "unless the only field is
    * pickup_person_id and its value is your own id and it was empty before"
    * inside the general edit path would be a rule nobody could find later.
    */
-  async function volunteerToFetch(): Promise<void> {
+  async function volunteer(job: "pickup-person" | "money-collector"): Promise<void> {
     status.clear();
     try {
-      await api.post(`/orders/${id}/pickup-person`, {});
+      await api.post(`/orders/${id}/${job}`, {});
+      await refresh();
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    }
+  }
+
+  /** Leaves one of the two jobs vacant again. */
+  async function release(job: "pickup-person" | "money-collector"): Promise<void> {
+    status.clear();
+    try {
+      await api.delete(`/orders/${id}/${job}`);
       await refresh();
     } catch (error) {
       status.fail(errorMessage(t, error));
@@ -893,6 +940,12 @@ export async function orderPage(
   function menuRow(item: MenuItem): HTMLElement {
     const marks = itemChips(app, item);
     const addable = canOrder() && item.available;
+    // 19.4: a wrong price or a missing option is found while ordering, and is
+    // put right here rather than on the restaurant page. The same editor and
+    // the same people (docs/05: anybody signed in), and not tied to the order
+    // being open, because it edits the restaurant's menu and not this order.
+    // A line already in the order keeps its snapshot (ADR-0009).
+    const editable = app.session.isAuthenticated && reference !== null;
 
     return el(
       "li",
@@ -927,19 +980,47 @@ export async function orderPage(
           class: "menu-price",
           text: formatMoney(app.language, item.price_cents, order.currency_code, moneyFormat),
         }),
-        addable
-          ? button({
-              label: t.t("item.add"),
-              variant: "primary",
-              // Named for the dish: the menu column has one of these per item.
-              ariaLabel: `${t.t("item.add")}: ${item.name}`,
-              onclick: () => {
-                void openItemEditor(null, item);
-              },
-            })
+        editable || addable
+          ? el(
+              "div",
+              { class: "menu-item-buttons" },
+              editable
+                ? iconButton("pencil", `${t.t("action.edit")}: ${item.name}`, "", () => {
+                    editMenuItem(item);
+                  })
+                : null,
+              addable
+                ? button({
+                    label: t.t("item.add"),
+                    variant: "primary",
+                    // Named for the dish: the menu column has one of these per item.
+                    ariaLabel: `${t.t("item.add")}: ${item.name}`,
+                    onclick: () => {
+                      void openItemEditor(null, item);
+                    },
+                  })
+                : null,
+            )
           : null,
       ),
     );
+  }
+
+  /** The restaurant page's menu-item editor, for one dish on this menu. */
+  function editMenuItem(item: MenuItem): void {
+    if (!reference) {
+      return;
+    }
+    openMenuItemEditor({
+      app,
+      reference,
+      restaurantID: order.restaurant_id,
+      categories: categoryList,
+      money: moneyFormat,
+      item,
+      categoryID: item.category_id,
+      onSaved: reloadMenu,
+    });
   }
 
   // --- adding and editing an order item ------------------------------------
@@ -1165,7 +1246,7 @@ export async function orderPage(
   renderMenu();
 
   return pageWithActions(
-    order.title,
+    orderTitle(app.language, order),
     heading,
     banner,
     el("div", { class: "order-layout" }, left, right),

@@ -1,6 +1,11 @@
 package api
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/joernott/doenerstag/internal/model"
+)
 
 // F4.6 as a rule rather than as an example.
 //
@@ -77,5 +82,25 @@ func TestOnlyWholeNumbersAreItemNumbers(t *testing.T) {
 			t.Errorf("numericID(%q) = (%d, %v), want (%d, %v)",
 				input, value, numeric, want.value, want.numeric)
 		}
+	}
+}
+
+// 19.1: the summary carries what its title is made of, so a browser can build
+// the title in the viewer's time zone. The fulfilment time is UTC on the wire
+// whatever zone the order was read in, as it is on the order header.
+func TestTheSummaryCarriesTheTitleParts(t *testing.T) {
+	zurich := time.FixedZone("Zurich", 2*60*60)
+	order := model.Order{
+		RestaurantName: "Pinar Kebap",
+		FulfilmentAt:   time.Date(2026, 9, 10, 12, 30, 0, 0, zurich),
+	}
+
+	body := buildSummary(order, nil, nil)
+
+	if body.RestaurantName != "Pinar Kebap" {
+		t.Errorf("the restaurant is %q", body.RestaurantName)
+	}
+	if body.FulfilmentAt != "2026-09-10T10:30:00Z" {
+		t.Errorf("the fulfilment time is %q", body.FulfilmentAt)
 	}
 }

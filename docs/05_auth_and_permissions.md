@@ -51,14 +51,20 @@ Several rules turn on whether a user is a **participant** of an order. A
 participant is:
 
 - the order's creator, **or**
+- the person collecting the money or the person fetching the food, **or**
 - any user holding at least one `order_item` in that order, **or**
 - the administrator.
 
 The creator counts even with no items of their own, because the creator is
 normally the person who phones the restaurant and reads from the summary.
 
-Participation is derived, never stored: it is a query against `food_order.creator_id`
-and `order_item.user_id`. Adding an item makes you a participant immediately;
+The two people an order names count for the same reason: the collector ticks
+lines off on the summary and the person fetching the food reads the restaurant's
+address there. Neither has to order anything to do that job.
+
+Participation is derived, never stored: it is a query against
+`food_order.creator_id`, `money_collector_id`, `pickup_person_id` and
+`order_item.user_id`. Adding an item makes you a participant immediately;
 removing your last item stops you being one. A user who is removed from an
 order therefore loses access to its summary, which is intended.
 
@@ -306,6 +312,8 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Create an order                               | – | ✓ | ✓ | ✓ |
 | Edit an order's fields                        | – | – | ✓ | ✓ |
 | Take on fetching the food, when nobody has    | – | ✓ | ✓ | ✓ |
+| Take on collecting the money, when nobody has | – | ✓ | ✓ | ✓ |
+| Take somebody off fetching or collecting      | – | – | ✓ | ✓ |
 | Change an order's restaurant (no items yet)   | – | – | ✓ | ✓ |
 | Delete an order                               | – | – | ✓ | ✓ |
 | Add an order item to an active order          | – | ✓ | ✓ | ✓ |
@@ -329,6 +337,10 @@ deliberate non-feature; if the password is lost, the operator resets it with
 
 "Owner / creator" means the acting user owns the resource. Wherever that column
 is ticked, the administrator can act as well.
+
+For taking somebody off a job, the person doing that job counts as an owner
+alongside the order's creator: whoever said "Me!" and then cannot go gives it
+up themselves (19.5). Anybody else is refused with 3006.
 
 Note the deliberate asymmetry: **creating and editing** menu data is open to
 every logged-in user so the database can be crowdsourced, while **deleting** it

@@ -6,9 +6,7 @@
 // attached the dead cookie to a page navigation and got a JSON error envelope
 // where the application should have been.
 
-import { expect, test } from "@playwright/test";
-
-import { PASSWORD, login, loginThroughTheForm, register, seedRestaurant, unique } from "./support";
+import { PASSWORD, expect, login, loginThroughTheForm, register, seedRestaurant, test, unique } from "./support";
 
 test.describe("a session the server has forgotten", () => {
   test("still loads the application, and says why once", async ({ page, request, browser }) => {

@@ -191,6 +191,32 @@ func contentRows() []contentCase {
 			},
 		},
 		{
+			// The same, for holding the money (19.3).
+			row:    "Take on collecting the money, when nobody has",
+			method: http.MethodPost,
+			path:   func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/money-collector" },
+			body:   func(*contentMatrix) any { return map[string]any{} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			// The person doing the job may give it up as well; the matrix has
+			// no column for them, so TestGivingUpAJob covers that cell.
+			row:    "Take somebody off fetching or collecting",
+			method: http.MethodDelete,
+			path:   func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/pickup-person" },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotJobHolder},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
 			row:    "Change an order's restaurant (no items yet)",
 			method: http.MethodPatch,
 			path:   func(c *contentMatrix) string { return "/orders/" + c.emptyOrder },

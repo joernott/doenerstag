@@ -316,7 +316,7 @@ paths:
                     type: string
                     example: accepted
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
 
   /auth/password-reset/{token}:
     post:
@@ -370,7 +370,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                $ref: "#/components/schemas/Error"
 
   /auth/session:
     get:
@@ -1197,7 +1197,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1233,7 +1233,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1294,7 +1294,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1336,7 +1336,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1947,7 +1947,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderItem"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1988,6 +1988,93 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: Somebody is already fetching (4007), or the order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orders]
+      operationId: releaseOrderPickup
+      summary: Take somebody off fetching the food.
+      description: |
+        Leaves the job vacant. Allowed to the person doing it, the order's
+        creator and the administrator; anybody else gets 3006. An order past
+        its deadline is 4001. Clearing a job nobody has is not an error.
+      responses:
+        "200":
+          description: The order, with nobody fetching the food.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /orders/{id}/money-collector:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      tags: [orders]
+      operationId: claimOrderMoneyCollection
+      summary: Take on collecting the money.
+      description: |
+        Puts the calling account down as the person collecting the money, if
+        nobody is doing it yet. The same rule as
+        `POST /orders/{id}/pickup-person`, for the other job: anybody signed in
+        may volunteer, it only fills a vacancy (4007 otherwise), and an order
+        past its deadline is 4001.
+
+        The body is ignored; there is nothing to say beyond who is calling.
+      responses:
+        "200":
+          description: The order, with the caller now collecting the money.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Somebody is already collecting (4007), or the order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orders]
+      operationId: releaseOrderMoneyCollection
+      summary: Take somebody off collecting the money.
+      description: |
+        Leaves the job vacant. Allowed to the person doing it, the order's
+        creator and the administrator; anybody else gets 3006. An order past
+        its deadline is 4001. Clearing a job nobody has is not an error.
+      responses:
+        "200":
+          description: The order, with nobody collecting the money.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The order is closed (4001).
           content:
             application/json:
               schema:

@@ -665,6 +665,29 @@ fails without the fix.
 
 ---
 
+## Sprint 19 — Fixes to 0.3.1
+
+**Goal:** fix what using 0.3.1 finds, and let the person collecting the money
+do that job from the pages they already have open.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 19.1 | The order tiles' titles show the fulfilment time in UTC, while every other time on the page is in the browser's. docs/03 says the title is `<restaurant> — <fulfilment_at in local time>`, but `Order.Title()` formats it on the server, in the server's zone. The browser builds the title from the restaurant name and `fulfilment_at` instead, wherever a title is shown, so it reads in the same zone as everything beside it | S | [03](03_data_model.md) |
+| ✅ 19.2 | The person collecting the money cannot use the paid ticks on the summary. 17.10 grants it to them, and both `setItemPaid` and `mayTickPaid` name the collector, but the summary is for participants only (F1.3) and a collector who neither opened the order nor ordered anything is not one: 403, error 3004, before a tick is ever drawn. Reproduced in a browser against 0.3.1; the order page's tick worked. The collector and the person fetching the food are participants now -- the fetcher was refused the same way, and the summary is where 17.5 put the address they need. Reported by the user | S | [05](05_auth_and_permissions.md) |
+| ✅ 19.3 | When nobody is collecting the money, the order page offers every signed-in visitor a "Me!" button beside that field that puts them there, as 17.8 does for fetching the food | M | [06](06_ui_ux.md) |
+| ✅ 19.4 | An Edit button with the pencil icon beside each dish on the order page, opening the same menu-item editor the restaurant page uses, for the same people who may edit it there. A price changed this way does not reach a line already in an order: those are snapshots (ADR-0009) | M | [06](06_ui_ux.md) |
+
+| ✅ 19.5 | A remove button (×) beside the person fetching the food and the person collecting the money, for that person, the order's creator and the administrator. `DELETE` on the two routes 17.8 and 19.3 added; anybody else is 3006. While the order is open, as for taking the job | M | [05](05_auth_and_permissions.md) |
+| ✅ 19.6 | In dark mode, hovering a language in the language selector made it unreadable, black on black. It was a native select, whose open list the browser draws: styling the options turned only the chosen language orange, and `appearance: base-select` reached Chrome and Edge but not Firefox, which lets a page style nothing of that list. The selector is now a button and a list the page draws, built like the main menu, so the hovered language is orange on the sunken surface in all three. The language in force is not marked in the list; the button shows it. An e2e test measures the painted colours with the pointer on a language, in every browser. Reported by the user, three times | M | [06](06_ui_ux.md) |
+| ✅ 19.7 | Version references moved to 0.4.0, the README's status section rewritten around what is new since 0.3.0, sprint 19 squashed into `main` and released as 0.4.0 | S | [10](10_operations.md) |
+
+**Exit criteria:** what 0.3.1 got wrong in use is fixed, each with a test that
+fails without the fix. Whoever collects the money can claim the job and tick
+lines off without asking the order's creator, and a wrong price on the menu can
+be corrected without leaving the order.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

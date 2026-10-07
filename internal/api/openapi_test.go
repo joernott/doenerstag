@@ -35,6 +35,60 @@ func TestOpenAPIDocumentIsValidJSON(t *testing.T) {
 	}
 }
 
+// Every $ref must point at something the document defines.
+//
+// Seven did not: six responses named BadRequest, where the document calls a
+// 400 Validation, and one schema named ErrorEnvelope, where it is Error. They
+// came in with sprints 16 and 17 and were found by the editor, not by a test,
+// because nothing here followed a reference. Swagger UI renders a dangling one
+// as an empty box, and a generator stops on it.
+func TestEveryReferenceResolves(t *testing.T) {
+	document, err := OpenAPIJSON()
+	if err != nil {
+		t.Fatalf("converting the embedded document: %v", err)
+	}
+	var root any
+	if err := json.Unmarshal(document, &root); err != nil {
+		t.Fatalf("the converted document is not JSON: %v", err)
+	}
+
+	resolve := func(ref string) bool {
+		if !strings.HasPrefix(ref, "#/") {
+			return false
+		}
+		node := root
+		for _, part := range strings.Split(strings.TrimPrefix(ref, "#/"), "/") {
+			part = strings.NewReplacer("~1", "/", "~0", "~").Replace(part)
+			object, ok := node.(map[string]any)
+			if !ok {
+				return false
+			}
+			if node, ok = object[part]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+
+	var walk func(node any)
+	walk = func(node any) {
+		switch value := node.(type) {
+		case map[string]any:
+			if ref, ok := value["$ref"].(string); ok && !resolve(ref) {
+				t.Errorf("%s does not resolve", ref)
+			}
+			for _, child := range value {
+				walk(child)
+			}
+		case []any:
+			for _, child := range value {
+				walk(child)
+			}
+		}
+	}
+	walk(root)
+}
+
 // Every route the server registers must be described, or the document is a
 // half-truth.
 //

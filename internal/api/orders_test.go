@@ -737,3 +737,96 @@ func TestThePlaceholderCannotBeGivenAJob(t *testing.T) {
 	}, o.cookies...)
 	expectError(t, rec, http.StatusBadRequest, api.CodeInvalidField)
 }
+
+// 17.8 and 19.3: either job may be taken by anybody signed in, but only while
+// nobody has it and only while the order is open.
+func TestTakingOnAJob(t *testing.T) {
+	for _, job := range []struct {
+		name   string
+		path   string
+		holder func(orderResponse) *string
+	}{
+		{"fetching the food", "/pickup-person", func(o orderResponse) *string { return o.PickupPersonID }},
+		{"collecting the money", "/money-collector", func(o orderResponse) *string { return o.MoneyCollectorID }},
+	} {
+		t.Run(job.name, func(t *testing.T) {
+			o := newOrderFixture(t)
+			volunteer := o.register("freiwillig")
+			latecomer := o.register("zuspaet")
+
+			// Not the creator: the point is that nobody has to find them first.
+			rec := o.post("/orders/"+o.order.ID+job.path, map[string]any{}, volunteer...)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("volunteering: %d %s", rec.Code, rec.Body.String())
+			}
+			var body orderResponse
+			decode(t, rec, &body)
+			if got := job.holder(body); got == nil || *got != o.userID("freiwillig") {
+				t.Errorf("the job is held by %v", got)
+			}
+
+			// A vacancy only: somebody else cannot take it off them.
+			taken := o.post("/orders/"+o.order.ID+job.path, map[string]any{}, latecomer...)
+			expectError(t, taken, http.StatusConflict, api.CodeJobTaken)
+
+			closed := o.createExpiredOrder(o.cookies)
+			late := o.post("/orders/"+closed.ID+job.path, map[string]any{}, volunteer...)
+			expectError(t, late, http.StatusConflict, api.CodeOrderClosed)
+		})
+	}
+}
+
+// 19.5: either job may be given up by the person doing it, and cleared by the
+// order's creator or the administrator. Nobody else, and only while the order
+// is open.
+func TestGivingUpAJob(t *testing.T) {
+	for _, job := range []struct {
+		name   string
+		path   string
+		holder func(orderResponse) *string
+	}{
+		{"fetching the food", "/pickup-person", func(o orderResponse) *string { return o.PickupPersonID }},
+		{"collecting the money", "/money-collector", func(o orderResponse) *string { return o.MoneyCollectorID }},
+	} {
+		t.Run(job.name, func(t *testing.T) {
+			o := newOrderFixture(t)
+			volunteer := o.register("freiwillig")
+			stranger := o.register("fremder")
+			path := "/orders/" + o.order.ID + job.path
+
+			take := func() {
+				t.Helper()
+				if rec := o.post(path, map[string]any{}, volunteer...); rec.Code != http.StatusOK {
+					t.Fatalf("volunteering: %d %s", rec.Code, rec.Body.String())
+				}
+			}
+			release := func(who string, cookies []*http.Cookie) {
+				t.Helper()
+				rec := o.remove(path, cookies...)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("%s could not clear the job: %d %s", who, rec.Code, rec.Body.String())
+				}
+				var body orderResponse
+				decode(t, rec, &body)
+				if got := job.holder(body); got != nil {
+					t.Errorf("after %s cleared it, the job is held by %v", who, *got)
+				}
+			}
+
+			// Somebody else may not take them off it.
+			take()
+			expectError(t, o.remove(path, stranger...), http.StatusForbidden, api.CodeNotJobHolder)
+
+			release("the person doing it", volunteer)
+			take()
+			release("the creator", o.cookies)
+			take()
+			release("the administrator", o.admin)
+
+			// Read-only after the deadline, as taking it is.
+			closed := o.createExpiredOrder(o.cookies)
+			late := o.remove("/orders/"+closed.ID+job.path, o.cookies...)
+			expectError(t, late, http.StatusConflict, api.CodeOrderClosed)
+		})
+	}
+}
