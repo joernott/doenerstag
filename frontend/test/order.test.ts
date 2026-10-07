@@ -745,6 +745,71 @@ describe("the order page", () => {
     expect(rendered.querySelector(".definitions")?.textContent).toContain("Alex");
   });
 
+  // 19.5: the × beside a job somebody has, for that person, the creator and
+  // the administrator.
+  function releaseButton(app: App, root: HTMLElement, label: string): HTMLButtonElement | null {
+    const name = `${app.t.t("order.release")}: ${app.t.t(label)}`;
+    return root.querySelector<HTMLButtonElement>(`.order-person button[aria-label='${name}']`);
+  }
+
+  it.each(jobs)("lets the person $job take themselves off it", async (job) => {
+    const held = detail({ creator_id: "u2", [`${job.field}_id`]: "u9", [`${job.field}_name`]: "Robin" });
+    const stubs = stubServer({
+      ...orderStubs(held),
+      [`DELETE /orders/o1/${job.path}`]: detail({ [`${job.field}_id`]: null, [`${job.field}_name`]: "" }),
+    });
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u9", name: "robin", display_name: "Robin", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    releaseButton(app, rendered, job.label)?.click();
+    await settle();
+
+    expect(
+      stubs.calls.some((call) => call.method === "DELETE" && call.path === `/orders/o1/${job.path}`),
+    ).toBe(true);
+  });
+
+  it.each([
+    { who: "the creator", session: { id: "u2", is_admin: false }, shown: true },
+    { who: "the administrator", session: { id: "u7", is_admin: true }, shown: true },
+    { who: "anybody else", session: { id: "u8", is_admin: false }, shown: false },
+  ])("offers the × to $who: $shown", async ({ session, shown }) => {
+    stubServer(
+      orderStubs(
+        detail({
+          creator_id: "u2",
+          money_collector_id: "u3",
+          money_collector_name: "Alex",
+          pickup_person_id: "u3",
+          pickup_person_name: "Alex",
+        }),
+      ),
+    );
+
+    const app = mountApp(() => []);
+    app.session.set({ ...session, name: "x", display_name: "X" });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    for (const job of jobs) {
+      expect(releaseButton(app, rendered, job.label) !== null).toBe(shown);
+    }
+  });
+
+  it("offers no × on a closed order, which nobody can change", async () => {
+    stubServer(orderStubs(detail({ deadline_at: soon(-2), fulfilment_at: soon(-1), status: "expired" })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(releaseButton(app, rendered, "order.money_collector")).toBeNull();
+  });
+
   it("offers an anonymous visitor nothing to volunteer for", async () => {
     stubServer(orderStubs(header()));
 

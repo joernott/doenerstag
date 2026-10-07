@@ -1117,3 +1117,15 @@ recorded on the branch of the sprint it belongs to.
 > - There should be an Edit" button with a pen icon next to the menu in the
 >   order page, that allows editing that menu item similar to how you edit a
 >   menu item on the restaurant page.
+
+---
+
+### Prompt 71
+
+> More tasks for this sprint:
+> Next to the person fetching the food and collecting the money, there should be
+> a button with a remove symbol (x), that is visible to that person, the person
+> who created the order and the administrator user.
+> Also, when using dark mode, hovering over a language in the language
+> selection, it becomes unreadable. instead of using black as font color, this
+> should be orange.

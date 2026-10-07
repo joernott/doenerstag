@@ -1992,6 +1992,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orders]
+      operationId: releaseOrderPickup
+      summary: Take somebody off fetching the food.
+      description: |
+        Leaves the job vacant. Allowed to the person doing it, the order's
+        creator and the administrator; anybody else gets 3006. An order past
+        its deadline is 4001. Clearing a job nobody has is not an error.
+      responses:
+        "200":
+          description: The order, with nobody fetching the food.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /orders/{id}/money-collector:
     parameters:
@@ -2021,6 +2048,33 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: Somebody is already collecting (4007), or the order is closed (4001).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orders]
+      operationId: releaseOrderMoneyCollection
+      summary: Take somebody off collecting the money.
+      description: |
+        Leaves the job vacant. Allowed to the person doing it, the order's
+        creator and the administrator; anybody else gets 3006. An order past
+        its deadline is 4001. Clearing a job nobody has is not an error.
+      responses:
+        "200":
+          description: The order, with nobody collecting the money.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The order is closed (4001).
           content:
             application/json:
               schema:

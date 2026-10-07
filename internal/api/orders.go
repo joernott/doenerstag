@@ -73,6 +73,8 @@ func (h *OrderHandlers) Register(r *Router) {
 
 	r.HandleFunc(http.MethodPost, "/orders/:id/pickup-person", h.claimPickup)
 	r.HandleFunc(http.MethodPost, "/orders/:id/money-collector", h.claimMoneyCollection)
+	r.HandleFunc(http.MethodDelete, "/orders/:id/pickup-person", h.releasePickup)
+	r.HandleFunc(http.MethodDelete, "/orders/:id/money-collector", h.releaseMoneyCollection)
 
 	r.HandleFunc(http.MethodGet, "/orders/:id/summary", h.summary)
 	r.HandleFunc(http.MethodGet, "/orders/:id/events", h.events)
@@ -843,6 +845,76 @@ func (h *OrderHandlers) claimJob(w http.ResponseWriter, r *http.Request, job ord
 	ref := &me
 	var update db.OrderUpdate
 	job.assign(&update, &ref)
+	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
+	switch {
+	case errors.Is(dbErr, db.ErrNotFound):
+		WriteError(w, r, &Error{Code: CodeNotFound})
+		return
+	case dbErr != nil:
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		return
+	}
+
+	h.publishOrderChange(updated)
+	h.writeDetail(w, r, updated, http.StatusOK)
+}
+
+// releasePickup takes the person fetching the food off the order (19.5).
+func (h *OrderHandlers) releasePickup(w http.ResponseWriter, r *http.Request) {
+	h.releaseJob(w, r, fetchingTheFood)
+}
+
+// releaseMoneyCollection takes the person collecting the money off the order
+// (19.5).
+func (h *OrderHandlers) releaseMoneyCollection(w http.ResponseWriter, r *http.Request) {
+	h.releaseJob(w, r, collectingTheMoney)
+}
+
+// releaseJob leaves one of the order's two jobs vacant.
+//
+// The person doing it may give it up, which is the case the button is for:
+// somebody who said "Me!" and then cannot go should not have to find the
+// creator to undo it. The creator and the administrator may clear it too, as
+// the creator already could from the editor. Nobody else: taking somebody off
+// a job is not a stranger's to do, and is 3006 rather than the creator-only
+// 3001, which would tell the person doing the job something untrue.
+//
+// While the order is open, like taking the job: after the deadline the order
+// is read-only (F6.6). Clearing a job nobody has is not an error; the result
+// is what was asked for.
+func (h *OrderHandlers) releaseJob(w http.ResponseWriter, r *http.Request, job orderJob) {
+	order, lookupErr := h.lookup(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
+	principal, authErr := RequireAuthenticated(r)
+	if authErr != nil {
+		WriteError(w, r, authErr)
+		return
+	}
+
+	me := principal.User.ID
+	holder := job.holder(order)
+	allowed := principal.User.IsAdmin || order.CreatorID == me || (holder != nil && *holder == me)
+	if !allowed {
+		WriteError(w, r, &Error{Code: CodeNotJobHolder, Field: job.field})
+		return
+	}
+
+	if !order.Active(h.now()) {
+		WriteError(w, r, &Error{Code: CodeOrderClosed})
+		return
+	}
+	if holder == nil {
+		h.writeDetail(w, r, order, http.StatusOK)
+		return
+	}
+
+	var nobody *uuid.UUID
+	var update db.OrderUpdate
+	job.assign(&update, &nobody)
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
 	switch {
 	case errors.Is(dbErr, db.ErrNotFound):

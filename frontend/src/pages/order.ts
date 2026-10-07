@@ -195,11 +195,16 @@ export async function orderPage(
     if (own) {
       rows.push([
         t.t("order.money_collector"),
-        personRow(own.money_collector_name, "money-collector", t.t("order.money_collector")),
+        personRow(
+          own.money_collector_name,
+          own.money_collector_id,
+          "money-collector",
+          t.t("order.money_collector"),
+        ),
       ]);
       rows.push([
         t.t("order.pickup_person"),
-        personRow(own.pickup_person_name, "pickup-person", t.t("order.pickup_person")),
+        personRow(own.pickup_person_name, own.pickup_person_id, "pickup-person", t.t("order.pickup_person")),
       ]);
       rows.push([t.t("order.creator"), own.creator_name]);
     }
@@ -282,10 +287,35 @@ export async function orderPage(
    * room anyway. It is not offered on a closed order, where nothing can be
    * changed, and never to an anonymous visitor, who has no name to put there.
    * Fetching the food got it in 17.8 and collecting the money in 19.3.
+   *
+   * A job somebody has carries an × instead (19.5), for the people the server
+   * lets clear it: whoever is doing it, so that "Me!" can be taken back without
+   * finding the creator, the creator, and the administrator. Open orders only,
+   * like everything else that changes the order.
    */
-  function personRow(name: string, job: "pickup-person" | "money-collector", jobName: string): Child {
+  function personRow(
+    name: string,
+    holderID: string | null,
+    job: "pickup-person" | "money-collector",
+    jobName: string,
+  ): Child {
     if (name) {
-      return name;
+      const me = app.session.user?.id;
+      const mayRelease =
+        me !== undefined &&
+        active() &&
+        (app.session.isAdmin || isCreator() || holderID === me);
+      if (!mayRelease) {
+        return name;
+      }
+      return el(
+        "span",
+        { class: "order-person" },
+        el("span", { text: name }),
+        iconButton("close", `${t.t("order.release")}: ${jobName}`, "", () => {
+          void release(job);
+        }),
+      );
     }
 
     const nobody = el("span", { class: "muted", text: t.t("order.nobody") });
@@ -320,6 +350,17 @@ export async function orderPage(
     status.clear();
     try {
       await api.post(`/orders/${id}/${job}`, {});
+      await refresh();
+    } catch (error) {
+      status.fail(errorMessage(t, error));
+    }
+  }
+
+  /** Leaves one of the two jobs vacant again. */
+  async function release(job: "pickup-person" | "money-collector"): Promise<void> {
+    status.clear();
+    try {
+      await api.delete(`/orders/${id}/${job}`);
       await refresh();
     } catch (error) {
       status.fail(errorMessage(t, error));

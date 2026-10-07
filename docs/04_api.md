@@ -124,6 +124,7 @@ falls back to `message` when no translation exists.
 | 3003 | 403  | The deleted-user placeholder cannot be modified.                |
 | 3004 | 403  | Only participants of this order may see its summary.            |
 | 3005 | 403  | Only the owner of this resource may act on it.                   |
+| 3006 | 403  | Only the person doing this job, the order's creator or the administrator may do that. |
 | 4000 | 404  | Resource not found.                                             |
 | 4001 | 409  | Order deadline has passed; the order is read-only.              |
 | 4002 | 409  | The restaurant cannot be changed once the order has items.      |
@@ -252,6 +253,8 @@ parameter names, OR within one parameter name:
 | `DELETE` | `/orders/{id}`                   | creator | Delete the order and everything below it.             |
 | `POST`   | `/orders/{id}/pickup-person`     | user    | Take on fetching the food, if nobody has. 409 error 4007 if somebody has. |
 | `POST`   | `/orders/{id}/money-collector`   | user    | Take on collecting the money, if nobody has. 409 error 4007 if somebody has. |
+| `DELETE` | `/orders/{id}/pickup-person`     | holder, creator | Take the person fetching the food off the order. 403 error 3006 for anybody else. |
+| `DELETE` | `/orders/{id}/money-collector`   | holder, creator | Take the person collecting the money off the order. 403 error 3006 for anybody else. |
 | `GET`    | `/orders/{id}/summary`           | participant | Aggregated summary, see below. 403 error 3004 for everyone else. |
 | `GET`    | `/orders/{id}/events`            | public  | SSE stream of changes to this order. Payloads depend on authentication. |
 | `POST`   | `/orders/{id}/items`             | user    | Add an order item. Snapshots name and price.          |

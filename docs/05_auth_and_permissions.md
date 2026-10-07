@@ -313,6 +313,7 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Edit an order's fields                        | – | – | ✓ | ✓ |
 | Take on fetching the food, when nobody has    | – | ✓ | ✓ | ✓ |
 | Take on collecting the money, when nobody has | – | ✓ | ✓ | ✓ |
+| Take somebody off fetching or collecting      | – | – | ✓ | ✓ |
 | Change an order's restaurant (no items yet)   | – | – | ✓ | ✓ |
 | Delete an order                               | – | – | ✓ | ✓ |
 | Add an order item to an active order          | – | ✓ | ✓ | ✓ |
@@ -336,6 +337,10 @@ deliberate non-feature; if the password is lost, the operator resets it with
 
 "Owner / creator" means the acting user owns the resource. Wherever that column
 is ticked, the administrator can act as well.
+
+For taking somebody off a job, the person doing that job counts as an owner
+alongside the order's creator: whoever said "Me!" and then cannot go gives it
+up themselves (19.5). Anybody else is refused with 3006.
 
 Note the deliberate asymmetry: **creating and editing** menu data is open to
 every logged-in user so the database can be crowdsourced, while **deleting** it
