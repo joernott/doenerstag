@@ -4,9 +4,7 @@
 // browsers filling one order and seeing each other's items appear without a
 // reload. Everything above it is what has to work for that to mean anything.
 
-import { expect, test } from "@playwright/test";
-
-import { login, loginThroughTheForm, register, seedOrder, seedRestaurant } from "./support";
+import { expect, login, loginThroughTheForm, register, seedOrder, seedRestaurant, steady, test } from "./support";
 
 test.describe("an order", () => {
   test("is created from the overview, with the deadline checked first", async ({
@@ -74,7 +72,7 @@ test.describe("an order", () => {
 
     // One item, added by somebody logged in.
     const filler = await browser.newContext();
-    const fillerPage = await filler.newPage();
+    const fillerPage = steady(await filler.newPage());
     await loginThroughTheForm(fillerPage, account);
     await fillerPage.goto(`/orders/${orderID}`);
     await fillerPage.getByRole("button", { name: "Add an item" }).first().click();
@@ -105,8 +103,8 @@ test.describe("an order", () => {
 
     const first = await browser.newContext();
     const second = await browser.newContext();
-    const watching = await first.newPage();
-    const ordering = await second.newPage();
+    const watching = steady(await first.newPage());
+    const ordering = steady(await second.newPage());
 
     await loginThroughTheForm(watching, host);
     await watching.goto(`/orders/${orderID}`);

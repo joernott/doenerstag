@@ -1,14 +1,15 @@
 // The summary, the administration and the content pages, in a real browser.
 
-import { expect, test } from "@playwright/test";
-
 import {
   csrf,
+  expect,
   login,
   loginThroughTheForm,
   register,
   seedOrder,
   seedRestaurant,
+  steady,
+  test,
 } from "./support";
 
 /** Adds one item to an order through the browser, which is how a person does it. */
@@ -88,7 +89,7 @@ test.describe("the summary", () => {
     // Somebody else, who has ordered nothing.
     const stranger = await register(request, "stranger");
     const other = await browser.newContext();
-    const strangerPage = await other.newPage();
+    const strangerPage = steady(await other.newPage());
     await loginThroughTheForm(strangerPage, stranger);
     await strangerPage.goto(`/orders/${orderID}/summary`);
 
@@ -151,7 +152,7 @@ test.describe("the money collector", () => {
     expect(named.ok()).toBe(true);
 
     const context = await browser.newContext();
-    const page = await context.newPage();
+    const page = steady(await context.newPage());
     await loginThroughTheForm(page, collector);
     const tick = page.getByRole("checkbox", { name: `Paid for ${fixture.itemName}` });
 

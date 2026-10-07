@@ -225,53 +225,45 @@ a {
   border-color: var(--border);
 }
 
-.language-select {
+/* The language selector: a button and a list drawn by the page (19.6). It was
+   a native select, whose open list the browser draws itself; Firefox lets a
+   page style neither that list nor the entry under the pointer, which in the
+   dark theme was black on black. The list is the main menu's, narrower. */
+.language-container {
+  position: relative;
+}
+
+.language-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface-raised);
   color: inherit;
   font: inherit;
+  cursor: pointer;
 }
 
-/* The open list is drawn by the browser, which ignores :hover on an option and
-   paints the hovered one in its own highlight: black on black in the dark
-   theme (19.6). base-select makes the list part of the page, where the rules
-   below apply; a browser without it keeps its native list and ignores both.
-   The hovered language is orange on the sunken surface, at better than 4.5:1
-   in both themes. The chosen one is not marked: the closed box shows it. */
-/* Both the select and its picker have to ask for base-select. Written in two
-   rules rather than one with a selector list: the minifier split that list and
-   kept the declaration only on the select, so the list stayed native. */
-.language-select {
-  appearance: base-select;
+.language-button:hover {
+  border-color: var(--border-strong);
 }
 
-.language-select::picker(select) {
-  appearance: base-select;
-  margin-block-start: 0.25rem;
-  padding: 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-raised);
-  color: var(--text);
-  box-shadow: var(--shadow);
+.language-button .icon {
+  width: 1rem;
+  height: 1rem;
 }
 
-.language-select option {
-  padding: 0.35rem 0.6rem;
-  border-radius: 4px;
-  background: var(--surface-raised);
-  color: var(--text);
+.language-menu {
+  min-width: 9rem;
 }
 
-.language-select option::checkmark {
-  display: none;
-}
-
-.language-select option:hover,
-.language-select option:focus-visible {
-  background: var(--surface-sunken);
+/* The entry under the pointer, or under the keyboard, is orange on the sunken
+   surface: better than 4.5:1 in both themes. The language in force is not
+   marked; the button above says which it is. */
+.language-menu .menu-entry:hover,
+.language-menu .menu-entry:focus-visible {
   color: var(--accent);
 }
 
@@ -326,6 +318,17 @@ a {
   padding: 0.45rem 0.6rem;
   border-radius: 6px;
   text-decoration: none;
+}
+
+/* An entry that acts rather than links: the same look as an anchor entry. */
+button.menu-entry {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
 .menu-entry:hover {

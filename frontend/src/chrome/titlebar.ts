@@ -54,6 +54,14 @@ function logo(): Element {
  * language -- a dropdown with a single option is furniture, not a choice.
  * Each language is listed by its endonym: somebody looking for German is
  * looking for "Deutsch".
+ *
+ * A button and a list drawn by the page, like the main menu, and no longer a
+ * native select (19.6). A native list is drawn by the browser, and Firefox lets
+ * a page style neither the list nor the entry under the pointer: in the dark
+ * theme that entry was black on black. Chrome and Edge could have been reached
+ * with base-select, Firefox could not, and a selector that works in two of the
+ * three browsers people here use does not work. The button shows the language
+ * in force, so the list does not mark it a second time.
  */
 function languageSelector(app: App): HTMLElement | null {
   const available = languages();
@@ -61,29 +69,41 @@ function languageSelector(app: App): HTMLElement | null {
     return null;
   }
 
-  const select = el("select", {
-    class: "language-select",
-    "aria-label": app.t.t("language.select"),
-    onchange: (event: Event) => {
-      const target = event.target;
-      if (target instanceof HTMLSelectElement) {
-        app.setLanguage(target.value);
-      }
-    },
-  });
+  const { t } = app;
+  const listId = "language-menu";
+  const current = available.find((meta) => meta.code === app.language);
 
+  const button = el(
+    "button",
+    {
+      type: "button",
+      class: "language-button",
+      "aria-label": `${t.t("language.select")}: ${current?.endonym ?? app.language}`,
+      "aria-haspopup": "true",
+      "aria-expanded": "false",
+      "aria-controls": listId,
+    },
+    el("span", { text: current?.endonym ?? app.language, lang: app.language }),
+    icon("chevron-down"),
+  );
+
+  const list = el("div", { class: "menu language-menu", id: listId, hidden: true });
   for (const meta of available) {
-    select.appendChild(
-      el("option", {
-        value: meta.code,
+    list.appendChild(
+      el("button", {
+        type: "button",
+        class: "menu-entry",
         text: meta.endonym,
         lang: meta.code,
-        selected: meta.code === app.language,
+        ...(meta.code === app.language ? { "aria-current": "true" } : {}),
+        onclick: () => {
+          app.setLanguage(meta.code);
+        },
       }),
     );
   }
-  select.value = app.language;
-  return select;
+
+  return dropdown(button, list, "language-container");
 }
 
 /** The dark/light toggle. */
@@ -173,13 +193,30 @@ function menuButton(app: App): HTMLElement {
     );
   }
 
-  const container = el("div", { class: "menu-container" }, button, menu);
+  return dropdown(button, menu, "menu-container", (open) => {
+    button.setAttribute("aria-label", t.t(open ? "nav.close_menu" : "nav.open_menu"));
+  });
+}
 
-  // Escape closes and returns focus to the button; a click anywhere else closes
-  // without stealing it. Both live on the document, because the menu has to
-  // close for events that never reach it -- and both are attached only while it
-  // is open, because the title bar is rebuilt on every language, theme and
-  // session change and listeners left behind would pile up on each of them.
+/**
+ * A button that opens a panel below it: the main menu and the language list.
+ *
+ * Escape closes and returns focus to the button; a click anywhere else closes
+ * without stealing it. Both live on the document, because the panel has to
+ * close for events that never reach it -- and both are attached only while it
+ * is open, because the title bar is rebuilt on every language, theme and
+ * session change and listeners left behind would pile up on each of them.
+ * Choosing an entry closes it too: a panel that stayed open across a
+ * navigation would cover the page it just navigated to.
+ */
+function dropdown(
+  button: HTMLButtonElement,
+  panel: HTMLElement,
+  containerClass: string,
+  onToggle?: (open: boolean) => void,
+): HTMLElement {
+  const container = el("div", { class: containerClass }, button, panel);
+
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === "Escape") {
       setOpen(false);
@@ -194,27 +231,25 @@ function menuButton(app: App): HTMLElement {
   };
 
   const setOpen = (open: boolean): void => {
-    if (open === !menu.hidden) {
+    if (open === !panel.hidden) {
       return;
     }
-    menu.hidden = !open;
+    panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    button.setAttribute("aria-label", t.t(open ? "nav.close_menu" : "nav.open_menu"));
+    onToggle?.(open);
 
     if (open) {
       document.addEventListener("keydown", onKeyDown);
       document.addEventListener("click", onDocumentClick);
-      menu.querySelector("a")?.focus();
+      panel.querySelector<HTMLElement>("a, button")?.focus();
       return;
     }
     document.removeEventListener("keydown", onKeyDown);
     document.removeEventListener("click", onDocumentClick);
   };
 
-  button.addEventListener("click", () => setOpen(menu.hidden));
-  // A menu that stayed open across a navigation would cover the page it just
-  // navigated to.
-  menu.addEventListener("click", () => setOpen(false));
+  button.addEventListener("click", () => setOpen(panel.hidden));
+  panel.addEventListener("click", () => setOpen(false));
 
   return container;
 }

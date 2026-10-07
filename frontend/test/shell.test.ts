@@ -48,7 +48,7 @@ function titlebar(): HTMLElement {
 }
 
 function menuLabels(): string[] {
-  return [...document.querySelectorAll(".menu-entry")].map((entry) => entry.textContent ?? "");
+  return [...document.querySelectorAll("#main-menu .menu-entry")].map((entry) => entry.textContent ?? "");
 }
 
 beforeEach(() => {
@@ -64,35 +64,59 @@ afterEach(() => {
 });
 
 describe("the language selector", () => {
+  function languageEntries(): HTMLButtonElement[] {
+    return [...titlebar().querySelectorAll<HTMLButtonElement>("#language-menu .menu-entry")];
+  }
+
   it("is populated from the catalogs in the build", () => {
     build(null);
-    const options = [...titlebar().querySelectorAll<HTMLOptionElement>(".language-select option")];
+    const entries = languageEntries();
 
-    expect(options.map((option) => option.value)).toEqual(
-      languages().map((meta) => meta.code),
-    );
+    expect(entries.map((entry) => entry.lang)).toEqual(languages().map((meta) => meta.code));
     // Each language by its own name: somebody looking for German looks for
     // "Deutsch".
-    expect(options.map((option) => option.textContent)).toEqual(
+    expect(entries.map((entry) => entry.textContent)).toEqual(
       languages().map((meta) => meta.endonym),
     );
   });
 
-  it("shows the language in force as selected", () => {
+  it("shows the language in force on the button", () => {
     build("de");
-    const select = titlebar().querySelector<HTMLSelectElement>(".language-select");
-    expect(select?.value).toBe("de");
+    const button = titlebar().querySelector<HTMLButtonElement>("[aria-controls='language-menu']");
+    expect(button?.textContent).toBe("Deutsch");
+    // And says so to a screen reader in the list, where it is not marked visibly.
+    const current = languageEntries().find((entry) => entry.getAttribute("aria-current") === "true");
+    expect(current?.lang).toBe("de");
+  });
+
+  // 19.6: a list the page draws, because Firefox lets a page style nothing of
+  // a native select's open list. It opens and closes like the main menu.
+  it("opens from its button and closes on Escape", () => {
+    build("en");
+    const button = titlebar().querySelector<HTMLButtonElement>("[aria-controls='language-menu']");
+    const list = document.getElementById("language-menu");
+    if (!button || !list) {
+      throw new Error("no language selector");
+    }
+
+    expect(list.hidden).toBe(true);
+    button.click();
+    expect(list.hidden).toBe(false);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(list.hidden).toBe(true);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("switches language without reloading, and remembers the choice", () => {
     const app = build("en");
-    const select = titlebar().querySelector<HTMLSelectElement>(".language-select");
-    if (!select) {
+    const german = languageEntries().find((entry) => entry.lang === "de");
+    if (!german) {
       throw new Error("no language selector");
     }
 
-    select.value = "de";
-    select.dispatchEvent(new Event("change"));
+    german.click();
 
     expect(app.language).toBe("de");
     expect(document.cookie).toContain("doener_lang=de");

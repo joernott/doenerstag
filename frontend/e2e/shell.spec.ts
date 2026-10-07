@@ -4,15 +4,14 @@
 // and the only way to know the application uses it correctly is to reload a
 // real browser.
 
-import { expect, test } from "@playwright/test";
-
-import { login, loginThroughTheForm, register, seedRestaurant } from "./support";
+import { expect, login, loginThroughTheForm, register, seedRestaurant, test } from "./support";
 
 test.describe("the shell", () => {
   test("remembers the language and the theme across a reload", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("Language").selectOption("de");
+    await page.getByRole("button", { name: /^Language/ }).click();
+    await page.locator("#language-menu").getByRole("button", { name: "Deutsch" }).click();
 
     // The visible chrome is in German, and so is the document itself. The menu
     // entries are deliberately not asserted here: they live in a closed

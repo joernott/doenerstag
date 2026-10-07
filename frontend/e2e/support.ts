@@ -6,7 +6,56 @@
 // run makes its own world with a unique suffix, because the tests run against a
 // database that other runs have already used.
 
-import type { APIRequestContext, Page } from "@playwright/test";
+import { test as base, errors, type APIRequestContext, type Page } from "@playwright/test";
+
+/** How long a fresh Firefox page's first navigation gets before it is tried again. */
+const FIRST_NAVIGATION_MS = 8_000;
+
+/**
+ * Gives a fresh page's first navigation a second chance, in Firefox only.
+ *
+ * About one fresh Firefox page in fifty never reports its first navigation to
+ * Playwright: the server answers, the page draws, and `goto` waits out its 20
+ * seconds for a load event it is never told about. Measured on the
+ * development VM: 4 of 200 fresh pages hung, and all 4 loaded on a second
+ * attempt. A suite that opens some eighty pages per browser therefore failed a
+ * test or two at random in CI, in tests that had nothing in common but being
+ * first to navigate. It is the automation channel, not the application -- the
+ * server's log shows every request answered within milliseconds -- so the
+ * remedy is here and not in the application. Only the first navigation, and
+ * only Firefox: a second hang, or a hang anywhere else, is still a failure.
+ */
+export function steady(page: Page): Page {
+  if (page.context().browser()?.browserType().name() !== "firefox") {
+    return page;
+  }
+  const goto = page.goto.bind(page);
+  let fresh = true;
+  page.goto = async (url, options) => {
+    if (!fresh) {
+      return goto(url, options);
+    }
+    fresh = false;
+    try {
+      return await goto(url, { ...options, timeout: FIRST_NAVIGATION_MS });
+    } catch (error) {
+      if (error instanceof errors.TimeoutError) {
+        return goto(url, options);
+      }
+      throw error;
+    }
+  };
+  return page;
+}
+
+/** Playwright's test, with every test's own page made steady. */
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    await use(steady(page));
+  },
+});
+
+export { expect } from "@playwright/test";
 
 export interface Account {
   name: string;

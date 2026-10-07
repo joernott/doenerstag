@@ -12,9 +12,9 @@
 // reading.
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-import { login, loginThroughTheForm, register, seedOrder, seedRestaurant } from "./support";
+import { expect, login, loginThroughTheForm, register, seedOrder, seedRestaurant, test } from "./support";
 
 const THEMES = ["dark", "light"] as const;
 
@@ -167,23 +167,20 @@ async function paintedColours(page: Page, selector: string): Promise<[string, st
   }, selector);
 }
 
-// The language list has to stay readable under the pointer too (19.6). The
-// first attempt styled option:hover, which a natively drawn list ignores: the
-// hovered language stayed black on black, and only the chosen one turned
-// orange. Found by the user, again by looking. With base-select the list is
-// part of the page, so what it paints can be measured; a browser without it
-// draws its own list, which no page can reach, and skips.
+// The language list has to stay readable under the pointer too (19.6). As a
+// native select it was drawn by the browser, which ignores :hover on an option:
+// the hovered language stayed black on black, and styling the options turned
+// only the chosen one orange. base-select fixed Chrome and Edge but not
+// Firefox, so the list is the page's own now, and this runs in every browser.
+// Found by the user, twice, by looking.
 test.describe("the language list stays readable under the pointer", () => {
   for (const theme of THEMES) {
     test(`in the ${theme} theme`, async ({ page }) => {
       await page.goto("/");
       await useTheme(page, theme);
 
-      const supported = await page.evaluate(() => CSS.supports("appearance", "base-select"));
-      test.skip(!supported, "this browser draws the list itself");
-
-      await page.getByLabel("Language").click();
-      const option = page.locator(".language-select option:not(:checked)").first();
+      await page.getByRole("button", { name: /^Language/ }).click();
+      const option = page.locator("#language-menu .menu-entry:not([aria-current])").first();
       await expect(option).toBeVisible();
       await option.hover();
 

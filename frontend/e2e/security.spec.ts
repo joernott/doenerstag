@@ -11,9 +11,9 @@
 // docs/11_nonfunctional.md asks for a security review covering "CSP in
 // practice". This is that, as a test rather than as an afternoon.
 
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-import { login, loginThroughTheForm, register, seedOrder, seedRestaurant } from "./support";
+import { expect, login, loginThroughTheForm, register, seedOrder, seedRestaurant, test } from "./support";
 
 /** One blocked resource or refused script, as the browser reported it. */
 interface Violation {
