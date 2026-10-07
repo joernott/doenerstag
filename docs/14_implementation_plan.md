@@ -679,6 +679,7 @@ do that job from the pages they already have open.
 
 | ✅ 19.5 | A remove button (×) beside the person fetching the food and the person collecting the money, for that person, the order's creator and the administrator. `DELETE` on the two routes 17.8 and 19.3 added; anybody else is 3006. While the order is open, as for taking the job | M | [05](05_auth_and_permissions.md) |
 | ✅ 19.6 | In dark mode, hovering a language in the language selector made it unreadable, black on black. It was a native select, whose open list the browser draws: styling the options turned only the chosen language orange, and `appearance: base-select` reached Chrome and Edge but not Firefox, which lets a page style nothing of that list. The selector is now a button and a list the page draws, built like the main menu, so the hovered language is orange on the sunken surface in all three. The language in force is not marked in the list; the button shows it. An e2e test measures the painted colours with the pointer on a language, in every browser. Reported by the user, three times | M | [06](06_ui_ux.md) |
+| ✅ 19.7 | Version references moved to 0.4.0, the README's status section rewritten around what is new since 0.3.0, sprint 19 squashed into `main` and released as 0.4.0 | S | [10](10_operations.md) |
 
 **Exit criteria:** what 0.3.1 got wrong in use is fixed, each with a test that
 fails without the fix. Whoever collects the money can claim the job and tick

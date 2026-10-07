@@ -1129,3 +1129,49 @@ recorded on the branch of the sprint it belongs to.
 > Also, when using dark mode, hovering over a language in the language
 > selection, it becomes unreadable. instead of using black as font color, this
 > should be orange.
+
+---
+
+### Prompt 72
+
+> pageant has been restarted and the key has been loaded.
+>
+> Did you use the ssh key id_ed25519_claude to access the vm? The user there is
+> named doener and can sudo without password.
+> internet connection has been reestablished, please retry
+
+---
+
+### Prompt 73
+
+> yes, please always install in the VM. Using it for these thest is it's only
+> purpose
+
+---
+
+### Prompt 74
+
+> I just tried the vwrsion deployed on the VM. The selected language now shows
+> in orange, the position I am hovering over still is black  on black, making
+> the entry unreadable. That one should be orange. The selected entry can be
+> inferred by what is visible in the textbox above the dropdown
+
+---
+
+### Prompt 75
+
+> I am using firefox, so I need a solution that works on firefox, edge and
+> chrome
+
+---
+
+### Prompt 76
+
+> vscode complains about 7 failures to resolve $ref in the api/openapi.yaml
+> file, that should be investigated and fixed
+
+---
+
+### Prompt 77
+
+> please sqash merge sprint-19 into main and release it as v0.4.0
