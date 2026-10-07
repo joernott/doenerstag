@@ -665,6 +665,25 @@ fails without the fix.
 
 ---
 
+## Sprint 19 — Fixes to 0.3.1
+
+**Goal:** fix what using 0.3.1 finds, and let the person collecting the money
+do that job from the pages they already have open.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| 19.1 | The order tiles' titles show the fulfilment time in UTC, while every other time on the page is in the browser's. docs/03 says the title is `<restaurant> — <fulfilment_at in local time>`, but `Order.Title()` formats it on the server, in the server's zone. The browser builds the title from the restaurant name and `fulfilment_at` instead, wherever a title is shown, so it reads in the same zone as everything beside it | S | [03](03_data_model.md) |
+| 19.2 | The person collecting the money cannot use the paid ticks on the summary or the order page. 17.10 grants it to them, and both `setItemPaid` and `mayTickPaid` name the collector, so the cause is somewhere between them -- find it by reproducing it on the VM as a collector who neither opened the order nor added the line. Reported by the user | S | [05](05_auth_and_permissions.md) |
+| 19.3 | When nobody is collecting the money, the order page offers every signed-in visitor a "Me!" button beside that field that puts them there, as 17.8 does for fetching the food | M | [06](06_ui_ux.md) |
+| 19.4 | An Edit button with the pencil icon beside each dish on the order page, opening the same menu-item editor the restaurant page uses, for the same people who may edit it there. A price changed this way does not reach a line already in an order: those are snapshots (ADR-0009) | M | [06](06_ui_ux.md) |
+
+**Exit criteria:** what 0.3.1 got wrong in use is fixed, each with a test that
+fails without the fix. Whoever collects the money can claim the job and tick
+lines off without asking the order's creator, and a wrong price on the menu can
+be corrected without leaving the order.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

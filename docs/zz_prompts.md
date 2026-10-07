@@ -1100,3 +1100,20 @@ recorded on the branch of the sprint it belongs to.
 
 > everything looks fine now. Please add support for French as third language and
 > then build and release v0.3.1
+
+---
+
+### Prompt 70
+
+> create a new brnch for sprint 19 and add the following tasks to the
+> implementation plan:
+> - On the orders page, the title of the cards show the time in the title in UTC
+>   and not in the browser time. As the other times are displayed as local time,
+>   this should also display the local time.
+> - The person who is collecting the money for an order should be able to use
+>   the "paid" checkboxes on the summary and orders pages.
+> - Next to the collect money field should be a "Me!" button with a similar
+>   logic implemented in task 17.8
+> - There should be an Edit" button with a pen icon next to the menu in the
+>   order page, that allows editing that menu item similar to how you edit a
+>   menu item on the restaurant page.
