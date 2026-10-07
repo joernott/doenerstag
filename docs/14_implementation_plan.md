@@ -678,7 +678,7 @@ do that job from the pages they already have open.
 | ✅ 19.4 | An Edit button with the pencil icon beside each dish on the order page, opening the same menu-item editor the restaurant page uses, for the same people who may edit it there. A price changed this way does not reach a line already in an order: those are snapshots (ADR-0009) | M | [06](06_ui_ux.md) |
 
 | ✅ 19.5 | A remove button (×) beside the person fetching the food and the person collecting the money, for that person, the order's creator and the administrator. `DELETE` on the two routes 17.8 and 19.3 added; anybody else is 3006. While the order is open, as for taking the job | M | [05](05_auth_and_permissions.md) |
-| 19.6 | In dark mode, hovering a language in the language selector made it unreadable: the options inherited the light text and the browser's hover highlight is light too. The options get the theme's colours, and the hovered one orange text | S | [06](06_ui_ux.md) |
+| ✅ 19.6 | In dark mode, hovering a language in the language selector made it unreadable: the options inherited the light text and the browser's hover highlight is light too. The options get the theme's colours, and the hovered one orange text | S | [06](06_ui_ux.md) |
 
 **Exit criteria:** what 0.3.1 got wrong in use is fixed, each with a test that
 fails without the fix. Whoever collects the money can claim the job and tick

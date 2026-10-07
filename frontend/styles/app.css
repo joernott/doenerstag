@@ -234,6 +234,23 @@ a {
   font: inherit;
 }
 
+/* The open list is drawn by the browser, and an option left to inherit took
+   the dark theme's light text while the hover highlight stayed the browser's,
+   which made the hovered language unreadable (19.6). The options get the
+   theme's own colours, and the one under the pointer orange text on the
+   sunken surface, which reads at better than 4.5:1 in both themes. */
+.language-select option {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.language-select option:hover,
+.language-select option:focus,
+.language-select option:checked {
+  background: var(--surface-sunken);
+  color: var(--accent);
+}
+
 .account {
   display: flex;
   align-items: center;
