@@ -737,3 +737,41 @@ func TestThePlaceholderCannotBeGivenAJob(t *testing.T) {
 	}, o.cookies...)
 	expectError(t, rec, http.StatusBadRequest, api.CodeInvalidField)
 }
+
+// 17.8 and 19.3: either job may be taken by anybody signed in, but only while
+// nobody has it and only while the order is open.
+func TestTakingOnAJob(t *testing.T) {
+	for _, job := range []struct {
+		name   string
+		path   string
+		holder func(orderResponse) *string
+	}{
+		{"fetching the food", "/pickup-person", func(o orderResponse) *string { return o.PickupPersonID }},
+		{"collecting the money", "/money-collector", func(o orderResponse) *string { return o.MoneyCollectorID }},
+	} {
+		t.Run(job.name, func(t *testing.T) {
+			o := newOrderFixture(t)
+			volunteer := o.register("freiwillig")
+			latecomer := o.register("zuspaet")
+
+			// Not the creator: the point is that nobody has to find them first.
+			rec := o.post("/orders/"+o.order.ID+job.path, map[string]any{}, volunteer...)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("volunteering: %d %s", rec.Code, rec.Body.String())
+			}
+			var body orderResponse
+			decode(t, rec, &body)
+			if got := job.holder(body); got == nil || *got != o.userID("freiwillig") {
+				t.Errorf("the job is held by %v", got)
+			}
+
+			// A vacancy only: somebody else cannot take it off them.
+			taken := o.post("/orders/"+o.order.ID+job.path, map[string]any{}, latecomer...)
+			expectError(t, taken, http.StatusConflict, api.CodeJobTaken)
+
+			closed := o.createExpiredOrder(o.cookies)
+			late := o.post("/orders/"+closed.ID+job.path, map[string]any{}, volunteer...)
+			expectError(t, late, http.StatusConflict, api.CodeOrderClosed)
+		})
+	}
+}

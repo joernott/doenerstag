@@ -688,15 +688,27 @@ describe("the order page", () => {
     expect(definitions).toContain(app.t.t("order.nobody"));
   });
 
-  // 17.8: the volunteering button, which is deliberately not the creator's.
-  it("offers 'Me!' for fetching the food, and takes the job when pressed", async () => {
+  // 17.8 and 19.3: the volunteering buttons, which are deliberately not the
+  // creator's. Each is found by its accessible name, which names the job:
+  // with both jobs open there are two buttons, both reading "Me!".
+  const jobs = [
+    { job: "fetching the food", path: "pickup-person", field: "pickup_person", label: "order.pickup_person" },
+    { job: "collecting the money", path: "money-collector", field: "money_collector", label: "order.money_collector" },
+  ];
+
+  function volunteerButton(app: App, root: HTMLElement, label: string): HTMLButtonElement | null {
+    const name = `${app.t.t("order.volunteer")}: ${app.t.t(label)}`;
+    return root.querySelector<HTMLButtonElement>(`.order-person button[aria-label='${name}']`);
+  }
+
+  it.each(jobs)("offers 'Me!' for $job, and takes the job when pressed", async (job) => {
+    const vacant = detail({ [`${job.field}_id`]: null, [`${job.field}_name`]: "" });
     const stubs = stubServer({
-      ...orderStubs(detail()),
-      "POST /orders/o1/pickup-person": detail({
-        pickup_person_id: "u9",
-        pickup_person_name: "Robin",
+      ...orderStubs(vacant),
+      [`POST /orders/o1/${job.path}`]: detail({
+        [`${job.field}_id`]: "u9",
+        [`${job.field}_name`]: "Robin",
       }),
-      "GET /orders/o1": detail(),
     });
 
     const app = mountApp(() => []);
@@ -705,18 +717,18 @@ describe("the order page", () => {
     const rendered = await orderPage(app, "o1", { factory: silentFactory });
     await settle();
 
-    const volunteer = rendered.querySelector<HTMLButtonElement>(".order-person button");
+    const volunteer = volunteerButton(app, rendered, job.label);
     expect(volunteer?.textContent).toBe(app.t.t("order.volunteer"));
 
     volunteer?.click();
     await settle();
 
-    expect(stubs.calls.some((call) => call.path === "/orders/o1/pickup-person")).toBe(true);
+    expect(stubs.calls.some((call) => call.path === `/orders/o1/${job.path}`)).toBe(true);
   });
 
-  it("offers nobody the button once somebody is fetching", async () => {
+  it.each(jobs)("offers nobody the button once somebody is $job", async (job) => {
     stubServer(
-      orderStubs(detail({ pickup_person_id: "u2", pickup_person_name: "Alex" })),
+      orderStubs(detail({ [`${job.field}_id`]: "u2", [`${job.field}_name`]: "Alex" })),
     );
 
     const app = mountApp(() => []);
@@ -724,7 +736,7 @@ describe("the order page", () => {
     const rendered = await orderPage(app, "o1", { factory: silentFactory });
     await settle();
 
-    expect(rendered.querySelector(".order-person button")).toBeNull();
+    expect(volunteerButton(app, rendered, job.label)).toBeNull();
     expect(rendered.querySelector(".definitions")?.textContent).toContain("Alex");
   });
 

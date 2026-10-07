@@ -312,6 +312,7 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Create an order                               | – | ✓ | ✓ | ✓ |
 | Edit an order's fields                        | – | – | ✓ | ✓ |
 | Take on fetching the food, when nobody has    | – | ✓ | ✓ | ✓ |
+| Take on collecting the money, when nobody has | – | ✓ | ✓ | ✓ |
 | Change an order's restaurant (no items yet)   | – | – | ✓ | ✓ |
 | Delete an order                               | – | – | ✓ | ✓ |
 | Add an order item to an active order          | – | ✓ | ✓ | ✓ |

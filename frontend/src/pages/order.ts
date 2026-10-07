@@ -189,12 +189,18 @@ export async function orderPage(
 
     // Who does what. Only an authenticated caller is told, because both are
     // named people (ADR-0011), and both rows are shown even when empty: an
-    // order with nobody fetching the food is the case worth seeing, and it is
-    // where the "Me!" button goes.
+    // order with nobody doing a job is the case worth seeing, and it is where
+    // the "Me!" button goes.
     const own = detail();
     if (own) {
-      rows.push([t.t("order.money_collector"), personRow(own.money_collector_name, false)]);
-      rows.push([t.t("order.pickup_person"), personRow(own.pickup_person_name, true)]);
+      rows.push([
+        t.t("order.money_collector"),
+        personRow(own.money_collector_name, "money-collector", t.t("order.money_collector")),
+      ]);
+      rows.push([
+        t.t("order.pickup_person"),
+        personRow(own.pickup_person_name, "pickup-person", t.t("order.pickup_person")),
+      ]);
       rows.push([t.t("order.creator"), own.creator_name]);
     }
     if (order.min_order_value_cents !== null) {
@@ -267,8 +273,7 @@ export async function orderPage(
 
   /** The restaurant, with its contacts as the links they are meant to be. */
   /**
-   * One of the two jobs an order has, and -- for fetching the food -- a way to
-   * take it.
+   * One of the two jobs an order has, and a way to take it.
    *
    * The row is shown even when nobody is doing the job, because that is the
    * case worth seeing. The button is offered to every signed-in visitor and not
@@ -276,14 +281,15 @@ export async function orderPage(
    * without finding the creator first, which is how this gets decided in the
    * room anyway. It is not offered on a closed order, where nothing can be
    * changed, and never to an anonymous visitor, who has no name to put there.
+   * Fetching the food got it in 17.8 and collecting the money in 19.3.
    */
-  function personRow(name: string, offerToVolunteer: boolean): Child {
+  function personRow(name: string, job: "pickup-person" | "money-collector", jobName: string): Child {
     if (name) {
       return name;
     }
 
     const nobody = el("span", { class: "muted", text: t.t("order.nobody") });
-    if (!offerToVolunteer || !app.session.isAuthenticated || !active()) {
+    if (!app.session.isAuthenticated || !active()) {
       return nobody;
     }
 
@@ -293,26 +299,27 @@ export async function orderPage(
       nobody,
       button({
         label: t.t("order.volunteer"),
-        ariaLabel: `${t.t("order.volunteer")}: ${t.t("order.pickup_person")}`,
+        // Two buttons both called "Me!" cannot be told apart by ear.
+        ariaLabel: `${t.t("order.volunteer")}: ${jobName}`,
         onclick: () => {
-          void volunteerToFetch();
+          void volunteer(job);
         },
       }),
     );
   }
 
   /**
-   * Takes on fetching the food.
+   * Takes on one of the two jobs.
    *
    * Its own endpoint rather than a PATCH, because PATCH belongs to the creator
    * and this deliberately does not. Putting "unless the only field is
    * pickup_person_id and its value is your own id and it was empty before"
    * inside the general edit path would be a rule nobody could find later.
    */
-  async function volunteerToFetch(): Promise<void> {
+  async function volunteer(job: "pickup-person" | "money-collector"): Promise<void> {
     status.clear();
     try {
-      await api.post(`/orders/${id}/pickup-person`, {});
+      await api.post(`/orders/${id}/${job}`, {});
       await refresh();
     } catch (error) {
       status.fail(errorMessage(t, error));

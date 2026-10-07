@@ -250,6 +250,8 @@ parameter names, OR within one parameter name:
 | `GET`    | `/orders/{id}`                   | public  | Order header. Items included only for authenticated callers — see below. |
 | `PATCH`  | `/orders/{id}`                   | creator | Update order fields. 409 after the deadline.          |
 | `DELETE` | `/orders/{id}`                   | creator | Delete the order and everything below it.             |
+| `POST`   | `/orders/{id}/pickup-person`     | user    | Take on fetching the food, if nobody has. 409 error 4007 if somebody has. |
+| `POST`   | `/orders/{id}/money-collector`   | user    | Take on collecting the money, if nobody has. 409 error 4007 if somebody has. |
 | `GET`    | `/orders/{id}/summary`           | participant | Aggregated summary, see below. 403 error 3004 for everyone else. |
 | `GET`    | `/orders/{id}/events`            | public  | SSE stream of changes to this order. Payloads depend on authentication. |
 | `POST`   | `/orders/{id}/items`             | user    | Add an order item. Snapshots name and price.          |

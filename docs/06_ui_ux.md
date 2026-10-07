@@ -107,7 +107,10 @@ administrator.
 - Restaurant name, logo, contacts (as clickable `tel:` / `mailto:` / map links),
   and opening hours.
 - Fulfilment type, fulfilment time, deadline. All shown in local time.
-- Money collector and pickup person, if set.
+- Money collector and pickup person, each shown even when nobody has the job.
+  While the order is open, an empty job offers every signed-in visitor a
+  **Me!** button that takes it, whether or not they opened the order. It only
+  fills a vacancy; changing who has a job is the creator's, in the editor.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.

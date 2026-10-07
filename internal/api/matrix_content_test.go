@@ -191,6 +191,19 @@ func contentRows() []contentCase {
 			},
 		},
 		{
+			// The same, for holding the money (19.3).
+			row:    "Take on collecting the money, when nobody has",
+			method: http.MethodPost,
+			path:   func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/money-collector" },
+			body:   func(*contentMatrix) any { return map[string]any{} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
 			row:    "Change an order's restaurant (no items yet)",
 			method: http.MethodPatch,
 			path:   func(c *contentMatrix) string { return "/orders/" + c.emptyOrder },
