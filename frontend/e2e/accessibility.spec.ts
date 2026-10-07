@@ -167,6 +167,47 @@ async function paintedColours(page: Page, selector: string): Promise<[string, st
   }, selector);
 }
 
+// The language list has to stay readable under the pointer too (19.6). The
+// first attempt styled option:hover, which a natively drawn list ignores: the
+// hovered language stayed black on black, and only the chosen one turned
+// orange. Found by the user, again by looking. With base-select the list is
+// part of the page, so what it paints can be measured; a browser without it
+// draws its own list, which no page can reach, and skips.
+test.describe("the language list stays readable under the pointer", () => {
+  for (const theme of THEMES) {
+    test(`in the ${theme} theme`, async ({ page }) => {
+      await page.goto("/");
+      await useTheme(page, theme);
+
+      const supported = await page.evaluate(() => CSS.supports("appearance", "base-select"));
+      test.skip(!supported, "this browser draws the list itself");
+
+      await page.getByLabel("Language").click();
+      const option = page.locator(".language-select option:not(:checked)").first();
+      await expect(option).toBeVisible();
+      await option.hover();
+
+      const [text, background] = await option.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return [style.color, style.backgroundColor] as [string, string];
+      });
+      expect(contrastRatio(text, background), `hovered it is ${text} on ${background}`).toBeGreaterThanOrEqual(
+        4.5,
+      );
+      // Orange, as asked: the accent, not merely something readable.
+      const accent = await page.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--accent)";
+        document.body.appendChild(probe);
+        const value = getComputedStyle(probe).color;
+        probe.remove();
+        return value;
+      });
+      expect(text).toBe(accent);
+    });
+  }
+});
+
 // A button has to stay readable while the pointer is on it.
 //
 // axe cannot answer this: it scans a page at rest, and nothing is hovered in a

@@ -234,19 +234,43 @@ a {
   font: inherit;
 }
 
-/* The open list is drawn by the browser, and an option left to inherit took
-   the dark theme's light text while the hover highlight stayed the browser's,
-   which made the hovered language unreadable (19.6). The options get the
-   theme's own colours, and the one under the pointer orange text on the
-   sunken surface, which reads at better than 4.5:1 in both themes. */
+/* The open list is drawn by the browser, which ignores :hover on an option and
+   paints the hovered one in its own highlight: black on black in the dark
+   theme (19.6). base-select makes the list part of the page, where the rules
+   below apply; a browser without it keeps its native list and ignores both.
+   The hovered language is orange on the sunken surface, at better than 4.5:1
+   in both themes. The chosen one is not marked: the closed box shows it. */
+/* Both the select and its picker have to ask for base-select. Written in two
+   rules rather than one with a selector list: the minifier split that list and
+   kept the declaration only on the select, so the list stayed native. */
+.language-select {
+  appearance: base-select;
+}
+
+.language-select::picker(select) {
+  appearance: base-select;
+  margin-block-start: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
 .language-select option {
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
   background: var(--surface-raised);
   color: var(--text);
 }
 
+.language-select option::checkmark {
+  display: none;
+}
+
 .language-select option:hover,
-.language-select option:focus,
-.language-select option:checked {
+.language-select option:focus-visible {
   background: var(--surface-sunken);
   color: var(--accent);
 }
