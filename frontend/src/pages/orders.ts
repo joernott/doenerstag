@@ -183,18 +183,13 @@ function orderTile(
     parts.push(el("span", { class: "badge", text: t.t("order.status.expired") }));
   }
 
-  // The summary is for participants (F1.3): the creator, anybody holding an
-  // item, and the administrator. Offering it to somebody the summary page would
-  // refuse is exactly what docs/06_ui_ux.md says not to do, and participation is
-  // the one thing the list endpoint cannot tell us -- it carries no item data
-  // for anybody (ADR-0011) -- so the detail fetched above decides it.
+  // The summary is for participants (F1.3). Offering it to somebody the summary
+  // page would refuse is exactly what docs/06_ui_ux.md says not to do, and
+  // participation is the one thing the list endpoint cannot tell us -- it
+  // carries no item data for anybody (ADR-0011) -- so the detail fetched above
+  // decides it.
   const me = app.session.user?.id;
-  const participant =
-    detail !== null &&
-    me !== undefined &&
-    (app.session.isAdmin ||
-      detail.creator_id === me ||
-      detail.items.some((item) => item.user_id === me));
+  const participant = detail !== null && participates(app, detail);
 
   const controls: Child[] = [summaryLink(app, order.id, participant)];
 
@@ -223,6 +218,28 @@ function orderTile(
       ...(controls.length > 0 ? { actions: tileActions(...controls) } : {}),
     },
     ...parts,
+  );
+}
+
+/**
+ * Whether this visitor is one of the people the summary is for (F1.3).
+ *
+ * The creator, the person collecting the money, the person fetching the food,
+ * anybody holding an item, and the administrator -- the same rule as
+ * db.IsParticipant, in one place so the overview and the order page cannot
+ * come to offer the summary to different people.
+ */
+export function participates(app: App, order: OrderDetail): boolean {
+  const me = app.session.user?.id;
+  if (me === undefined) {
+    return false;
+  }
+  return (
+    app.session.isAdmin ||
+    order.creator_id === me ||
+    order.money_collector_id === me ||
+    order.pickup_person_id === me ||
+    order.items.some((item) => item.user_id === me)
   );
 }
 

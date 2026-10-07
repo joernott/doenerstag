@@ -51,14 +51,20 @@ Several rules turn on whether a user is a **participant** of an order. A
 participant is:
 
 - the order's creator, **or**
+- the person collecting the money or the person fetching the food, **or**
 - any user holding at least one `order_item` in that order, **or**
 - the administrator.
 
 The creator counts even with no items of their own, because the creator is
 normally the person who phones the restaurant and reads from the summary.
 
-Participation is derived, never stored: it is a query against `food_order.creator_id`
-and `order_item.user_id`. Adding an item makes you a participant immediately;
+The two people an order names count for the same reason: the collector ticks
+lines off on the summary and the person fetching the food reads the restaurant's
+address there. Neither has to order anything to do that job.
+
+Participation is derived, never stored: it is a query against
+`food_order.creator_id`, `money_collector_id`, `pickup_person_id` and
+`order_item.user_id`. Adding an item makes you a participant immediately;
 removing your last item stops you being one. A user who is removed from an
 order therefore loses access to its summary, which is intended.
 

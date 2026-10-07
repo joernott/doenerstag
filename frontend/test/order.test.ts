@@ -233,7 +233,7 @@ describe("the order overview", () => {
     stubServer({
       ...referenceStubs,
       "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
-      "GET /orders/o1": detail({ creator_id: "u9", items: [] }),
+      "GET /orders/o1": detail({ creator_id: "u9", money_collector_id: null, items: [] }),
     });
 
     const app = mountApp(() => []);
@@ -241,6 +241,30 @@ describe("the order overview", () => {
     const rendered = await ordersPage(app);
 
     expect(rendered.querySelector("a[href='/orders/o1/summary']")).toBeNull();
+  });
+
+  // 19.2: the two people an order names take part in it without ordering
+  // anything, and the summary is where the collector ticks lines off and the
+  // person fetching the food finds the address.
+  it.each([
+    ["the money collector", { money_collector_id: "u1" }],
+    ["the person fetching the food", { money_collector_id: null, pickup_person_id: "u1" }],
+  ])("offers the summary to %s", async (_who, people) => {
+    const order = detail({ creator_id: "u9", items: [], ...people });
+    stubServer({
+      ...orderStubs(order),
+      "GET /orders": { orders: [{ ...header(), creator_id: "u9", creator_name: "Somebody" }] },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+
+    const overview = await ordersPage(app);
+    expect(overview.querySelector("a[href='/orders/o1/summary']")).not.toBeNull();
+
+    const orderView = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+    expect(orderView.querySelector("a[href='/orders/o1/summary']")).not.toBeNull();
   });
 
   it("gives the creator a pencil and a bin, and nobody else", async () => {

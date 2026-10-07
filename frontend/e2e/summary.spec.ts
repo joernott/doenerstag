@@ -2,7 +2,14 @@
 
 import { expect, test } from "@playwright/test";
 
-import { login, loginThroughTheForm, register, seedOrder, seedRestaurant } from "./support";
+import {
+  csrf,
+  login,
+  loginThroughTheForm,
+  register,
+  seedOrder,
+  seedRestaurant,
+} from "./support";
 
 /** Adds one item to an order through the browser, which is how a person does it. */
 async function addAnItem(page: import("@playwright/test").Page, orderID: string): Promise<void> {
@@ -110,6 +117,58 @@ test.describe("the summary", () => {
 
     // No items of theirs, and not the creator: no button (F1.3).
     await expect(page.getByRole("link", { name: "Summary", exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe("the money collector", () => {
+  // Reported against 0.3.1: the person collecting the money could not use the
+  // paid ticks. 17.10 gave them the right and both checks named them, but the
+  // summary was for participants only and a collector who has ordered nothing
+  // and did not open the order is not one, so they never reached it.
+  test("ticks somebody else's line on the order page and on the summary", async ({
+    request,
+    browser,
+  }) => {
+    const host = await register(request, "payhost");
+    const fixture = await seedRestaurant(request);
+    const orderID = await seedOrder(request, fixture.restaurantID);
+
+    // Somebody else orders the dish.
+    await register(request, "eater");
+    const added = await request.post(`/api/v1/orders/${orderID}/items`, {
+      data: { menu_item_id: fixture.itemID, quantity: 1 },
+      headers: { "X-CSRF-Token": await csrf(request) },
+    });
+    expect(added.ok()).toBe(true);
+
+    // And a third person, who has ordered nothing, is named as the collector.
+    const collector = await register(request, "collector");
+    await login(request, host);
+    const named = await request.patch(`/api/v1/orders/${orderID}`, {
+      data: { money_collector_id: collector.id },
+      headers: { "X-CSRF-Token": await csrf(request) },
+    });
+    expect(named.ok()).toBe(true);
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await loginThroughTheForm(page, collector);
+    const tick = page.getByRole("checkbox", { name: `Paid for ${fixture.itemName}` });
+
+    await page.goto(`/orders/${orderID}`);
+    await expect(tick).toBeEnabled();
+    await tick.check();
+    await page.reload();
+    await expect(tick).toBeChecked();
+
+    await page.goto(`/orders/${orderID}/summary`);
+    await expect(page.getByRole("heading", { name: "Who owes what" })).toBeVisible();
+    await expect(tick).toBeEnabled();
+    await tick.uncheck();
+    await page.reload();
+    await expect(tick).not.toBeChecked();
+
+    await context.close();
   });
 });
 

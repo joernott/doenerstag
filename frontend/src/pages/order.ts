@@ -39,6 +39,7 @@ import { itemChips } from "./menu";
 import {
   iconButton,
   isActive,
+  participates,
   summaryLink,
   type OrderDetail,
   type OrderHeader,
@@ -121,20 +122,12 @@ export async function orderPage(
   /**
    * Whether this visitor may read the summary (F1.3).
    *
-   * The creator, anybody with an item in the order, and the administrator. The
-   * server decides for real; this decides whether the link is worth offering.
+   * The server decides for real; this decides whether the link is worth
+   * offering, and asks the same function the order overview does.
    */
   const isParticipant = (): boolean => {
     const own = detail();
-    if (!own || !app.session.user) {
-      return false;
-    }
-    const me = app.session.user.id;
-    return (
-      app.session.isAdmin ||
-      own.creator_id === me ||
-      own.items.some((item) => item.user_id === me)
-    );
+    return own !== null && participates(app, own);
   };
 
   async function refresh(): Promise<void> {

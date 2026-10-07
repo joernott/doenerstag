@@ -335,6 +335,34 @@ func TestTheCreatorSeesTheSummaryWithoutOrderingAnything(t *testing.T) {
 	}
 }
 
+// 19.2: the two people an order names are participants, whether or not they
+// ordered anything. The collector ticks lines off on the summary, and the
+// person fetching the food reads the restaurant's address there (17.5). Before
+// this, both were refused it unless they had an item of their own.
+func TestTheNamedPeopleSeeTheSummaryWithoutOrderingAnything(t *testing.T) {
+	o := newOrderFixture(t)
+	other := o.register("hungrig")
+	o.addOrderItem(other, map[string]any{"quantity": 1})
+
+	collector := o.register("kassierer")
+	fetcher := o.register("abholer")
+	if rec := o.patch("/orders/"+o.order.ID, map[string]any{
+		"money_collector_id": o.userID("kassierer"),
+		"pickup_person_id":   o.userID("abholer"),
+	}, o.cookies...); rec.Code != http.StatusOK {
+		t.Fatalf("naming the two people: %s", rec.Body.String())
+	}
+
+	for name, cookies := range map[string][]*http.Cookie{
+		"the money collector":          collector,
+		"the person fetching the food": fetcher,
+	} {
+		if rec := o.get("/orders/"+o.order.ID+"/summary", cookies...); rec.Code != http.StatusOK {
+			t.Errorf("%s was refused the summary: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 // Losing your last item loses you the summary. Correct and slightly
 // surprising, which is why it is tested rather than assumed.
 func TestRemovingYourLastItemLosesYouTheSummary(t *testing.T) {

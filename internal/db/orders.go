@@ -11,7 +11,11 @@ import (
 // IsParticipant reports whether a user is a participant of an order.
 //
 // docs/05_auth_and_permissions.md defines a participant as the order's creator,
-// or any user holding at least one order_item in it. Participation is derived,
+// the person collecting the money, the person fetching the food, or any user
+// holding at least one order_item in it. The two named people were added in
+// sprint 19: a collector who had ordered nothing could not open the summary,
+// and so could not tick a line on it, and the person fetching the food could
+// not read the restaurant's address there. Participation is derived,
 // never stored: adding an item makes you one immediately, and removing your
 // last item stops you being one. This query is that definition, so it is the
 // only place the rule is written down in code.
@@ -28,6 +32,10 @@ func IsParticipant(ctx context.Context, q Querier, orderID, userID uuid.UUID) (b
 	var participant bool
 	err := q.QueryRow(ctx, `
 		SELECT o.creator_id = $2
+		    -- Not "=": both columns may be NULL, and NULL OR false is NULL,
+		    -- which does not scan into a bool.
+		    OR o.money_collector_id IS NOT DISTINCT FROM $2
+		    OR o.pickup_person_id IS NOT DISTINCT FROM $2
 		    OR EXISTS (
 		           SELECT 1 FROM order_item i
 		           WHERE i.order_id = o.id AND i.user_id = $2
