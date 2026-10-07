@@ -1352,6 +1352,14 @@ a {
   white-space: nowrap;
 }
 
+/* The pencil and "add" on one line under the price, the pencil first so the
+   add buttons still end at the same right edge down the column. */
+.menu-item-buttons {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .menu-thumb,
 .menu-thumb-empty,
 .tile-logo,

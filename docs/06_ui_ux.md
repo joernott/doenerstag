@@ -178,6 +178,11 @@ the count stays current without item detail ever reaching the browser.
 - An **Add menu item** button sits at the end of every category and at the
   bottom of the menu, so a missing item can be added without leaving the order.
 - A "mark unavailable" control on each item for logged-in users.
+- A pencil button beside each item's **Add** button, for logged-in users, opens
+  the same item editor the restaurant page uses, so a wrong price or a missing
+  option can be put right without leaving the order. It edits the restaurant's
+  menu, not the order, so it stays on a closed order; lines already in an order
+  keep the name and price they were added with (ADR-0009).
 
 ### Live updates
 

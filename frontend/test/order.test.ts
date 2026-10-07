@@ -664,7 +664,12 @@ describe("the order page", () => {
 
     const children = [...(side?.children ?? [])];
     expect(children[0]?.classList.contains("menu-price")).toBe(true);
-    expect(children[1]?.tagName).toBe("BUTTON");
+    // Below it, the pencil (19.4) and the add button on one line, add last so
+    // the add buttons still end at the same edge down the column.
+    expect(children[1]?.classList.contains("menu-item-buttons")).toBe(true);
+    const buttons = [...(children[1]?.children ?? [])];
+    expect(buttons.every((control) => control.tagName === "BUTTON")).toBe(true);
+    expect(buttons.at(-1)?.textContent).toBe(app.t.t("item.add"));
 
     // And nothing is left in the row itself to compete with the description.
     expect(rendered.querySelector(".menu-item > .menu-price")).toBeNull();
@@ -948,6 +953,74 @@ describe("the order page", () => {
 
     const labels = [...rendered.querySelectorAll("button")].map((control) => control.textContent);
     expect(labels).toContain(app.t.t("order.add_missing_item"));
+  });
+
+  // 19.4: a dish is put right from the order, with the restaurant page's editor.
+  function editButton(app: App, root: HTMLElement): HTMLButtonElement | null {
+    const name = `${app.t.t("action.edit")}: ${menuItem.name}`;
+    return root.querySelector<HTMLButtonElement>(`.menu-item button[aria-label='${name}']`);
+  }
+
+  it("edits a dish from the menu column and reloads the menu", async () => {
+    const stubs = stubServer({
+      ...orderStubs(detail()),
+      "PATCH /restaurants/r1/menu-items/m1": { ...menuItem, price_cents: 1050 },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    editButton(app, rendered)?.click();
+    await settle();
+
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+    const inputs = [...(dialog?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+    // The editor opens on this dish, not on an empty one.
+    expect(inputs.some((field) => field.value === menuItem.name)).toBe(true);
+
+    // The order page asks for the menu at the order's time, in the query.
+    const reads = (): number =>
+      stubs.calls.filter(
+        (call) => call.method === "GET" && call.path.split("?")[0] === "/restaurants/r1/menu-items",
+      ).length;
+    const before = reads();
+
+    // The dialog's own Save, in its footer: each option row has one too.
+    const save = [...(dialog?.querySelectorAll<HTMLButtonElement>(".modal-actions button") ?? [])].find(
+      (control) => control.textContent === app.t.t("action.save"),
+    );
+    save!.click();
+    await settle();
+
+    const call = stubs.calls.find((entry) => entry.method === "PATCH");
+    expect(call?.path).toBe("/restaurants/r1/menu-items/m1");
+    expect(reads()).toBeGreaterThan(before);
+  });
+
+  it("offers an anonymous visitor no way to edit a dish", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(editButton(app, rendered)).toBeNull();
+  });
+
+  // The menu is the restaurant's, not the order's, so a closed order still
+  // offers it: the price on the menu was wrong whether or not this order is.
+  it("still offers the edit on a closed order, where nothing can be added", async () => {
+    stubServer(orderStubs(detail({ deadline_at: soon(-2), fulfilment_at: soon(-1), status: "expired" })));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    expect(editButton(app, rendered)).not.toBeNull();
+    expect(rendered.querySelector(`.menu-item button[aria-label^='${app.t.t("item.add")}:']`)).toBeNull();
   });
 });
 

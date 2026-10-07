@@ -899,6 +899,12 @@ export async function orderPage(
   function menuRow(item: MenuItem): HTMLElement {
     const marks = itemChips(app, item);
     const addable = canOrder() && item.available;
+    // 19.4: a wrong price or a missing option is found while ordering, and is
+    // put right here rather than on the restaurant page. The same editor and
+    // the same people (docs/05: anybody signed in), and not tied to the order
+    // being open, because it edits the restaurant's menu and not this order.
+    // A line already in the order keeps its snapshot (ADR-0009).
+    const editable = app.session.isAuthenticated && reference !== null;
 
     return el(
       "li",
@@ -933,19 +939,47 @@ export async function orderPage(
           class: "menu-price",
           text: formatMoney(app.language, item.price_cents, order.currency_code, moneyFormat),
         }),
-        addable
-          ? button({
-              label: t.t("item.add"),
-              variant: "primary",
-              // Named for the dish: the menu column has one of these per item.
-              ariaLabel: `${t.t("item.add")}: ${item.name}`,
-              onclick: () => {
-                void openItemEditor(null, item);
-              },
-            })
+        editable || addable
+          ? el(
+              "div",
+              { class: "menu-item-buttons" },
+              editable
+                ? iconButton("pencil", `${t.t("action.edit")}: ${item.name}`, "", () => {
+                    editMenuItem(item);
+                  })
+                : null,
+              addable
+                ? button({
+                    label: t.t("item.add"),
+                    variant: "primary",
+                    // Named for the dish: the menu column has one of these per item.
+                    ariaLabel: `${t.t("item.add")}: ${item.name}`,
+                    onclick: () => {
+                      void openItemEditor(null, item);
+                    },
+                  })
+                : null,
+            )
           : null,
       ),
     );
+  }
+
+  /** The restaurant page's menu-item editor, for one dish on this menu. */
+  function editMenuItem(item: MenuItem): void {
+    if (!reference) {
+      return;
+    }
+    openMenuItemEditor({
+      app,
+      reference,
+      restaurantID: order.restaurant_id,
+      categories: categoryList,
+      money: moneyFormat,
+      item,
+      categoryID: item.category_id,
+      onSaved: reloadMenu,
+    });
   }
 
   // --- adding and editing an order item ------------------------------------
