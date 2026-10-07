@@ -292,6 +292,8 @@ The summary response contains:
 {
   "order_id": "…",
   "title": "Döner Palast — 2026-09-10 12:30",
+  "restaurant_name": "Döner Palast",
+  "fulfilment_at": "2026-09-10T10:30:00Z",
   "currency_code": "EUR",
   "aggregated": [
     {
@@ -320,6 +322,11 @@ The summary response contains:
   "plain_text": "3x Döner Kebab (no onions)\n2x Lahmacun\n…"
 }
 ```
+
+`title` is formatted in the server's time zone, for a client that wants a
+string as it stands. The browser does not use it: it builds the title from
+`restaurant_name` and `fulfilment_at` in the viewer's zone, as it does from the
+order header, so the title agrees with every other time on the page.
 
 Aggregation key: `menu_item_id` + the exact set of selected modification names +
 the normalized free-text note (trimmed, case-insensitive). Items differing in

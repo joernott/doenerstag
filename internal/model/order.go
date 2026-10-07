@@ -74,6 +74,12 @@ func (o Order) Status(now time.Time) string {
 // which is what people call it anyway. Computing it means a renamed restaurant
 // renames its orders, which is right -- unlike a price, the restaurant's name
 // is not part of what was agreed.
+//
+// The time is in whatever zone FulfilmentAt was read in, which is the
+// server's. The browser therefore builds its own title from the restaurant name
+// and fulfilment_at (orderTitle in frontend/src/format.ts), so that it reads in
+// the viewer's zone like every other time on the page; this one is for a client
+// that wants the string as it stands.
 func (o Order) Title() string {
 	return fmt.Sprintf("%s — %s", o.RestaurantName,
 		o.FulfilmentAt.Format("2006-01-02 15:04"))

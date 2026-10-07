@@ -8,7 +8,7 @@ import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { el, icon, type Child } from "../dom";
-import { formatDateTime, formatRelativeTime } from "../format";
+import { formatDateTime, formatRelativeTime, orderTitle } from "../format";
 import { logoMark } from "../logo";
 import { button } from "../components/forms";
 import { thumbnailURL } from "../components/images";
@@ -217,7 +217,7 @@ function orderTile(
   return tile(
     {
       href: `/orders/${order.id}`,
-      title: order.title,
+      title: orderTitle(app.language, order),
       faded: !active,
       media: logo(order, t),
       ...(controls.length > 0 ? { actions: tileActions(...controls) } : {}),

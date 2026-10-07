@@ -22,7 +22,13 @@ import {
   subscribeToOrder,
   type EventSourceFactory,
 } from "../events";
-import { formatDateTime, formatMoney, formatRelativeTime, moneyInputValue } from "../format";
+import {
+  formatDateTime,
+  formatMoney,
+  formatRelativeTime,
+  moneyInputValue,
+  orderTitle,
+} from "../format";
 import { button, checkbox, field, form, input, select, textarea } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
@@ -223,7 +229,7 @@ export async function orderPage(
     // not in this card: all three act on the order as a whole rather than on
     // anything inside the card, and they were the only reason it had a row of
     // buttons at all.
-    return section(order.title, list, status.element);
+    return section(orderTitle(app.language, order), list, status.element);
   }
 
   /**
@@ -1165,7 +1171,7 @@ export async function orderPage(
   renderMenu();
 
   return pageWithActions(
-    order.title,
+    orderTitle(app.language, order),
     heading,
     banner,
     el("div", { class: "order-layout" }, left, right),

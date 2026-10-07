@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +18,12 @@ type summaryBody struct {
 	OrderID      string `json:"order_id"`
 	Title        string `json:"title"`
 	CurrencyCode string `json:"currency_code"`
+
+	// What the title is made of, as on the order header. Title formats the time
+	// in the server's zone; a browser builds its own from these two, in the
+	// viewer's, so the heading agrees with every other time on the page.
+	RestaurantName string `json:"restaurant_name"`
+	FulfilmentAt   string `json:"fulfilment_at"`
 
 	Aggregated []aggregatedLine `json:"aggregated"`
 	PerPerson  []personLine     `json:"per_person"`
@@ -121,6 +128,8 @@ func buildSummary(
 	body := summaryBody{
 		OrderID:            order.ID.String(),
 		Title:              order.Title(),
+		RestaurantName:     order.RestaurantName,
+		FulfilmentAt:       order.FulfilmentAt.UTC().Format(time.RFC3339),
 		CurrencyCode:       order.CurrencyCode,
 		Aggregated:         make([]aggregatedLine, 0, len(items)),
 		PerPerson:          make([]personLine, 0, 8),

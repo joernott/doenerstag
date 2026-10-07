@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatDateTime } from "../src/format";
 import { summaryPage } from "../src/pages/summary";
 import { fails, mountApp, referenceStubs, settle, stubServer } from "./helpers";
 
@@ -57,6 +58,8 @@ const order = {
 const summary = {
   order_id: "o1",
   title: "Pinar Kebap — 12:30",
+  restaurant_name: "Pinar Kebap",
+  fulfilment_at: "2026-09-10T10:30:00Z",
   currency_code: "CHF",
   aggregated: [
     {
@@ -155,8 +158,11 @@ describe("the summary", () => {
     await settle();
 
     const titles = [...rendered.querySelectorAll(".card-title")].map((entry) => entry.textContent);
+    // The title is built from fulfilment_at in the viewer's zone, not taken
+    // from the API's `title`, which the fixture sets to the server's 12:30 so
+    // the two cannot be confused (19.1).
     expect(titles).toEqual([
-      summary.title,
+      `Pinar Kebap — ${formatDateTime(app.language, summary.fulfilment_at)}`,
       app.t.t("summary.what_to_order"),
       app.t.t("summary.who_owes_what"),
       app.t.t("order.totals"),

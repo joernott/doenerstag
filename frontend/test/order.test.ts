@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatDateTime } from "../src/format";
 import { orderPage } from "../src/pages/order";
 import { ordersPage } from "../src/pages/orders";
 import { createOrderPage } from "../src/pages/ordercreate";
@@ -177,6 +178,24 @@ describe("the order overview", () => {
     // (ADR-0011).
     expect(rendered.textContent).not.toContain("Jo");
     expect(rendered.textContent).not.toContain("CHF");
+  });
+
+  // Reported against 0.3.1: the tile's title gave the fulfilment time in UTC,
+  // because the server formatted it, while every other time on the page was in
+  // the browser's zone.
+  it("titles a tile with the fulfilment time in the viewer's zone", async () => {
+    const when = "2026-09-10T10:30:00Z";
+    stubServer({
+      ...referenceStubs,
+      "GET /orders": { orders: [header({ title: "Pinar Kebap — server time", fulfilment_at: when })] },
+    });
+
+    const app = mountApp(() => []);
+    const rendered = await ordersPage(app);
+
+    const link = rendered.querySelector<HTMLAnchorElement>(".tile-link[href='/orders/o1']");
+    expect(link?.textContent).toContain(`Pinar Kebap — ${formatDateTime(app.language, when)}`);
+    expect(link?.textContent).not.toContain("server time");
   });
 
   it("still says nothing about items or people once logged in", async () => {
@@ -387,6 +406,20 @@ describe("creating an order", () => {
 });
 
 describe("the order page", () => {
+  it("titles the page with the fulfilment time in the viewer's zone", async () => {
+    const when = "2026-09-10T10:30:00Z";
+    stubServer(orderStubs(header({ title: "Pinar Kebap — server time", fulfilment_at: when })));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const expected = `Pinar Kebap — ${formatDateTime(app.language, when)}`;
+    const titles = [...rendered.querySelectorAll("h1, .card-title")].map((node) => node.textContent);
+    expect(titles).toContain(expected);
+    expect(rendered.textContent).not.toContain("server time");
+  });
+
   // Reported from a real order: the address in the restaurant line read
   // "Bahnhofstrasse 1, 8001 Zürich: Bahnhofstrasse 1, 8001 Zürich". An
   // unlabelled contact was printed as "label: value" with the value standing in

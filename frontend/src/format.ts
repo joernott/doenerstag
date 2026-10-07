@@ -94,6 +94,21 @@ export function formatDateTime(locale: string, value: Date | string): string {
   );
 }
 
+/**
+ * An order's display title: the restaurant and the fulfilment time (F5.6).
+ *
+ * Built here rather than taken from the API's `title`, which the server formats
+ * in its own time zone. Every other time on the page is in the viewer's, and a
+ * title an hour or two off from the fulfilment time printed beneath it reads as
+ * a second order.
+ */
+export function orderTitle(
+  locale: string,
+  order: { restaurant_name: string; fulfilment_at: string },
+): string {
+  return `${order.restaurant_name} — ${formatDateTime(locale, order.fulfilment_at)}`;
+}
+
 /** A weekday name, for opening hours. ISO numbering: 1 is Monday. */
 export function formatWeekday(locale: string, isoDay: number): string {
   // 2024-01-01 was a Monday, so adding isoDay - 1 lands on the right weekday
