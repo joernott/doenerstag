@@ -316,7 +316,7 @@ paths:
                     type: string
                     example: accepted
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
 
   /auth/password-reset/{token}:
     post:
@@ -370,7 +370,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                $ref: "#/components/schemas/Error"
 
   /auth/session:
     get:
@@ -1197,7 +1197,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1233,7 +1233,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1294,7 +1294,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1336,7 +1336,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/AvailabilityFilter"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1947,7 +1947,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderItem"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/Validation"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
