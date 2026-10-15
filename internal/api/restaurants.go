@@ -147,7 +147,7 @@ func (h *RestaurantHandlers) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RestaurantHandlers) get(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.lookup(r)
+	restaurant, err := h.lookupRestaurant(r)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -272,7 +272,7 @@ func (p rawPatch) has(key string) bool {
 }
 
 func (h *RestaurantHandlers) patch(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -363,7 +363,7 @@ func (h *RestaurantHandlers) validatePatch(
 func (h *RestaurantHandlers) remove(w http.ResponseWriter, r *http.Request) {
 	// Looked up before the role is checked, as every resource route does: the
 	// restaurant is public, so its existence tells nobody anything (20.16).
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -390,8 +390,8 @@ func (h *RestaurantHandlers) remove(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// lookup resolves the :id path parameter to a living restaurant.
-func (h *RestaurantHandlers) lookup(r *http.Request) (model.Restaurant, *Error) {
+// lookupRestaurant resolves the :id path parameter to a living restaurant.
+func (h *RestaurantHandlers) lookupRestaurant(r *http.Request) (model.Restaurant, *Error) {
 	restaurant, err := loadParam(r, h.Pool, "id", db.RestaurantByID)
 	if err != nil {
 		return model.Restaurant{}, err

@@ -13,7 +13,6 @@ import (
 
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
-	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/mail"
 	"github.com/joernott/doenerstag/internal/model"
 )
@@ -56,10 +55,7 @@ type ResetHandlers struct {
 }
 
 func (h *ResetHandlers) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now()
+	return nowFrom(h.Now)
 }
 
 // Register adds the reset routes.
@@ -133,7 +129,7 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 
 	// Everything past this point answers the same way. The work is still done,
 	// and the failures are still logged, but the response does not vary.
-	users := h.lookup(r.Context(), name)
+	users := h.lookupAccounts(r.Context(), name)
 	for i := range users {
 		h.issue(r.Context(), r, users[i])
 	}
@@ -147,13 +143,13 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// lookup finds the accounts a reset was asked for: the one with that name, or
+// lookupAccounts finds the accounts a reset was asked for: the one with that name, or
 // else every one with that e-mail address.
 //
 // An address may be shared on purpose -- an administrator account and a
 // personal one with the same mailbox -- so every account that has it gets a
 // link of its own, and each mail says which account its link is for (20.5).
-func (h *ResetHandlers) lookup(ctx context.Context, name string) []model.User {
+func (h *ResetHandlers) lookupAccounts(ctx context.Context, name string) []model.User {
 	user, err := db.UserByName(ctx, h.Pool, name)
 	if err == nil {
 		return []model.User{user}
@@ -273,15 +269,5 @@ func (h *ResetHandlers) complete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ResetHandlers) log(r *http.Request) *zerolog.Logger {
-	if h.Logger == nil {
-		nop := zerolog.Nop()
-		return &nop
-	}
-	if r == nil {
-		return h.Logger
-	}
-	logger := h.Logger.With().
-		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
-		Logger()
-	return &logger
+	return requestLogger(h.Logger, r)
 }

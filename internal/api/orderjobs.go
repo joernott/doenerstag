@@ -59,7 +59,7 @@ func (h *OrderHandlers) claimMoneyCollection(w http.ResponseWriter, r *http.Requ
 // different act with a different social meaning, and the creator can do it from
 // the editor.
 func (h *OrderHandlers) claimJob(w http.ResponseWriter, r *http.Request, job orderJob) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -118,7 +118,7 @@ func (h *OrderHandlers) releaseMoneyCollection(w http.ResponseWriter, r *http.Re
 // is read-only (F6.6). Clearing a job nobody has is not an error; the result
 // is what was asked for.
 func (h *OrderHandlers) releaseJob(w http.ResponseWriter, r *http.Request, job orderJob) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return

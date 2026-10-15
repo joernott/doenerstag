@@ -125,9 +125,9 @@ type validatedAvailability struct {
 }
 
 func (h *MenuHandlers) createAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurant, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurant, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 
@@ -171,9 +171,9 @@ func (h *MenuHandlers) createAvailability(w http.ResponseWriter, r *http.Request
 }
 
 func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request) {
-	filter, authErr := h.editableFilter(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	filter, lookupErr := h.lookupFilter(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 
@@ -233,7 +233,7 @@ func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request)
 // attached to, and the attachments go with it.
 func (h *MenuHandlers) deleteAvailability(w http.ResponseWriter, r *http.Request) {
 	// Looked up first, as every resource route does (20.16).
-	filter, lookupErr := h.editableFilter(r)
+	filter, lookupErr := h.lookupFilter(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -252,13 +252,13 @@ func (h *MenuHandlers) deleteAvailability(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// editableFilter resolves the filter in the path and checks it belongs to the
+// lookupFilter resolves the filter in the path and checks it belongs to the
 // restaurant in the path, so that a filter id from one restaurant cannot be
 // edited through another's URL.
-func (h *MenuHandlers) editableFilter(r *http.Request) (model.AvailabilityFilter, *Error) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		return model.AvailabilityFilter{}, authErr
+func (h *MenuHandlers) lookupFilter(r *http.Request) (model.AvailabilityFilter, *Error) {
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		return model.AvailabilityFilter{}, lookupErr
 	}
 
 	filter, err := loadParam(r, h.Pool, "fid", db.AvailabilityFilterByID)
@@ -464,14 +464,14 @@ func (h *MenuHandlers) decorateItems(
 // client that has to work out the difference, which is work the server can do
 // in one statement.
 func (h *MenuHandlers) setCategoryAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
-	category, authErr := h.category(r, restaurantID)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 	h.setAttachments(w, r, restaurantID, func(actor uuid.UUID, ids []uuid.UUID) error {
@@ -481,14 +481,14 @@ func (h *MenuHandlers) setCategoryAvailability(w http.ResponseWriter, r *http.Re
 
 // setItemAvailability is the same for a menu item.
 func (h *MenuHandlers) setItemAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
-	item, authErr := h.item(r, restaurantID)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 	h.setAttachments(w, r, restaurantID, func(actor uuid.UUID, ids []uuid.UUID) error {

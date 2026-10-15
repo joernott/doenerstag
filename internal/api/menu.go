@@ -304,7 +304,7 @@ func (h *MenuHandlers) patchCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, lookupErr := h.category(r, restaurantID)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -353,7 +353,7 @@ func (h *MenuHandlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, lookupErr := h.category(r, restaurantID)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -370,8 +370,8 @@ func (h *MenuHandlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// category resolves :cid and checks it belongs to this restaurant.
-func (h *MenuHandlers) category(r *http.Request, restaurantID uuid.UUID) (model.MenuCategory, *Error) {
+// lookupCategory resolves :cid and checks it belongs to this restaurant.
+func (h *MenuHandlers) lookupCategory(r *http.Request, restaurantID uuid.UUID) (model.MenuCategory, *Error) {
 	category, err := loadParam(r, h.Pool, "cid", db.CategoryByID)
 	if err != nil {
 		return model.MenuCategory{}, err

@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/joernott/doenerstag/internal/db"
-	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/model"
 	"github.com/joernott/doenerstag/internal/sse"
 )
@@ -41,21 +40,11 @@ type OrderHandlers struct {
 
 // log returns a logger carrying the request's correlation ID.
 func (h *OrderHandlers) log(r *http.Request) *zerolog.Logger {
-	if h.Logger == nil {
-		discard := zerolog.Nop()
-		return &discard
-	}
-	logger := h.Logger.With().
-		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
-		Logger()
-	return &logger
+	return requestLogger(h.Logger, r)
 }
 
 func (h *OrderHandlers) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now()
+	return nowFrom(h.Now)
 }
 
 // Register adds the order routes.
@@ -294,7 +283,7 @@ func (h *OrderHandlers) list(w http.ResponseWriter, r *http.Request) {
 // types rather than a set of fields blanked out afterwards. An anonymous caller
 // is served orderHeaderBody, which has nowhere to put an item.
 func (h *OrderHandlers) get(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -476,7 +465,7 @@ type patchOrderRequest struct {
 
 // patch updates an order. Creator or administrator, and only while active.
 func (h *OrderHandlers) patch(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -614,7 +603,7 @@ func (h *OrderHandlers) validateOrderPatch(
 // editing this is allowed after the deadline -- an expired order is read-only
 // for its contents, but the administrator can still clear it away.
 func (h *OrderHandlers) remove(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -638,8 +627,8 @@ func (h *OrderHandlers) remove(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// lookup resolves the :id parameter to an order.
-func (h *OrderHandlers) lookup(r *http.Request) (model.Order, *Error) {
+// lookupOrder resolves the :id parameter to an order.
+func (h *OrderHandlers) lookupOrder(r *http.Request) (model.Order, *Error) {
 	order, err := loadParam(r, h.Pool, "id", db.OrderByID)
 	if err != nil {
 		return model.Order{}, err

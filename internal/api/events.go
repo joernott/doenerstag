@@ -27,7 +27,7 @@ const PingInterval = 30 * time.Second
 // here when the stream opens. A subscriber who logs in afterwards reconnects to
 // get the fuller set; the frontend does that automatically.
 func (h *OrderHandlers) events(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return

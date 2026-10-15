@@ -11,10 +11,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrLastContact is returned when removing a contact would leave a restaurant
-// with none, which F3.1 forbids.
-var ErrLastContact = errors.New("db: a restaurant needs at least one contact")
-
 // contactColumns joins the type in, so a client rendering one entry does not
 // have to fetch /contact-types to find out whether it is a phone number.
 const contactColumns = `c.id, c.restaurant_id, c.contact_type_id, t.code, t.render_as,

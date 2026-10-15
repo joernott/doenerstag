@@ -109,7 +109,7 @@ func (h *MenuHandlers) getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -248,7 +248,7 @@ func (h *MenuHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -364,7 +364,7 @@ func (h *MenuHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -381,8 +381,8 @@ func (h *MenuHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// item resolves :mid and checks it belongs to this restaurant.
-func (h *MenuHandlers) item(r *http.Request, restaurantID uuid.UUID) (model.MenuItem, *Error) {
+// lookupMenuItem resolves :mid and checks it belongs to this restaurant.
+func (h *MenuHandlers) lookupMenuItem(r *http.Request, restaurantID uuid.UUID) (model.MenuItem, *Error) {
 	item, err := loadParam(r, h.Pool, "mid", db.MenuItemByID)
 	if err != nil {
 		return model.MenuItem{}, err

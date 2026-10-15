@@ -14,25 +14,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrNotFound is returned when a row does not exist.
-//
-// One sentinel for the whole package rather than one per table: every caller
-// turns it into the same 4000, and distinguishing "no such user" from "no such
-// order" at this layer would only invite an error message that tells an
-// anonymous caller which identifiers are real.
-var ErrNotFound = errors.New("db: not found")
-
-// ErrUnknownReference is returned when a write names a row that does not
-// exist: a logo image, a currency, a category, a contact type, an account.
-//
-// Not ErrNotFound, which means the row being read or changed is missing. The
-// two were one sentinel until 20.8, and a PATCH naming an unknown image was
-// answered "404 restaurant not found" about a restaurant that was right there.
-var ErrUnknownReference = errors.New("db: a referenced row does not exist")
-
-// ErrNameTaken is returned when a unique name constraint rejects a write.
-var ErrNameTaken = errors.New("db: name already taken")
-
 // userColumns is the projection every user query returns, so that scanUser can
 // be shared. Written once rather than repeated in each query, because a column
 // added to one list and not the other is a scan error at runtime.
@@ -259,22 +240,6 @@ func DeleteUser(ctx context.Context, q Querier, id uuid.UUID) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-// isUniqueViolation reports whether err is PostgreSQL's 23505.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
-// isForeignKeyViolation reports whether err is PostgreSQL's 23503.
-//
-// It means a referenced row does not exist -- an unknown currency code, or an
-// image id that was never uploaded -- which the API answers as 4000 rather than
-// as a server error.
-func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
 
 // UsersByEmail reads every account with this e-mail address, by name.

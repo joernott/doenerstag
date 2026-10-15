@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/model"
 )
 
 // validateContacts turns request bodies into database inputs.
@@ -78,7 +79,7 @@ func (h *RestaurantHandlers) validateContact(
 }
 
 func (h *RestaurantHandlers) listContacts(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.lookup(r)
+	restaurant, err := h.lookupRestaurant(r)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -98,7 +99,7 @@ func (h *RestaurantHandlers) listContacts(w http.ResponseWriter, r *http.Request
 }
 
 func (h *RestaurantHandlers) createContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -130,7 +131,7 @@ func (h *RestaurantHandlers) createContact(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *RestaurantHandlers) replaceContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -168,7 +169,7 @@ func (h *RestaurantHandlers) replaceContact(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -209,19 +210,16 @@ func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Reques
 // The ownership check is what stops one restaurant's contact being edited or
 // removed through another's URL. It answers 404 rather than something more
 // specific: from the caller's side there is no such contact at this path.
-func (h *RestaurantHandlers) lookupContact(r *http.Request, restaurantID uuid.UUID) (contactRef, *Error) {
+func (h *RestaurantHandlers) lookupContact(r *http.Request, restaurantID uuid.UUID) (model.Contact, *Error) {
 	contact, err := loadParam(r, h.Pool, "cid", db.ContactByID)
 	if err != nil {
-		return contactRef{}, err
+		return model.Contact{}, err
 	}
 	if contact.RestaurantID != restaurantID {
-		return contactRef{}, &Error{Code: CodeNotFound}
+		return model.Contact{}, &Error{Code: CodeNotFound}
 	}
-	return contactRef{ID: contact.ID}, nil
+	return contact, nil
 }
-
-// contactRef is the little that the lookup needs to hand back.
-type contactRef struct{ ID uuid.UUID }
 
 // listCurrencies and listContactTypes serve the seeded reference tables.
 //

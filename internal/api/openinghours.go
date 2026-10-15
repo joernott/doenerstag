@@ -19,7 +19,7 @@ import (
 var timeOfDay = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 func (h *RestaurantHandlers) listOpeningHours(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.lookup(r)
+	restaurant, err := h.lookupRestaurant(r)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -61,7 +61,7 @@ type openingPeriodRequest struct {
 const MaxOpeningPeriods = 100
 
 func (h *RestaurantHandlers) replaceOpeningHours(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return

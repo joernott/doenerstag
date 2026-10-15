@@ -22,7 +22,7 @@ type addItemRequest struct {
 // F6.1: any logged-in user may add items to an active order. Not just the
 // creator -- the whole point is that colleagues fill in the order themselves.
 func (h *OrderHandlers) addItem(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -89,7 +89,7 @@ type patchItemRequest struct {
 
 // patchItem changes quantity, note or modifications. Owner or administrator.
 func (h *OrderHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -158,7 +158,7 @@ func (h *OrderHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 
 // deleteItem removes an order item. Owner or administrator, while active.
 func (h *OrderHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -223,9 +223,9 @@ func (h *OrderHandlers) requireItemOwner(r *http.Request, item model.OrderItem) 
 	return principal, nil
 }
 
-// lookupItem resolves both path parameters and checks the item is in the order.
-func (h *OrderHandlers) lookupItem(r *http.Request) (model.Order, model.OrderItem, *Error) {
-	order, err := h.lookup(r)
+// lookupOrderItem resolves both path parameters and checks the item is in the order.
+func (h *OrderHandlers) lookupOrderItem(r *http.Request) (model.Order, model.OrderItem, *Error) {
+	order, err := h.lookupOrder(r)
 	if err != nil {
 		return model.Order{}, model.OrderItem{}, err
 	}
@@ -292,7 +292,7 @@ func validateQuantity(quantity int) *Error {
 //     arrives, which is always after the deadline. A tick that could only be
 //     made while the order was open could never be made at all.
 func (h *OrderHandlers) setItemPaid(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
