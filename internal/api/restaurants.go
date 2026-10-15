@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/joernott/doenerstag/internal/db"
@@ -460,12 +458,8 @@ func validateRestaurantName(name string) *Error {
 	if name == "" {
 		return &Error{Code: CodeMissingField, Field: "name"}
 	}
-	if utf8.RuneCountInString(name) > MaxRestaurantNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the name may be at most 200 characters",
-		}
+	if longerThan(name, MaxRestaurantNameLength) {
+		return tooLong("name", "name", MaxRestaurantNameLength)
 	}
 	return nil
 }
@@ -488,32 +482,4 @@ func (h *RestaurantHandlers) validateCurrency(r *http.Request, code string) *Err
 		return &Error{Code: CodeUnknownCurrency, Field: "currency_code"}
 	}
 	return nil
-}
-
-// validateMoney refuses a negative amount, matching the CHECK constraints.
-func validateMoney(cents *int64, field string) *Error {
-	if cents != nil && *cents < 0 {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "the amount may not be negative",
-		}
-	}
-	return nil
-}
-
-// parseOptionalUUID reads a nullable id field.
-func parseOptionalUUID(value *string, field string) (*uuid.UUID, *Error) {
-	if value == nil || strings.TrimSpace(*value) == "" {
-		return nil, nil
-	}
-	id, err := uuid.Parse(strings.TrimSpace(*value))
-	if err != nil {
-		return nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "this is not a valid identifier",
-		}
-	}
-	return &id, nil
 }

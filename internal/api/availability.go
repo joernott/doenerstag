@@ -395,18 +395,7 @@ func validateClock(value *string, field string) (*string, *Error) {
 // what matters is whether the kitchen will make the dish when the food is
 // fetched, not whether it would make it now.
 func availabilityAt(r *http.Request) (*time.Time, *Error) {
-	raw := r.URL.Query().Get("at")
-	if raw == "" {
-		return nil, nil
-	}
-	at, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
-		return nil, &Error{
-			Code: CodeInvalidField, Field: "at",
-			Detail: "expected an RFC 3339 timestamp",
-		}
-	}
-	return &at, nil
+	return optionalTime(r.URL.Query().Get("at"), "at")
 }
 
 // availableAt applies the rule, or reports true when no moment was asked about.

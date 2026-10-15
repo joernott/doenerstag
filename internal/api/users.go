@@ -392,12 +392,8 @@ func (h *UserHandlers) createToken(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeMissingField, Field: "name"})
 		return
 	}
-	if len([]rune(name)) > MaxTokenNameLength {
-		WriteError(w, r, &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the token name may be at most 64 characters",
-		})
+	if longerThan(name, MaxTokenNameLength) {
+		WriteError(w, r, tooLong("name", "token name", MaxTokenNameLength))
 		return
 	}
 
@@ -448,17 +444,9 @@ const MaxTokenNameLength = 64
 // useless: it is far more likely to be a typo in the year than a deliberate
 // request for a token that never works.
 func (h *UserHandlers) parseExpiry(value string) (*time.Time, *Error) {
-	if strings.TrimSpace(value) == "" {
-		return nil, nil
-	}
-
-	at, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  "expires_at",
-			Detail: "the expiry must be an RFC 3339 timestamp",
-		}
+	at, err := optionalTime(value, "expires_at")
+	if err != nil || at == nil {
+		return nil, err
 	}
 	if !at.After(h.now()) {
 		return nil, &Error{
@@ -467,7 +455,7 @@ func (h *UserHandlers) parseExpiry(value string) (*time.Time, *Error) {
 			Detail: "the expiry is in the past",
 		}
 	}
-	return &at, nil
+	return at, nil
 }
 
 // revokeToken deletes a token. Owner or administrator.

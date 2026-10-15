@@ -34,11 +34,7 @@ func (h *RestaurantHandlers) validateContact(
 ) (db.NewContact, *Error) {
 	typeID, err := uuid.Parse(strings.TrimSpace(in.ContactTypeID))
 	if err != nil {
-		return db.NewContact{}, &Error{
-			Code:   CodeInvalidField,
-			Field:  "contact_type_id",
-			Detail: "this is not a valid identifier",
-		}
+		return db.NewContact{}, invalidID("contact_type_id")
 	}
 
 	if _, dbErr := db.ContactTypeByID(r.Context(), h.Pool, typeID); dbErr != nil {

@@ -307,12 +307,8 @@ func validateDisplayName(name string) *Error {
 		// Optional: an absent display name falls back to the user name.
 		return nil
 	}
-	if utf8.RuneCountInString(name) > MaxDisplayNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "display_name",
-			Detail: "the display name may be at most 64 characters",
-		}
+	if longerThan(name, MaxDisplayNameLength) {
+		return tooLong("display_name", "display name", MaxDisplayNameLength)
 	}
 	if strings.ContainsFunc(name, isControl) {
 		return &Error{

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -387,12 +386,8 @@ func validateMenuName(name string) *Error {
 	if name == "" {
 		return &Error{Code: CodeMissingField, Field: "name"}
 	}
-	if utf8.RuneCountInString(name) > MaxMenuNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the name may be at most 200 characters",
-		}
+	if longerThan(name, MaxMenuNameLength) {
+		return tooLong("name", "name", MaxMenuNameLength)
 	}
 	return nil
 }

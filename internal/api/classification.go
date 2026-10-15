@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -96,23 +95,6 @@ func classificationError(err error, field string) *Error {
 		}
 	}
 	return &Error{Code: CodeDatabaseUnavailable, Cause: err}
-}
-
-// parseIDList turns request strings into ids.
-func parseIDList(values []string, field string) ([]uuid.UUID, *Error) {
-	ids := make([]uuid.UUID, 0, len(values))
-	for _, raw := range values {
-		id, err := uuid.Parse(strings.TrimSpace(raw))
-		if err != nil {
-			return nil, &Error{
-				Code:   CodeInvalidField,
-				Field:  field,
-				Detail: "this is not a valid identifier",
-			}
-		}
-		ids = append(ids, id)
-	}
-	return ids, nil
 }
 
 func (h *MenuHandlers) listModifications(w http.ResponseWriter, r *http.Request) {
@@ -359,12 +341,8 @@ func (h *MenuHandlers) createTag(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeMissingField, Field: "name"})
 		return
 	}
-	if utf8.RuneCountInString(name) > MaxTagNameLength {
-		WriteError(w, r, &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the name may be at most 64 characters",
-		})
+	if longerThan(name, MaxTagNameLength) {
+		WriteError(w, r, tooLong("name", "name", MaxTagNameLength))
 		return
 	}
 

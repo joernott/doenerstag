@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -667,63 +666,6 @@ func validateFulfilment(value string) (string, *Error) {
 	}
 }
 
-func requiredUUID(value, field string) (uuid.UUID, *Error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return uuid.Nil, &Error{Code: CodeMissingField, Field: field}
-	}
-	id, err := uuid.Parse(trimmed)
-	if err != nil {
-		return uuid.Nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "this is not a valid identifier",
-		}
-	}
-	return id, nil
-}
-
-// requiredTime parses an RFC 3339 timestamp.
-//
-// RFC 3339 rather than a looser format, because an order's times are the one
-// thing everybody has to agree on and an ambiguous "12:30" would be read
-// differently by two clients in two time zones.
-func requiredTime(value, field string) (time.Time, *Error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return time.Time{}, &Error{Code: CodeMissingField, Field: field}
-	}
-	parsed, err := time.Parse(time.RFC3339, trimmed)
-	if err != nil {
-		return time.Time{}, &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "the time must be an RFC 3339 timestamp",
-		}
-	}
-	return parsed.UTC(), nil
-}
-
-func validateFreeText(value, field string, limit int) *Error {
-	if utf8.RuneCountInString(strings.TrimSpace(value)) > limit {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "this value is too long",
-		}
-	}
-	return nil
-}
-
-// idString renders an optional identifier for JSON, where absent is null.
-func idString(id *uuid.UUID) *string {
-	if id == nil {
-		return nil
-	}
-	s := id.String()
-	return &s
-}
-
 // optionalUserRef parses an account reference that may be absent or cleared.
 //
 // The empty string is "nobody", not a bad identifier: it is what a select whose
@@ -741,11 +683,7 @@ func (h *OrderHandlers) optionalUserRef(
 
 	id, err := uuid.Parse(trimmed)
 	if err != nil {
-		return nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "this is not a valid identifier",
-		}
+		return nil, invalidID(field)
 	}
 
 	// The placeholder that owns what deleted accounts left behind is a row in
