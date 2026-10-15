@@ -76,6 +76,47 @@ func TestAResetCanBeAskedForByEmailAddress(t *testing.T) {
 	}
 }
 
+// 20.5: an address may be shared on purpose -- an administrator account and a
+// personal one with the same mailbox. Asking by that address mails a link for
+// each account, and each mail says which account its link is for. It used to
+// mail one, for whichever account the database returned first.
+func TestASharedAddressGetsALinkForEveryAccount(t *testing.T) {
+	f := newAPIFixture(t)
+	registerWithEmail(f, "chef", "team@example.invalid")
+	registerWithEmail(f, "privat", "team@example.invalid")
+
+	rec := f.post("/auth/password-reset", map[string]string{"name": "team@example.invalid"})
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("asking for a reset: %d %s", rec.Code, rec.Body.String())
+	}
+
+	sent := f.mail.messages()
+	if len(sent) != 2 {
+		t.Fatalf("%d messages were sent, want one per account", len(sent))
+	}
+	links := map[string]bool{}
+	for i, name := range []string{"chef", "privat"} {
+		if !strings.Contains(sent[i].Body, `account "`+name+`"`) {
+			t.Errorf("message %d does not name the account %s:\n%s", i, name, sent[i].Body)
+		}
+		for _, line := range strings.Split(sent[i].Body, "\n") {
+			if strings.Contains(line, "/reset-password/") {
+				links[strings.TrimSpace(line)] = true
+			}
+		}
+	}
+	if len(links) != 2 {
+		t.Errorf("the two messages carry %d distinct links, want 2", len(links))
+	}
+
+	// Asking by name still mails that one account only.
+	f.mail.reset()
+	f.post("/auth/password-reset", map[string]string{"name": "privat"})
+	if got := len(f.mail.messages()); got != 1 {
+		t.Errorf("asking by name sent %d messages, want 1", got)
+	}
+}
+
 // The property this endpoint exists to protect. An intranet tool's account list
 // is a staff list, and an endpoint that answers differently for a name that
 // exists is a way to read it out one guess at a time.

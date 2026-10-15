@@ -80,7 +80,7 @@ app_version
 | `name`          | `text`        | no   | Login name. Unique on `lower(name)`. 3–64 chars.                |
 | `display_name`  | `text`        | yes  | Shown in the UI. Falls back to `name` when null.                |
 | `password_hash` | `text`        | no   | Argon2id PHC string. See [05](05_auth_and_permissions.md).      |
-| `email`         | `text`        | yes  | Optional. Not verified. Not used for sending mail.              |
+| `email`         | `text`        | yes  | Optional. Not verified. Where a password reset link is sent. Not unique: several accounts may share one deliberately, and a reset by address mails each of them. |
 | `is_admin`      | `boolean`     | no   | Default `false`. True only for `root`.                          |
 | `last_login_at` | `timestamptz` | yes  |                                                                 |
 

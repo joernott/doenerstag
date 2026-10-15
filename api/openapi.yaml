@@ -289,7 +289,9 @@ paths:
 
         Accepts either the login name or the e-mail address, because somebody
         who has forgotten their password should not also have to remember which
-        of the two they registered with.
+        of the two they registered with. An address may be shared by several
+        accounts, deliberately; asking by address sends a link for each of
+        them, and each message names the account its link is for.
       requestBody:
         required: true
         content:

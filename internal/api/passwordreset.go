@@ -133,10 +133,11 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 
 	// Everything past this point answers the same way. The work is still done,
 	// and the failures are still logged, but the response does not vary.
-	user, found := h.lookup(r.Context(), name)
-	if found {
+	users := h.lookup(r.Context(), name)
+	for _, user := range users {
 		h.issue(r.Context(), r, user)
-	} else {
+	}
+	if len(users) == 0 {
 		h.log(r).Info().Str("asked_for", name).
 			Msg("a password reset was asked for an account that does not exist")
 	}
@@ -146,25 +147,28 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// lookup finds the account by name or by e-mail address.
-func (h *ResetHandlers) lookup(ctx context.Context, name string) (model.User, bool) {
+// lookup finds the accounts a reset was asked for: the one with that name, or
+// else every one with that e-mail address.
+//
+// An address may be shared on purpose -- an administrator account and a
+// personal one with the same mailbox -- so every account that has it gets a
+// link of its own, and each mail says which account its link is for (20.5).
+func (h *ResetHandlers) lookup(ctx context.Context, name string) []model.User {
 	user, err := db.UserByName(ctx, h.Pool, name)
 	if err == nil {
-		return user, true
+		return []model.User{user}
 	}
 	if !errors.Is(err, db.ErrNotFound) {
 		h.log(nil).Error().Err(err).Msg("looking up an account for a password reset")
-		return model.User{}, false
+		return nil
 	}
 
-	user, err = db.UserByEmail(ctx, h.Pool, name)
-	if err == nil {
-		return user, true
-	}
-	if !errors.Is(err, db.ErrNotFound) {
+	users, err := db.UsersByEmail(ctx, h.Pool, name)
+	if err != nil {
 		h.log(nil).Error().Err(err).Msg("looking up an account for a password reset")
+		return nil
 	}
-	return model.User{}, false
+	return users
 }
 
 // issue mints a token and sends the mail.
@@ -188,7 +192,7 @@ func (h *ResetHandlers) issue(ctx context.Context, r *http.Request, user model.U
 	if err := h.Sender.Send(ctx, mail.Message{
 		To:      user.Email,
 		Subject: ResetMailSubject,
-		Body:    ResetMailBody(user.DisplayName, link),
+		Body:    ResetMailBody(user, link),
 	}); err != nil {
 		logger.Error().Err(err).Str("user", user.Name).
 			Msg("sending a password reset message")
@@ -291,10 +295,16 @@ const ResetMailSubject = "Reset your doenerstag password"
 // recipient reads. The interface language lives in a cookie in a browser, and
 // there is no browser here. A language column on app_user would fix that and is
 // the obvious next step if anybody asks for it.
-func ResetMailBody(displayName, link string) string {
+//
+// It names the account, because one mailbox may receive a link for each of
+// several accounts that share its address (20.5), and the greeting falls back
+// to the account name, so an account with no display name is not greeted
+// "Hello ,".
+func ResetMailBody(user model.User, link string) string {
 	var b strings.Builder
-	b.WriteString("Hello " + displayName + ",\n\n")
-	b.WriteString("somebody asked to reset your doenerstag password.\n\n")
+	b.WriteString("Hello " + user.Label() + ",\n\n")
+	b.WriteString("somebody asked to reset the password of your doenerstag account \"" +
+		user.Name + "\".\n\n")
 	b.WriteString("Open this link to choose a new one:\n\n")
 	b.WriteString("  " + link + "\n\n")
 	b.WriteString("The link stops working after " + auth.ResetLifetime.String() + ".\n\n")

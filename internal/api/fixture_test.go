@@ -754,6 +754,13 @@ func (c *collectingSender) messages() []mail.Message {
 	return append([]mail.Message(nil), c.sent...)
 }
 
+// reset forgets what was sent, for a test that asks twice.
+func (c *collectingSender) reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sent = nil
+}
+
 // resetLink pulls the link out of the one message that was sent.
 func (c *collectingSender) resetLink(t *testing.T) string {
 	t.Helper()

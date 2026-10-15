@@ -275,13 +275,32 @@ func isForeignKeyViolation(err error) bool {
 // exist into a 1002 naming the field rather than a server error.
 func IsForeignKeyViolation(err error) bool { return isForeignKeyViolation(err) }
 
-// UserByEmail reads one account by its e-mail address.
+// UsersByEmail reads every account with this e-mail address, by name.
+//
+// Every, because an address is not unique and need not be: somebody with an
+// administrator account and a personal one may give both the same address, and
+// that is their decision. A lookup that returned one row picked whichever the
+// database happened to return first (20.5).
 //
 // Case-insensitive, because an address is: somebody who registered as
 // Anna@example.com and asks for a reset as anna@example.com is the same person,
 // and telling them otherwise would be telling them their account does not
-// exist.
-func UserByEmail(ctx context.Context, q Querier, email string) (model.User, error) {
-	return scanUser(q.QueryRow(ctx,
-		`SELECT `+userColumns+` FROM app_user WHERE lower(email) = lower($1)`, email))
+// exist. An empty result is not an error.
+func UsersByEmail(ctx context.Context, q Querier, email string) ([]model.User, error) {
+	rows, err := q.Query(ctx,
+		`SELECT `+userColumns+` FROM app_user WHERE lower(email) = lower($1) ORDER BY name`, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
 }
