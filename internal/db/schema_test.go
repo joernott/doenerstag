@@ -145,6 +145,70 @@ func TestUpdatedAtTriggerActuallyFires(t *testing.T) {
 	}
 }
 
+// 20.13: updated_at moves when a row's data changes, and not when only its audit
+// columns do. Deleting an account sets created_by and updated_by to NULL on
+// every row it touched -- an UPDATE, which fired the trigger and rewrote their
+// "last modified" to the moment of the deletion.
+func TestUpdatedAtIgnoresChangesToTheAuditColumnsAlone(t *testing.T) {
+	pool := testdb.Migrated(t)
+	ctx := context.Background()
+
+	var author, restaurant string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app_user (id, name, password_hash) VALUES (gen_random_uuid(), 'autor', 'x') RETURNING id::text`).
+		Scan(&author); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO restaurant (id, name, currency_code, created_by, updated_by)
+		VALUES (gen_random_uuid(), 'Pinar', 'EUR', $1, $1) RETURNING id::text`, author).Scan(&restaurant); err != nil {
+		t.Fatal(err)
+	}
+	stamp := func() string {
+		t.Helper()
+		var at string
+		if err := pool.QueryRow(ctx,
+			`SELECT updated_at::text FROM restaurant WHERE id = $1`, restaurant).Scan(&at); err != nil {
+			t.Fatal(err)
+		}
+		return at
+	}
+
+	created := stamp()
+
+	if _, err := pool.Exec(ctx, `DELETE FROM app_user WHERE id = $1`, author); err != nil {
+		t.Fatal(err)
+	}
+	var createdBy *string
+	if err := pool.QueryRow(ctx,
+		`SELECT created_by::text FROM restaurant WHERE id = $1`, restaurant).Scan(&createdBy); err != nil {
+		t.Fatal(err)
+	}
+	if createdBy != nil {
+		t.Fatalf("created_by is %s after the account was deleted, want NULL", *createdBy)
+	}
+	if got := stamp(); got != created {
+		t.Errorf("deleting the author moved updated_at from %s to %s", created, got)
+	}
+
+	// Writing the same values back is not a change either.
+	if _, err := pool.Exec(ctx, `UPDATE restaurant SET name = name WHERE id = $1`, restaurant); err != nil {
+		t.Fatal(err)
+	}
+	if got := stamp(); got != created {
+		t.Errorf("a no-op update moved updated_at from %s to %s", created, got)
+	}
+
+	// A real change still moves it.
+	if _, err := pool.Exec(ctx,
+		`UPDATE restaurant SET notes = 'Mittwochs Ruhetag' WHERE id = $1`, restaurant); err != nil {
+		t.Fatal(err)
+	}
+	if got := stamp(); got == created {
+		t.Errorf("a change to the notes left updated_at at %s", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Seed data
 // ---------------------------------------------------------------------------

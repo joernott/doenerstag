@@ -30,7 +30,7 @@ Every table carries these four columns:
 | ------------ | ------------- | ---- | -------------------------------------------------- |
 | `created_at` | `timestamptz` | no   | Default `now()`.                                    |
 | `created_by` | `uuid`        | yes  | FK to `app_user.id`. Null for seeded/system rows.    |
-| `updated_at` | `timestamptz` | no   | Default `now()`, maintained by a trigger.            |
+| `updated_at` | `timestamptz` | no   | Default `now()`, maintained by a trigger: moved when the row's data changes, not when only the audit columns do -- so deleting an account, which sets its `created_by` and `updated_by` to NULL everywhere, is not a modification of every row it touched. |
 | `updated_by` | `uuid`        | yes  | FK to `app_user.id`. Null for seeded/system rows.    |
 
 `created_by`/`updated_by` use `ON DELETE SET NULL` so that deleting a user never
