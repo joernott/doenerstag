@@ -1,4 +1,4 @@
-// The restaurant's contacts. Part of the restaurant page (20.29).
+// The restaurant's contacts. Part of the restaurant page.
 
 import type { App } from "../../app";
 import { api, errorMessage } from "../../api";

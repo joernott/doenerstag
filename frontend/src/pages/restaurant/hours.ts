@@ -1,4 +1,4 @@
-// The opening hours. Part of the restaurant page (20.29).
+// The opening hours. Part of the restaurant page.
 
 import type { App } from "../../app";
 import { api, errorMessage } from "../../api";
@@ -43,9 +43,9 @@ export function hoursSection(app: App, restaurant: RestaurantDetail): EditableSe
     // "Crosses midnight" is a hint, not an error: a kebab shop that closes at
     // 02:00 is the normal case, not a mistake (F3.3).
     //
-    // Its column is always there, empty or not. The note appearing and
-    // disappearing used to push the row's controls sideways as the times were
-    // typed, so a list of opening hours never settled into a shape.
+    // Its column is always there, empty or not. A note that appeared and
+    // disappeared would push the row's controls sideways as the times were
+    // typed, and a list of opening hours would never settle into a shape.
     const hint = el("span", { class: "hint-inline hours-hint" });
     const updateHint = (): void => {
       hint.textContent = end.value < start.value ? t.t("restaurant.crosses_midnight") : "";

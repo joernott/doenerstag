@@ -1,9 +1,8 @@
 // The shapes the API answers with, as the pages and components use them.
 //
-// They lived in whichever page first needed them -- RestaurantDetail was
-// declared five times, two of them without its opening hours, and the order
-// types were exported from the order overview page -- so a component that
-// needed one had to import a page (20.28).
+// They live here rather than in whichever page first needed them, so that each
+// is declared once and a component that needs one does not have to import a
+// page.
 
 import type { Classification, Tag } from "./reference";
 
@@ -175,7 +174,7 @@ export interface DeletionImpact {
   active_items: number;
   expired_items: number;
   created_active_orders: number;
-  /** Open orders they collect the money for or fetch the food for (20.7.1). */
+  /** Open orders they collect the money for or fetch the food for. */
   active_jobs: number;
 }
 

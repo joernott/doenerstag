@@ -24,10 +24,10 @@ import { runAction, statusLine } from "../components/status";
  * A moment a given number of hours from now, which is what the form starts
  * from.
  *
- * The form used to default to today at 11:00 and 12:00 -- a lunch order, on the
- * assumption that it is being opened in the morning. Opened at ten in the
- * evening it offered a deadline eleven hours in the past, and the order created
- * from it was closed before it existed. An hour and two hours from now is right
+ * Not a fixed time of day: today at 11:00 and 12:00 -- a lunch order -- assumes
+ * the form is opened in the morning. Opened at ten in the evening it would
+ * offer a deadline eleven hours in the past, and the order created from it
+ * would be closed before it existed. An hour and two hours from now is right
  * whatever the time is.
  */
 function inHours(hours: number): Date {

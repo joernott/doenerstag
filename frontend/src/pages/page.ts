@@ -77,9 +77,9 @@ export function overviewPageWithActions(
 /**
  * Renames a page after it has been built.
  *
- * Renaming a restaurant used to change the browser tab and leave the heading
- * above the form saying the old name until the page was reloaded, which reads
- * as a save that did not take. The heading is found rather than passed back to
+ * Changing only the browser tab would leave the heading above the form saying
+ * the old name until the page was reloaded, which reads as a save that did
+ * not take. The heading is found rather than passed back to
  * the caller so that any page gains this without changing its shape.
  */
 export function setPageTitle(root: HTMLElement, title: string): void {
@@ -121,7 +121,7 @@ export function actions(...content: Child[]): HTMLElement {
 /**
  * A page that could not be loaded: its title, and what went wrong, announced.
  * Every page that fetches before it can draw anything ends this way when the
- * fetch fails, and each wrote the same line out (20.28).
+ * fetch fails, with this one line.
  */
 export function failedPage(title: string, t: Translator, error: unknown): HTMLElement {
   return page(title, el("p", { class: "field-error", role: "alert", text: errorMessage(t, error) }));

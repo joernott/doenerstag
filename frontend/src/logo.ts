@@ -26,13 +26,12 @@ const template: SVGSVGElement | null = parse();
 /**
  * Puts the drawing into the document once, as a `<symbol>`.
  *
- * The first version of this cloned the whole drawing per use, which is fifty
- * seven elements each. The order overview draws one per tile, and at a hundred
- * and twenty five orders that was seven thousand SVG nodes on the start page:
- * enough that axe-core could no longer finish walking the document inside a
- * minute in Firefox. A symbol referenced by `<use>` costs two nodes per copy
- * instead, and `currentColor` still resolves against each `<use>`, so nothing
- * about the theming changes.
+ * Cloning the whole drawing per use would cost fifty seven elements each. The
+ * order overview draws one per tile, and at a hundred and twenty five orders
+ * that is seven thousand SVG nodes on the start page: enough that axe-core
+ * cannot finish walking the document inside a minute in Firefox. A symbol
+ * referenced by `<use>` costs two nodes per copy instead, and `currentColor`
+ * still resolves against each `<use>`, so the theming works all the same.
  *
  * Idempotent, and lazy: pages that never draw the mark never pay for it.
  */

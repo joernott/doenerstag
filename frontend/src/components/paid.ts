@@ -72,7 +72,7 @@ export function paidCheckbox(options: PaidCheckboxOptions): HTMLElement {
   const label = t.t("item.paid_for", { item: itemName });
 
   // Keyed, because ticking it re-reads the order and rebuilds the list it is
-  // in; the key lets focus come back to this line's box (20.12).
+  // in; the key lets focus come back to this line's box.
   const box = keyed(
     el("input", {
       type: "checkbox",

@@ -2,10 +2,10 @@
 // heading that writes whichever of them changed.
 //
 // The restaurant page (its data and its opening hours) and the account page
-// (the profile and the password) each wrote this out: the snapshot, the
-// listeners, the comparison, the heading button tracking two flags. The copies
-// had already drifted -- one section swallowed its own failure and left Save
-// disabled for good (20.10) -- so it is written once (20.26).
+// (the profile and the password) both use it. The snapshot, the listeners, the
+// comparison and the heading button tracking two flags are written once, here:
+// copies drift apart, and a section that swallows its own failure leaves Save
+// disabled for good.
 
 import type { Translator } from "../i18n";
 import { button } from "./forms";

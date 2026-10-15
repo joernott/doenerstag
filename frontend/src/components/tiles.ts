@@ -23,11 +23,11 @@ export interface TileOptions {
   /**
    * Buttons inside the tile.
    *
-   * A tile used to be one big `<a>`, which meant a control inside it had to
-   * live underneath in a footer -- a link inside a link is not something a
-   * browser can make sense of. The tile is now a card whose *title* is the
-   * link, stretched over the card by `.tile-link::after`, so the whole card is
-   * still clickable and real buttons can sit on top of it. That is what lets an
+   * The tile is a card whose *title* is the link, not one big `<a>`: a control
+   * inside an `<a>` would have to live underneath in a footer, since a link
+   * inside a link is not something a browser can make sense of. The title is
+   * stretched over the card by `.tile-link::after`, so the whole card is still
+   * clickable and real buttons can sit on top of it. That is what lets an
    * order tile carry a summary, an edit and a delete.
    */
   actions?: HTMLElement;

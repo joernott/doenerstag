@@ -1,9 +1,8 @@
 // What every part of the order page knows: the order as last read, the menu,
 // and the questions they all ask about it.
 //
-// The page was one function of some 1,150 lines whose parts shared this as
-// closure variables (20.29). They are modules now, and this is what they
-// share. The order and the menu are properties rather than copies, because
+// The page's parts are separate modules, and this is what they share. The
+// order and the menu are properties rather than copies, because
 // a refresh replaces them and every part must see the new ones.
 
 import type { App } from "../../app";

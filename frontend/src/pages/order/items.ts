@@ -1,5 +1,5 @@
 // What has been ordered: the items grouped by person, the totals, and the
-// dialog that adds or changes an item. Part of the order page (20.29).
+// dialog that adds or changes an item. Part of the order page.
 
 import { api, errorMessage } from "../../api";
 import { currentPath, loginHref } from "../../returnto";

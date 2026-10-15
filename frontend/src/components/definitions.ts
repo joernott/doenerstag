@@ -1,6 +1,6 @@
 // A list of labels and values: the facts about an order, its totals, the
-// version page. The same dl/dt/dd loop was written out on every page that has
-// one (20.28).
+// version page. One component, so the dl/dt/dd loop is not written out on
+// every page that has one.
 
 import { append, el, type Child } from "../dom";
 

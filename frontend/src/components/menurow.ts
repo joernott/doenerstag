@@ -1,8 +1,7 @@
 // A dish as a menu shows it: its picture, its number, its name, whether it is
 // sold out, what it is and what it contains. The restaurant page's menu and the
-// order page's menu column each drew this, with only the end of the row
-// differing between them -- Edit on one, the price and Add on the other
-// (20.28).
+// order page's menu column both draw it, with only the end of the row
+// differing between them -- Edit on one, the price and Add on the other.
 
 import type { App } from "../app";
 import { el } from "../dom";

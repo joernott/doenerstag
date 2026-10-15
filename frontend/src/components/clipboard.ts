@@ -7,8 +7,7 @@
  * with a self-signed certificate is one such place -- and a browser may refuse
  * permission. Either way the caller gets false and offers the text some other
  * way, rather than a button that does nothing. The summary and the API token
- * dialog each wrote this, and only one of them handled the missing API
- * (20.28).
+ * dialog both copy through this.
  */
 export async function copyText(text: string): Promise<boolean> {
   if (!(navigator as Partial<Navigator>).clipboard) {

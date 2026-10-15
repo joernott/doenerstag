@@ -1,13 +1,11 @@
 // A dialog whose body is a form: the shape of every editor that opens over a
 // page.
 //
-// The seven such dialogs each built their own form, footer and buttons, and
-// they had drifted apart: one linked its Save to the form with a click
-// listener, one had no form at all so Enter did nothing, one submitted by
-// clicking a hidden button, and two lacked the `form` attribute that connects a
-// footer button to the form above it -- the reason 0.3.0's availability
-// dialogs had a Save that did nothing (18.1). This owns all of that, so a
-// dialog is its fields and what saving means (20.25).
+// Every such dialog gets its form, footer and buttons from here, so they
+// cannot drift apart: the body is a real form, so Enter in a field submits it,
+// and the footer's Save carries the `form` attribute that connects a footer
+// button to the form above it -- without it, Save does nothing. A dialog is
+// its fields and what saving means.
 
 import { el, type Child } from "../dom";
 import type { Translator } from "../i18n";
@@ -31,7 +29,7 @@ export interface FormDialogOptions {
    * Runs once the dialog has closed after a successful submit. Separate from
    * onSubmit because the page usually rebuilds itself here, and the dialog has
    * to have closed and given focus back to whatever opened it first: the
-   * rebuild can then put focus on that control's replacement (20.12).
+   * rebuild can then put focus on that control's replacement.
    */
   after?: () => void | Promise<void>;
   /** The submit button's label; Save by default. */

@@ -1,8 +1,8 @@
 // The line under a form or a section that says how the last thing went, and
 // the helper that runs an action and reports through it.
 //
-// Components use both, and they lived in the pages module until 20.28, so a
-// component reporting an error had to import a page.
+// Components use both, so they live here rather than in the pages module: a
+// component reporting an error should not have to import a page.
 
 import { errorMessage } from "../api";
 import { el } from "../dom";
@@ -55,10 +55,10 @@ export interface ActionContext {
  *
  * The status line is cleared first, the busy control disabled for the
  * duration, and a failure reported on the status line in the person's
- * language. The same dozen lines were written out by hand some thirty times
- * (20.24), with the clearing, the disabling and the reporting each forgotten
- * somewhere. Resolves to whether it worked, for a caller that does something
- * more on success -- closes a dialog, say.
+ * language. Written once, because the same dozen lines written out by hand
+ * some thirty times would have the clearing, the disabling or the reporting
+ * forgotten somewhere. Resolves to whether it worked, for a caller that does
+ * something more on success -- closes a dialog, say.
  */
 export async function runAction(
   context: ActionContext,

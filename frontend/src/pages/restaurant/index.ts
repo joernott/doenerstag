@@ -61,8 +61,8 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
     restaurant.name,
     header,
     // The menu first: it is what somebody opening a restaurant almost always
-    // came for, and it used to be the section they had to scroll past three
-    // others to reach.
+    // came for, and they should not have to scroll past three other sections
+    // to reach it.
     tabs(
       [
         {

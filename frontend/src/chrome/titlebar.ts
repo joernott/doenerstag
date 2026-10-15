@@ -37,10 +37,9 @@ export function renderTitleBar(app: App): HTMLElement {
 /**
  * The logo.
  *
- * The real mark now, from assets/doenerstag.svg, in place of the four strokes
- * that stood in for it. It is inlined rather than referenced, so the frame and
- * the calendar text follow the title bar's own colour and one file serves both
- * themes -- see src/logo.ts. The `.logo` class keeps the size it had.
+ * The mark from assets/doenerstag.svg. It is inlined rather than referenced, so
+ * the frame and the calendar text follow the title bar's own colour and one
+ * file serves both themes -- see src/logo.ts. The `.logo` class sets its size.
  */
 function logo(): Element {
   return logoMark({ class: "logo" });
@@ -55,11 +54,11 @@ function logo(): Element {
  * Each language is listed by its endonym: somebody looking for German is
  * looking for "Deutsch".
  *
- * A button and a list drawn by the page, like the main menu, and no longer a
- * native select (19.6). A native list is drawn by the browser, and Firefox lets
- * a page style neither the list nor the entry under the pointer: in the dark
- * theme that entry was black on black. Chrome and Edge could have been reached
- * with base-select, Firefox could not, and a selector that works in two of the
+ * A button and a list drawn by the page, like the main menu, rather than a
+ * native select. A native list is drawn by the browser, and Firefox lets a
+ * page style neither the list nor the entry under the pointer: in the dark
+ * theme that entry would be black on black. Chrome and Edge can be reached
+ * with base-select, Firefox cannot, and a selector that works in two of the
  * three browsers people here use does not work. The button shows the language
  * in force, so the list does not mark it a second time.
  */

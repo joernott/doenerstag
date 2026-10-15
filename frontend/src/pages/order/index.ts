@@ -12,7 +12,7 @@
 // This module loads the order, lays the page out and keeps it live. What is
 // drawn is in the modules beside it, which share an OrderContext: details.ts
 // (the order's facts and its own controls), items.ts (what has been ordered)
-// and menu.ts (the menu column). It was one function until 20.29.
+// and menu.ts (the menu column).
 
 import type { App } from "../../app";
 import { api, getList } from "../../api";
@@ -38,8 +38,8 @@ export interface OrderPageOptions {
    * Registers the stream to be closed when this page is replaced.
    *
    * The router supplies it. Without one the stream would outlive the page, and
-   * with the wrong one -- the router-wide list this used to use -- the render
-   * that installs the page closes the stream it has just opened.
+   * with a router-wide one the render that installs the page would close the
+   * stream it has just opened.
    */
   cleanup?: { onCleanup: (undo: () => void) => void };
   /**
@@ -130,9 +130,9 @@ export async function orderPage(
 
   // --- live updates --------------------------------------------------------
 
-  // One set of handlers for every subscription this page makes. The one made
-  // after logging in or out used to be a bare re-fetch, so a deleted order
-  // stayed on screen and nothing was announced (20.11).
+  // One set of handlers for every subscription this page makes, including the
+  // one made after logging in or out: a bare re-fetch there would leave a
+  // deleted order on screen and announce nothing.
   const handlers = {
     onEvent: (name: string): void => {
       if (name === EVENT_ORDER_DELETED) {

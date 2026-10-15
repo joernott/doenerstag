@@ -76,15 +76,6 @@ export function formatDate(locale: string, value: Date | string): string {
   );
 }
 
-/** Formats a time. The locale decides 12- or 24-hour, not this code. */
-export function formatTime(locale: string, value: Date | string): string {
-  const date = toDate(value);
-  return (
-    unformattable(value, date) ??
-    cached(`t:${locale}`, () => new Intl.DateTimeFormat(locale, { timeStyle: "short" })).format(date)
-  );
-}
-
 /** Formats a date and time together, for a deadline or a fulfilment time. */
 export function formatDateTime(locale: string, value: Date | string): string {
   const date = toDate(value);
@@ -364,7 +355,7 @@ export function formatBytes(locale: string, bytes: number): string {
 
 /**
  * A `datetime-local` input's value for a moment, in the viewer's own time
- * zone. The order page and the order form each had a copy (20.28).
+ * zone, for the order page and the order form alike.
  */
 export function localInputValue(value: Date | string): string {
   const date = toDate(value);

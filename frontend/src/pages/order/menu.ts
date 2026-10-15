@@ -1,6 +1,6 @@
 // The menu column: the dishes the kitchen will make at the order's time, with
 // the filters, the folding categories, and a way to add or correct a dish.
-// Part of the order page (20.29).
+// Part of the order page.
 
 import { append, el, icon, keyed, rerender, type Child } from "../../dom";
 import { formatMoney } from "../../format";
@@ -37,9 +37,9 @@ export function orderMenu(
   };
   // Per session and not persisted, exactly as docs/06_ui_ux.md asks.
   const collapsed = new Set<string>();
-  // The filter groups somebody has opened, kept across rebuilds. A group used to
-  // reopen only while one of its boxes was ticked, so unticking the last one
-  // closed the group around the box that had focus (20.12).
+  // The filter groups somebody has opened, kept across rebuilds. Reopening a
+  // group only while one of its boxes is ticked would close it around the box
+  // that has focus as soon as the last one is unticked.
   const openFilterGroups = new Set<string>();
 
   function renderMenu(): void {
@@ -277,7 +277,7 @@ export function orderMenu(
 
   function menuRow(item: MenuItem): HTMLElement {
     const addable = canOrder() && item.available;
-    // 19.4: a wrong price or a missing option is found while ordering, and is
+    // A wrong price or a missing option is found while ordering, and is
     // put right here rather than on the restaurant page. The same editor and
     // the same people (docs/05: anybody signed in), and not tied to the order
     // being open, because it edits the restaurant's menu and not this order.
@@ -292,11 +292,11 @@ export function orderMenu(
       ...menuItemParts(app, item),
       // The price and the button share a column at the end of the row rather
       // than sitting beside each other in it. Side by side, the two of them
-      // and the chips competed for one line: a dish with four allergens
-      // squeezed the button until its label wrapped, and a column of buttons
-      // that are one line tall next to some dishes and two next to others is
-      // what made the list look broken. The column is `flex: none`, so the
-      // chips can no longer take width from it.
+      // and the chips would compete for one line: a dish with four allergens
+      // would squeeze the button until its label wrapped, and a column of
+      // buttons that are one line tall next to some dishes and two next to
+      // others makes the list look broken. The column is `flex: none`, so the
+      // chips cannot take width from it.
       el(
         "div",
         { class: "menu-item-side" },

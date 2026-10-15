@@ -92,12 +92,12 @@ export function menuSection(
     if (loose.length > 0) {
       groups.push(
         categories.length === 0
-          ? itemList(loose, null)
+          ? itemList(loose)
           : el(
               "div",
               { class: "menu-group" },
               el("h3", { class: "menu-group-title", text: t.t("menu.category.none") }),
-              itemList(loose, null),
+              itemList(loose),
             ),
       );
     }
@@ -223,7 +223,7 @@ export function menuSection(
     // box. A page full of input fields reads as a form to fill in; a menu is a
     // menu, and the name is only edited now and then -- which is what the Edit
     // button is for.
-    const items = itemList(own, category.id);
+    const items = itemList(own);
     const open = collapsedCategories.has(category.id) ? false : true;
     items.hidden = !open;
 
@@ -280,10 +280,7 @@ export function menuSection(
 
   // --- items -----------------------------------------------------------------
 
-  function itemList(own: MenuItem[], _categoryId: string | null): HTMLElement {
-    // No "add" button per category any more: there is one at the top of the
-    // tab, and the dialog it opens asks which category the item belongs to.
-    // One button in a known place beats one at the end of every list.
+  function itemList(own: MenuItem[]): HTMLElement {
     return el("ul", { class: "plain-list menu-items" }, ...own.map((item) => itemRow(item)));
   }
 
@@ -327,9 +324,9 @@ export function menuSection(
 
   // Both at the top, because both are things somebody arrives at this tab
   // meaning to do, and a control you have to scroll to the bottom of a two
-  // hundred item menu to reach is a control that is hard to find. The
-  // category form that used to live down there is a dialog now: one field and
-  // a button is a dialog's worth of interface, not a permanent row.
+  // hundred item menu to reach is a control that is hard to find. Adding a
+  // category opens a dialog rather than a form down there: one field and a
+  // button is a dialog's worth of interface, not a permanent row.
   const toolbar = el(
     "div",
     { class: "menu-toolbar" },

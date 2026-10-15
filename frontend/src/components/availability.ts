@@ -1,6 +1,7 @@
 // Choosing which availability rules apply to a category or a dish, wherever
 // that is asked: the restaurant page's attachment dialog and the menu item
-// editor. A component since 20.28, so the editor no longer imports a page.
+// editor. A component rather than part of a page, so the editor does not have
+// to import a page.
 
 import { api, getList } from "../api";
 import { el, icon } from "../dom";

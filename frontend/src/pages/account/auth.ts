@@ -1,6 +1,6 @@
 // The account page for somebody logged out: a combined login and register
 // panel with two tabs, the forgotten-password dialog, and the page a reset
-// link opens. docs/06_ui_ux.md. Part of the account page (20.29).
+// link opens. docs/06_ui_ux.md. Part of the account page.
 
 import type { App } from "../../app";
 import { api, errorMessage, type SessionUser } from "../../api";
@@ -23,11 +23,9 @@ import { statusLine } from "../../components/status";
 export function loginPanel(app: App, returnTo: string | null): HTMLElement {
   const { t } = app;
 
-  // The shared component, like every other tab strip in the application. This
-  // page used to build its own -- the same two classes, a hand-written
-  // selection handler and arrow keys that moved but did not rove the tabindex.
-  // Two implementations of one pattern is one too many, and this was the older
-  // and the weaker of the two.
+  // The shared component, like every other tab strip in the application. Two
+  // implementations of one pattern is one too many, and a hand-written one
+  // easily ends up with arrow keys that move but do not rove the tabindex.
   return page(
     t.t("auth.login_or_register"),
     tabs(

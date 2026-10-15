@@ -1,6 +1,6 @@
 // The order's own facts and the controls for the order as a whole: its title
 // line, the card with its times, the restaurant and the two jobs, and the
-// editor and the deletion. Part of the order page (20.29).
+// editor and the deletion. Part of the order page.
 
 import { api } from "../../api";
 import { accountChoices, listAccounts } from "../../accounts";
@@ -161,7 +161,6 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
     rerender(heading, ...controls);
   }
 
-  /** The restaurant, with its contacts as the links they are meant to be. */
   /**
    * One of the two jobs an order has, and a way to take it.
    *
@@ -171,9 +170,8 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
    * without finding the creator first, which is how this gets decided in the
    * room anyway. It is not offered on a closed order, where nothing can be
    * changed, and never to an anonymous visitor, who has no name to put there.
-   * Fetching the food got it in 17.8 and collecting the money in 19.3.
    *
-   * A job somebody has carries an × instead (19.5), for the people the server
+   * A job somebody has carries an × instead, for the people the server
    * lets clear it: whoever is doing it, so that "Me!" can be taken back without
    * finding the creator, the creator, and the administrator. Open orders only,
    * like everything else that changes the order.
@@ -271,14 +269,13 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
    * One contact, as the link it is meant to be.
    *
    * Where it leads comes from contacts.ts, which is where that rule lives for
-   * every page that shows one. This function used to decide for itself and had
-   * drifted: an address fell through to the text branch because the list here
-   * had never gained the case, a telephone number kept the spaces people write
-   * it with, and a website typed without a scheme became a relative link.
+   * every page that shows one. A copy of the rule here would drift: an address
+   * falling through to a text branch, a telephone number keeping the spaces
+   * people write it with, a website typed without a scheme becoming a relative
+   * link.
    *
-   * A contact with no label is its own label. Printing "value: value" -- which
-   * is what the text branch did -- says the address twice and reads as though
-   * something is missing.
+   * A contact with no label is its own label. Printing "value: value" says the
+   * address twice and reads as though something is missing.
    */
   function contactLink(contact: Contact): HTMLElement {
     const label = contact.label.trim();

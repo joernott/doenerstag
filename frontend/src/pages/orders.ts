@@ -37,8 +37,8 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   // tile offers its summary. The list carries no item data for anybody
   // (ADR-0011), so it cannot answer that, and the order itself is fetched per
   // entry and in parallel to find out. Affordable at the scale ADR-0006
-  // assumes; the tiles no longer show a participant count or a total, so this
-  // is the only thing the extra request still buys.
+  // assumes; the tiles do not show a participant count or a total, so this is
+  // the only thing the extra request buys.
   const details = app.session.isAuthenticated
     ? await Promise.all(
         orders.map((order) =>
@@ -77,9 +77,9 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
  *
  * What it shows is deliberately thin: the restaurant, when the food arrives and
  * when the order closes. The item count, the participant count, the running
- * total and who opened it all used to be here and are not any more -- they are
- * on the order itself, which is one click away, and a grid of tiles is a place
- * to choose from rather than a place to read from.
+ * total and who opened it are left to the order itself, which is one click
+ * away: a grid of tiles is a place to choose from rather than a place to read
+ * from.
  */
 function orderTile(
   app: App,
@@ -181,8 +181,8 @@ export function participates(app: App, order: OrderDetail): boolean {
  * The link to an order's summary.
  *
  * Always rendered, and disabled with the reason when this visitor is not one of
- * the people the summary is for (F1.3). It used to be left out entirely, which
- * leaves somebody wondering whether the feature exists at all; a control that is
+ * the people the summary is for (F1.3). Leaving it out entirely would leave
+ * somebody wondering whether the feature exists at all; a control that is
  * visibly unavailable and says why answers that.
  *
  * The disabled form is a button rather than a link, because a link that goes
@@ -259,8 +259,8 @@ async function removeOrder(
 /**
  * The restaurant's logo, or ours.
  *
- * A restaurant nobody has given a picture to used to get an empty dashed box,
- * which read as a missing image rather than as a restaurant. The doenerstag
+ * A restaurant nobody has given a picture to gets the doenerstag mark. An empty
+ * dashed box would read as a missing image rather than as a restaurant; the
  * mark says the same thing and looks deliberate.
  */
 function logo(order: OrderHeader, t: App["t"]): HTMLElement {

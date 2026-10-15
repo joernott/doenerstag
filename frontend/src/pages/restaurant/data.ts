@@ -1,4 +1,4 @@
-// The restaurant's own fields. Part of the restaurant page (20.29).
+// The restaurant's own fields. Part of the restaurant page.
 
 import type { App } from "../../app";
 import { api, errorMessage } from "../../api";
@@ -18,7 +18,7 @@ import { currencySelect } from "./selects";
  * it.
  *
  * Save and Delete are handed back rather than rendered here: they live on the
- * page heading now, so that they are reachable whichever tab is open. What the
+ * page heading, so that they are reachable whichever tab is open. What the
  * section keeps is the knowledge of *when* saving is worth offering, which is
  * why it reports its dirty state rather than exposing its inputs.
  */
@@ -124,7 +124,7 @@ export function dataSection(
       });
       status.say(t.t("state.saved"));
       // The heading above the form as well as the browser tab. Setting only the
-      // tab left the page still displaying the old name until it was reloaded,
+      // tab would leave the page displaying the old name until it was reloaded,
       // which reads as a save that did not take.
       renamed(name.value.trim());
       // What was just written becomes the new baseline, so Save goes quiet
@@ -133,8 +133,8 @@ export function dataSection(
     } catch (error) {
       status.fail(errorMessage(t, error));
       // Rethrown, as the hours section does: the heading's Save is re-enabled
-      // by a failure that reaches it, and one swallowed here left it disabled
-      // until a field was edited (20.10).
+      // by a failure that reaches it, and one swallowed here would leave it
+      // disabled until a field was edited.
       throw error;
     }
   }

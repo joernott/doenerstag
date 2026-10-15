@@ -90,8 +90,8 @@ function render(app: App, data: TileData): HTMLElement {
 /**
  * The restaurant's logo, or ours.
  *
- * A restaurant nobody has given a picture to used to get an empty dashed box,
- * which read as a missing image rather than as a restaurant. The doenerstag
+ * A restaurant nobody has given a picture to gets the doenerstag mark. An empty
+ * dashed box would read as a missing image rather than as a restaurant; the
  * mark says the same thing and looks deliberate.
  */
 function logo(app: App, restaurant: Restaurant): HTMLElement {

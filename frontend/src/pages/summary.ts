@@ -117,8 +117,7 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   // Ticking a line changes what each person owes and what the order has
   // outstanding, so both sections are rebuilt from the server rather than
   // patched in place: the arithmetic belongs to the API and there is no version
-  // of it here to keep in step. The totals used to be rendered once and left
-  // alone, which was right while nothing on this page could change them.
+  // of it here to keep in step.
   const people = el("div", { class: "person-groups" });
   const totals = el("div", { class: "totals-holder" });
   const render = (): void => {
@@ -316,8 +315,8 @@ function perPersonCard(
         // is what the API sends; the page does not invent a label for it.
         person.display_name,
         // The owed amount last, so that it ends at the same edge as every line
-        // price below it. It used to come before the "paid" note, which a
-        // space-between heading then pushed into the middle of the line.
+        // price below it. Before the "paid" note, a space-between heading
+        // would push that note into the middle of the line.
         el(
           "span",
           { class: "person-amounts" },

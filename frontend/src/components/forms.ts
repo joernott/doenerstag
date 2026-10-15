@@ -186,7 +186,7 @@ export interface ButtonOptions {
   /**
    * What pressing it does. May be async: the button takes care of the promise,
    * so a call site is `onclick: () => save()` rather than a block wrapping it
-   * in `void` (20.24). An action that can fail reports through runAction.
+   * in `void`. An action that can fail reports through runAction.
    */
   onclick?: (event: Event) => void | Promise<unknown>;
 }
@@ -244,7 +244,7 @@ export interface FieldError {
  * The error for one control, tied to it as docs/06_ui_ux.md requires: the
  * message is announced, the control is marked invalid, and the message is in
  * its aria-describedby, so a screen reader on the field hears what is wrong
- * with it rather than an alert from somewhere on the page (20.27). Pass it to
+ * with it rather than an alert from somewhere on the page. Pass it to
  * field() as `error` so it appears under the control.
  */
 export function fieldError(control: HTMLElement): FieldError {

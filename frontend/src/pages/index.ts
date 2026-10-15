@@ -1,6 +1,6 @@
 // The route table, and the pages that exist so far.
 //
-// Every route now leads to a screen. The table is the one place that knows
+// Every route leads to a screen. The table is the one place that knows
 // which path shows what, so a page can be replaced without anything else
 // having to be told.
 

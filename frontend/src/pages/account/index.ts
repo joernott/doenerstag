@@ -32,7 +32,7 @@ export function accountPage(app: App, returnTo: string | null = null): HTMLEleme
  *
  * The same shape as the restaurant page: tabs, with Save and Delete on the
  * title's line. Save covers the whole account rather than one tab of it, which
- * is why the profile and the password forms no longer carry one each -- two
+ * is why the profile and the password forms do not carry one each -- two
  * buttons called Save on one page, each covering a different part of it, is a
  * question nobody should have to answer.
  */
@@ -420,11 +420,10 @@ function showToken(app: App, value: string): void {
  * will actually happen rather than describing it in general terms, and the
  * person types their own user name to confirm. Both are docs/06_ui_ux.md.
  *
- * The warning that this cannot be undone used to be a card of its own with a
- * paragraph and a button in it. The modal already says the same thing, and says
- * it at the moment it matters -- after the button is pressed and before
- * anything happens -- so the card was a permanent warning about something
- * nobody had asked to do yet.
+ * There is no card of its own warning that this cannot be undone. The modal
+ * says so, and says it at the moment it matters -- after the button is pressed
+ * and before anything happens -- where a card would be a permanent warning
+ * about something nobody has asked to do yet.
  */
 function deleteControl(app: App, user: SessionUser): HTMLElement {
   const { t } = app;

@@ -34,8 +34,6 @@ export interface MenuItemEditorOptions {
   categoryID?: string | null;
   /** Called after a successful save or delete. */
   onSaved: () => void | Promise<void>;
-  /** Whether the option editor is offered. Off where there is no room for it. */
-  withModifications?: boolean;
 }
 
 /** Opens the editor. */
@@ -164,7 +162,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
       allergens.element,
       additives.element,
       availabilityHolder,
-      item && options.withModifications !== false ? modificationsBlock(options, item) : null,
+      item ? modificationsBlock(options, item) : null,
     ],
     onSubmit: async () => {
       const cents = parseMoney(price.value, money);

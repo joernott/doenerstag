@@ -94,7 +94,7 @@ export function keyed<T extends HTMLElement>(element: T, key: string): T {
  * checkbox. This finds the focused control's replacement by its `data-key` (see
  * `keyed`) or its id and focuses that instead, with the caret where it was in a
  * text field. A control with neither, or one the rebuild no longer has, cannot
- * be followed; focus stays wherever the browser leaves it (20.12).
+ * be followed; focus stays wherever the browser leaves it.
  */
 export function rerender(container: Element, ...children: Child[]): void {
   const active = document.activeElement;
@@ -136,13 +136,6 @@ function caretOf(field: HTMLInputElement | HTMLTextAreaElement): [number, number
   } catch {
     return null;
   }
-}
-
-/** A document fragment, for returning several nodes from one function. */
-export function fragment(...children: Child[]): DocumentFragment {
-  const result = document.createDocumentFragment();
-  append(result, ...children);
-  return result;
 }
 
 /**
@@ -199,9 +192,6 @@ const iconPaths: Record<string, string[]> = {
     "M14 11v6",
   ],
 };
-
-/** The name of every icon, so a test can assert none is missing. */
-export const iconNames = Object.keys(iconPaths);
 
 /**
  * Builds an icon.

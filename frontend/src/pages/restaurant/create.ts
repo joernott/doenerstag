@@ -1,4 +1,4 @@
-// Creating a restaurant. Part of the restaurant page (20.29).
+// Creating a restaurant. Part of the restaurant page.
 
 import type { App } from "../../app";
 import { api } from "../../api";

@@ -2,9 +2,8 @@
 //
 // Both ask the server what the deletion would cost, list it, and have the
 // person type the account's name to confirm -- an irreversible step taken by a
-// misclick is what this prevents (docs/06_ui_ux.md). The two pages each built
-// this dialog and its list of consequences, with their own copy of the impact
-// type (20.28).
+// misclick is what this prevents (docs/06_ui_ux.md). Both pages use this one
+// dialog, its list of consequences and its impact type.
 
 import { el } from "../dom";
 import type { Translator } from "../i18n";
