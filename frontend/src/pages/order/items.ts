@@ -7,13 +7,7 @@ import { el, keyed, type Child } from "../../dom";
 import { definitionList } from "../../components/definitions";
 import { mayTickPaid, paidCheckbox } from "../../components/paid";
 import { formatMoney, moneyInputValue } from "../../format";
-import {
-  checkbox,
-  field,
-  iconButton,
-  input,
-  textarea,
-} from "../../components/forms";
+import { checkbox, field, iconButton, input, textarea } from "../../components/forms";
 import { openFormDialog } from "../../components/formdialog";
 import { confirmDialog } from "../../components/modal";
 import type { MenuItem, OrderDetail, OrderItem } from "../../types";
@@ -30,10 +24,7 @@ export interface OrderItems {
 }
 
 /** Opens the item dialog; the menu column calls it to order a dish. */
-export type ItemEditor = (
-  existing: OrderItem | null,
-  menuItem?: MenuItem,
-) => Promise<void>;
+export type ItemEditor = (existing: OrderItem | null, menuItem?: MenuItem) => Promise<void>;
 
 /** What has been ordered, and the dialog that changes it. */
 export function orderItems(ctx: OrderContext): OrderItems {
@@ -43,10 +34,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
   /** The items, grouped by the person who ordered them. */
   function itemsCard(own: OrderDetail): HTMLElement {
     if (own.items.length === 0) {
-      return section(
-        t.t("order.item_list"),
-        el("p", { class: "muted", text: t.t("order.empty") }),
-      );
+      return section(t.t("order.item_list"), el("p", { class: "muted", text: t.t("order.empty") }));
     }
 
     const byPerson = new Map<string, OrderItem[]>();
@@ -58,10 +46,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
 
     const groups = [...byPerson].map(([userID, items]) => {
       const rows = items.map((item) => itemRow(item, userID));
-      const personTotal = items.reduce(
-        (sum, item) => sum + item.line_total_cents,
-        0,
-      );
+      const personTotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
 
       return el(
         "div",
@@ -72,12 +57,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
           items[0]?.user_name ?? "",
           el("span", {
             class: "person-total",
-            text: formatMoney(
-              app.language,
-              personTotal,
-              ctx.order.currency_code,
-              moneyFormat,
-            ),
+            text: formatMoney(app.language, personTotal, ctx.order.currency_code, moneyFormat),
           }),
         ),
         el("ul", { class: "plain-list" }, ...rows),
@@ -99,9 +79,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
       extras.push(
         el("span", {
           class: "muted",
-          text: item.modifications
-            .map((modification) => modification.name)
-            .join(", "),
+          text: item.modifications.map((modification) => modification.name).join(", "),
         }),
       );
     }
@@ -116,9 +94,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
         "div",
         { class: "order-item-text" },
         el("div", { class: "order-item-head" }, ...details),
-        extras.length > 0
-          ? el("div", { class: "order-item-extras" }, ...extras)
-          : null,
+        extras.length > 0 ? el("div", { class: "order-item-extras" }, ...extras) : null,
       ),
       // Own items only, and only while the order is open: F6.5 and F6.6.
       //
@@ -135,14 +111,9 @@ export function orderItems(ctx: OrderContext): OrderItems {
       mine && canOrder()
         ? actions(
             keyed(
-              iconButton(
-                "pencil",
-                `${t.t("action.edit")}: ${item.item_name}`,
-                "",
-                () => {
-                  void openItemEditor(item);
-                },
-              ),
+              iconButton("pencil", `${t.t("action.edit")}: ${item.item_name}`, "", () => {
+                void openItemEditor(item);
+              }),
               `edit-line:${item.id}`,
             ),
             keyed(
@@ -272,15 +243,9 @@ export function orderItems(ctx: OrderContext): OrderItems {
    * predefined options as checkboxes with their price deltas, a free-text note
    * and a line total that follows what is ticked (docs/06_ui_ux.md).
    */
-  async function openItemEditor(
-    existing: OrderItem | null,
-    menuItem?: MenuItem,
-  ): Promise<void> {
+  async function openItemEditor(existing: OrderItem | null, menuItem?: MenuItem): Promise<void> {
     const listed =
-      menuItem ??
-      ctx.menuItems.find(
-        (candidate) => candidate.id === existing?.menu_item_id,
-      );
+      menuItem ?? ctx.menuItems.find((candidate) => candidate.id === existing?.menu_item_id);
     if (!listed) {
       return;
     }
@@ -337,9 +302,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
     const options = el("div", { class: "rows" });
     const modifications = source.modifications ?? [];
     if (modifications.length === 0) {
-      options.appendChild(
-        el("p", { class: "muted", text: t.t("menu.modification.none") }),
-      );
+      options.appendChild(el("p", { class: "muted", text: t.t("menu.modification.none") }));
     }
     for (const modification of modifications) {
       const label = `${modification.name} (${
@@ -389,9 +352,7 @@ export function orderItems(ctx: OrderContext): OrderItems {
           quantity.focus();
           return false;
         }
-        const modificationIDs = boxes
-          .filter((entry) => entry.box.checked)
-          .map((entry) => entry.id);
+        const modificationIDs = boxes.filter((entry) => entry.box.checked).map((entry) => entry.id);
         const noteText = note.value.trim();
         if (existing) {
           await api.patch(`/orders/${id}/items/${existing.id}`, {

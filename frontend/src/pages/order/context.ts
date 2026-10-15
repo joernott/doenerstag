@@ -12,13 +12,7 @@ import type { MoneyFormat } from "../../format";
 import type { ReferenceData } from "../../reference";
 import type { StatusLine } from "../../components/status";
 import { runAction } from "../../components/status";
-import type {
-  Category,
-  MenuItem,
-  OrderDetail,
-  OrderHeader,
-  RestaurantDetail,
-} from "../../types";
+import type { Category, MenuItem, OrderDetail, OrderHeader, RestaurantDetail } from "../../types";
 import { isActive, participates } from "../orders";
 
 export interface OrderContext {
@@ -105,10 +99,7 @@ export function orderContext(options: OrderContextOptions): OrderContext {
     },
     reloadMenu: async () => {
       [ctx.categoryList, ctx.menuItems] = await Promise.all([
-        getList<Category>(
-          `/restaurants/${ctx.order.restaurant_id}/categories`,
-          "categories",
-        ),
+        getList<Category>(`/restaurants/${ctx.order.restaurant_id}/categories`, "categories"),
         getList<MenuItem>(menuPath(ctx.order), "menu_items"),
       ]);
       options.renderMenu();

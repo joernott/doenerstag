@@ -15,14 +15,7 @@ import {
   localInputValue,
   orderTitle,
 } from "../../format";
-import {
-  button,
-  field,
-  fieldError,
-  iconButton,
-  input,
-  select,
-} from "../../components/forms";
+import { button, field, fieldError, iconButton, input, select } from "../../components/forms";
 import { openFormDialog } from "../../components/formdialog";
 import { confirmDialog } from "../../components/modal";
 import { runAction } from "../../components/status";
@@ -39,10 +32,7 @@ export interface OrderDetails {
 }
 
 /** The order's own facts and controls; the title controls go into `heading`. */
-export function orderDetails(
-  ctx: OrderContext,
-  heading: HTMLElement,
-): OrderDetails {
+export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDetails {
   const {
     app,
     id,
@@ -61,10 +51,7 @@ export function orderDetails(
     const rows: [string, Child][] = [
       [t.t("restaurant.data"), restaurantLine()],
       [t.t("order.fulfilment.type"), fulfilmentLabel(t, ctx.order.fulfilment)],
-      [
-        t.t("order.fulfilment.label"),
-        formatDateTime(app.language, ctx.order.fulfilment_at),
-      ],
+      [t.t("order.fulfilment.label"), formatDateTime(app.language, ctx.order.fulfilment_at)],
       [
         t.t("order.deadline.label"),
         `${formatDateTime(app.language, ctx.order.deadline_at)} (${formatRelativeTime(
@@ -142,9 +129,7 @@ export function orderDetails(
    * stayed locked for the rest of the visit however many items you added.
    */
   function renderHeading(): void {
-    const controls: Child[] = [
-      keyed(summaryLink(app, id, isParticipant()), "summary"),
-    ];
+    const controls: Child[] = [keyed(summaryLink(app, id, isParticipant()), "summary")];
 
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
@@ -202,9 +187,7 @@ export function orderDetails(
     if (name) {
       const me = app.session.user?.id;
       const mayRelease =
-        me !== undefined &&
-        active() &&
-        (app.session.isAdmin || isCreator() || holderID === me);
+        me !== undefined && active() && (app.session.isAdmin || isCreator() || holderID === me);
       if (!mayRelease) {
         return name;
       }
@@ -252,9 +235,7 @@ export function orderDetails(
    * pickup_person_id and its value is your own id and it was empty before"
    * inside the general edit path would be a rule nobody could find later.
    */
-  async function volunteer(
-    job: "pickup-person" | "money-collector",
-  ): Promise<void> {
+  async function volunteer(job: "pickup-person" | "money-collector"): Promise<void> {
     await runAction({ status, t }, async () => {
       await api.post(`/orders/${id}/${job}`, {});
       await refresh();
@@ -262,9 +243,7 @@ export function orderDetails(
   }
 
   /** Leaves one of the two jobs vacant again. */
-  async function release(
-    job: "pickup-person" | "money-collector",
-  ): Promise<void> {
+  async function release(job: "pickup-person" | "money-collector"): Promise<void> {
     await runAction({ status, t }, async () => {
       await api.delete(`/orders/${id}/${job}`);
       await refresh();
@@ -390,10 +369,7 @@ export function orderDetails(
       onSubmit: async () => {
         const fulfils = new Date(fulfilmentAt.value);
         const closes = new Date(deadlineAt.value);
-        if (
-          Number.isNaN(fulfils.getTime()) ||
-          closes.getTime() >= fulfils.getTime()
-        ) {
+        if (Number.isNaN(fulfils.getTime()) || closes.getTime() >= fulfils.getTime()) {
           deadlineProblem.set(t.t("order.deadline_before_fulfilment"));
           deadlineAt.focus();
           return false;

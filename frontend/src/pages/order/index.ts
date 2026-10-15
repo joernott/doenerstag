@@ -26,13 +26,7 @@ import {
 import { orderTitle } from "../../format";
 import { moneyFormatOf, referenceData } from "../../reference";
 import { statusLine } from "../../components/status";
-import type {
-  Category,
-  MenuItem,
-  OrderDetail,
-  OrderHeader,
-  RestaurantDetail,
-} from "../../types";
+import type { Category, MenuItem, OrderDetail, OrderHeader, RestaurantDetail } from "../../types";
 import { failedPage, pageWithActions, section } from "../page";
 import { menuPath, orderContext } from "./context";
 import { orderDetails } from "./details";
@@ -74,13 +68,10 @@ export async function orderPage(
 
   const [reference, restaurant, categories, menu] = await Promise.all([
     referenceData().catch(() => null),
-    api
-      .get<RestaurantDetail>(`/restaurants/${order.restaurant_id}`)
-      .catch(() => null),
-    getList<Category>(
-      `/restaurants/${order.restaurant_id}/categories`,
-      "categories",
-    ).catch(() => []),
+    api.get<RestaurantDetail>(`/restaurants/${order.restaurant_id}`).catch(() => null),
+    getList<Category>(`/restaurants/${order.restaurant_id}/categories`, "categories").catch(
+      () => [],
+    ),
     getList<MenuItem>(menuPath(order), "menu_items").catch(() => []),
   ]);
 
@@ -95,10 +86,7 @@ export async function orderPage(
     order,
     reference,
     restaurant,
-    moneyFormat: moneyFormatOf(
-      reference?.currencies ?? [],
-      order.currency_code,
-    ),
+    moneyFormat: moneyFormatOf(reference?.currencies ?? [], order.currency_code),
     status: statusLine(),
     menuItems: menu,
     categoryList: categories,
@@ -151,10 +139,7 @@ export async function orderPage(
         // Nothing left to look at: say so and go back to the overview.
         app.announce(t.t("order.deleted"));
         left.replaceChildren(
-          section(
-            orderTitle(app.language, ctx.order),
-            el("p", { text: t.t("order.deleted") }),
-          ),
+          section(orderTitle(app.language, ctx.order), el("p", { text: t.t("order.deleted") })),
         );
         stream.close();
         return;
@@ -166,9 +151,7 @@ export async function orderPage(
       // the first. One fetch on a local network is cheaper than that risk.
       void ctx.refresh().then(() => {
         app.announce(
-          name === EVENT_ORDER_EXPIRED
-            ? t.t("order.closed_notice")
-            : t.t("order.live.changed"),
+          name === EVENT_ORDER_EXPIRED ? t.t("order.closed_notice") : t.t("order.live.changed"),
         );
       });
     },

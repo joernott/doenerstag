@@ -58,11 +58,7 @@ export function orderMenu(
     if (loose.length > 0) {
       groups.push(
         ctx.categoryList.length === 0
-          ? el(
-              "ul",
-              { class: "plain-list menu-items" },
-              ...loose.map((item) => menuRow(item)),
-            )
+          ? el("ul", { class: "plain-list menu-items" }, ...loose.map((item) => menuRow(item)))
           : categoryBlock("", t.t("menu.category.none"), loose),
       );
     }
@@ -116,10 +112,7 @@ export function orderMenu(
     // Tags include, allergens and additives exclude. That asymmetry is the
     // point: people look for what they can eat by tag, and by what they must
     // avoid otherwise.
-    if (
-      filters.tags.size > 0 &&
-      !item.tags.some((tag) => filters.tags.has(tag.id))
-    ) {
+    if (filters.tags.size > 0 && !item.tags.some((tag) => filters.tags.has(tag.id))) {
       return false;
     }
     if (item.allergens.some((allergen) => filters.allergens.has(allergen.id))) {
@@ -175,8 +168,7 @@ export function orderMenu(
         list.appendChild(box);
       }
 
-      const label =
-        chosen.size > 0 ? `${legend} (${String(chosen.size)})` : legend;
+      const label = chosen.size > 0 ? `${legend} (${String(chosen.size)})` : legend;
       const details = el(
         "details",
         {
@@ -248,11 +240,7 @@ export function orderMenu(
     return bar;
   }
 
-  function categoryBlock(
-    id: string,
-    name: string,
-    own: MenuItem[],
-  ): HTMLElement {
+  function categoryBlock(id: string, name: string, own: MenuItem[]): HTMLElement {
     const open = !collapsed.has(id);
     const list = el("ul", { class: "plain-list menu-items", hidden: !open });
     for (const item of own) {
@@ -299,8 +287,7 @@ export function orderMenu(
     return el(
       "li",
       {
-        class:
-          `menu-item ${item.available ? "" : "menu-item-unavailable"}`.trim(),
+        class: `menu-item ${item.available ? "" : "menu-item-unavailable"}`.trim(),
       },
       ...menuItemParts(app, item),
       // The price and the button share a column at the end of the row rather
@@ -315,12 +302,7 @@ export function orderMenu(
         { class: "menu-item-side" },
         el("span", {
           class: "menu-price",
-          text: formatMoney(
-            app.language,
-            item.price_cents,
-            ctx.order.currency_code,
-            moneyFormat,
-          ),
+          text: formatMoney(app.language, item.price_cents, ctx.order.currency_code, moneyFormat),
         }),
         editable || addable
           ? el(
@@ -328,14 +310,9 @@ export function orderMenu(
               { class: "menu-item-buttons" },
               editable
                 ? keyed(
-                    iconButton(
-                      "pencil",
-                      `${t.t("action.edit")}: ${item.name}`,
-                      "",
-                      () => {
-                        editMenuItem(item);
-                      },
-                    ),
+                    iconButton("pencil", `${t.t("action.edit")}: ${item.name}`, "", () => {
+                      editMenuItem(item);
+                    }),
                     `edit-dish:${item.id}`,
                   )
                 : null,
