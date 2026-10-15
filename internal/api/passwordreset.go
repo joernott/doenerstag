@@ -184,15 +184,15 @@ func (h *ResetHandlers) issue(ctx context.Context, r *http.Request, user model.U
 	}
 
 	token := h.Signer.IssueReset(user.ID, h.now())
-	link := strings.TrimRight(h.BaseURL, "/") + "/reset-password/" + token
+	link := auth.ResetLink(h.BaseURL, token)
 
 	// The link is not logged. A log line carrying a working reset link is a
 	// credential in the log, readable by anybody who can read logs -- which
 	// includes the operator this feature exists to be independent of.
 	if err := h.Sender.Send(ctx, mail.Message{
 		To:      user.Email,
-		Subject: ResetMailSubject,
-		Body:    ResetMailBody(user, link),
+		Subject: auth.ResetMailSubject,
+		Body:    auth.ResetMailBody(user, link),
 	}); err != nil {
 		logger.Error().Err(err).Str("user", user.Name).
 			Msg("sending a password reset message")
@@ -284,31 +284,4 @@ func (h *ResetHandlers) log(r *http.Request) *zerolog.Logger {
 		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
 		Logger()
 	return &logger
-}
-
-// ResetMailSubject is the subject of the one message this application sends.
-const ResetMailSubject = "Reset your doenerstag password"
-
-// ResetMailBody is the message.
-//
-// English only, and deliberately: the server does not know which language the
-// recipient reads. The interface language lives in a cookie in a browser, and
-// there is no browser here. A language column on app_user would fix that and is
-// the obvious next step if anybody asks for it.
-//
-// It names the account, because one mailbox may receive a link for each of
-// several accounts that share its address (20.5), and the greeting falls back
-// to the account name, so an account with no display name is not greeted
-// "Hello ,".
-func ResetMailBody(user model.User, link string) string {
-	var b strings.Builder
-	b.WriteString("Hello " + user.Label() + ",\n\n")
-	b.WriteString("somebody asked to reset the password of your doenerstag account \"" +
-		user.Name + "\".\n\n")
-	b.WriteString("Open this link to choose a new one:\n\n")
-	b.WriteString("  " + link + "\n\n")
-	b.WriteString("The link stops working after " + auth.ResetLifetime.String() + ".\n\n")
-	b.WriteString("If you did not ask for this, you can ignore this message.\n")
-	b.WriteString("Your password has not changed.\n")
-	return b.String()
 }

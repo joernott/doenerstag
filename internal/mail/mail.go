@@ -23,6 +23,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/joernott/doenerstag/internal/config"
 )
 
 // Encryption is how the connection to the mail server is protected.
@@ -311,4 +313,26 @@ func validateHeaderValue(what, value string) error {
 // mimeEncode is RFC 2047 base64 in UTF-8.
 func mimeEncode(s string) string {
 	return mime.BEncoding.Encode("UTF-8", s)
+}
+
+// OptionsFromConfig turns the mail section of the configuration into Options,
+// for the server and the command line alike, which each kept a copy (20.18).
+//
+// An unparseable encryption is caught at startup by the configuration check;
+// falling back to the safest of the three here means a typo cannot silently
+// downgrade the connection to plaintext.
+func OptionsFromConfig(cfg config.MailConfig) Options {
+	encryption, err := ParseEncryption(cfg.Encryption)
+	if err != nil {
+		encryption = EncryptionSTARTTLS
+	}
+	return Options{
+		Host:       cfg.Host,
+		Port:       cfg.Port,
+		Username:   cfg.Username,
+		Password:   cfg.Password,
+		From:       cfg.From,
+		Encryption: encryption,
+		Timeout:    cfg.Timeout,
+	}
 }

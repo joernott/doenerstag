@@ -714,7 +714,7 @@ as tasks of its own.
 | ✅ 20.15 | docs/03 brought level with the migrations: `order_item.paid`, the availability tables and both job links in the overview, category soft-delete, token cleanup, the creator index, `ON DELETE` notes. Three redundant indexes dropped | S | [03](03_data_model.md) |
 | ✅ 20.16 | `internal/api`: `dbError(err)` for the standard database-error mapping and a generic `loadParam` for "an id from the path, then its row", replacing about 40 hand-written switches and 11 lookup functions; lookup-before-authorize made uniform | M | — |
 | ✅ 20.17 | Configuration bound to its fields in one place. `populate` and `ValuesFrom` are two hand-written mirror maps, which is how 17.13.1 lost a setting; a mistyped flag name fails loudly | M | [09](09_configuration.md) |
-| 20.18 | The reset mail's subject, body, link and mail options written once, shared by the CLI and the API, whose copies had drifted | S | — |
+| ✅ 20.18 | The reset mail's subject, body, link and mail options written once, shared by the CLI and the API, whose copies had drifted | S | — |
 | 20.19 | The field validators in one file, `internal/api/fields.go`, with one message per kind of failure and limits taken from their constants | S | — |
 | 20.20 | Dead code: three cleanup functions only tests call, unused exports, two error constructors nobody uses; comments that name callers which do not exist or retell history fixed | S | — |
 | 20.21 | DEBUG logging as docs/08 specifies it: function entry with parameters and every database query with its timing, through the redaction that exists and is not yet called | M | [08](08_logging.md) |
