@@ -134,8 +134,8 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 	// Everything past this point answers the same way. The work is still done,
 	// and the failures are still logged, but the response does not vary.
 	users := h.lookup(r.Context(), name)
-	for _, user := range users {
-		h.issue(r.Context(), r, user)
+	for i := range users {
+		h.issue(r.Context(), r, users[i])
 	}
 	if len(users) == 0 {
 		h.log(r).Info().Str("asked_for", name).

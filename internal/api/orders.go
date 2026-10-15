@@ -510,8 +510,7 @@ func (h *OrderHandlers) patch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, principal.User.ID, update)
-	switch {
-	case dbErr != nil:
+	if dbErr != nil {
 		WriteError(w, r, dbError(dbErr))
 		return
 	}
@@ -843,8 +842,7 @@ func (h *OrderHandlers) claimJob(w http.ResponseWriter, r *http.Request, job ord
 	var update db.OrderUpdate
 	job.assign(&update, &ref)
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
-	switch {
-	case dbErr != nil:
+	if dbErr != nil {
 		WriteError(w, r, dbError(dbErr))
 		return
 	}
@@ -910,8 +908,7 @@ func (h *OrderHandlers) releaseJob(w http.ResponseWriter, r *http.Request, job o
 	var update db.OrderUpdate
 	job.assign(&update, &nobody)
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
-	switch {
-	case dbErr != nil:
+	if dbErr != nil {
 		WriteError(w, r, dbError(dbErr))
 		return
 	}
