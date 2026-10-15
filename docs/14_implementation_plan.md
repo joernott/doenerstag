@@ -724,7 +724,7 @@ as tasks of its own.
 | ✅ 20.25 | Frontend: one `openFormDialog` owning the form, the footer, Cancel and closing on success, replacing seven hand-wired dialogs -- the kind of wiring 18.1's dead Save button came from | M | [06](06_ui_ux.md) |
 | ✅ 20.26 | Frontend: one dirty-tracking helper and one heading Save for the restaurant and account pages | S | [06](06_ui_ux.md) |
 | ✅ 20.27 | Frontend: errors tied to their field with `aria-describedby`, as docs/06 requires and no form does yet | S | [06](06_ui_ux.md) |
-| 20.28 | Frontend: shared types in one module, shared pieces (menu item row, delete-account dialog, definition list, load-failed page, clipboard copy) in `components/`, so no component imports a page | M | — |
+| ✅ 20.28 | Frontend: shared types in one module, shared pieces (menu item row, delete-account dialog, definition list, load-failed page, clipboard copy) in `components/`, so no component imports a page | M | — |
 | 20.29 | Frontend: `order.ts`, `account.ts` and `restaurant.ts` split into modules along their sections | L | — |
 | 20.30 | Frontend: dead code removed, stale comments fixed, history moved out of comments | S | — |
 | 20.31 | Version references moved to 0.5.0, the README's status rewritten, sprint 20 squashed into `main` and released as 0.5.0 -- which also carries Go 1.26.9 and x/net 0.60.0 for GO-2026-6612, -6613 and -6617; there is no separate 0.4.1 | S | [10](10_operations.md) |

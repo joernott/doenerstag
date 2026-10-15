@@ -13,42 +13,16 @@ import { api, getList } from "../api";
 import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
 import { button, field, input } from "../components/forms";
-import { thumbnailURL } from "../components/images";
+import { menuItemParts } from "../components/menurow";
 import { openMenuItemEditor } from "../components/menuitem";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog } from "../components/modal";
-import { referenceName, tagName } from "../i18n";
 import { moneyFormatOf, type ReferenceData } from "../reference";
-import { availabilityChip, openAttachmentEditor } from "./availability";
+import { openAttachmentEditor } from "./availability";
 import { actions, card } from "./page";
 import type { Category, MenuItem, Restaurant } from "../types";
 import { runAction, statusLine } from "../components/status";
-
-/** The marks an item carries: its tags, allergens and additives, as chips. */
-export function itemChips(app: App, item: MenuItem): HTMLElement[] {
-  const { t } = app;
-
-  // A dish with a rule says so, and says which rule, so that somebody reading
-  // the menu can tell "we are out of it today" from "we make it at weekends".
-  // Only on the restaurant page: the order page has already left out what its
-  // order cannot have.
-  const when = availabilityChip(app, item.availability ?? []);
-
-  return [
-    ...(when === null ? [] : [when]),
-    ...item.tags.map((tag) => chip(tagName(t, tag), "chip-tag")),
-    ...item.allergens.map((allergen) =>
-      chip(referenceName(t, "allergen", allergen.code), "chip-allergen"),
-    ),
-    ...item.additives.map((additive) =>
-      chip(referenceName(t, "additive", additive.code), "chip-additive"),
-    ),
-  ];
-}
-
-function chip(text: string, className: string): HTMLElement {
-  return el("span", { class: `chip ${className}`, text });
-}
+import { availabilityChip } from "../components/availability";
 
 /**
  * The menu, as a section of the restaurant page.
@@ -314,35 +288,10 @@ export function menuSection(
   }
 
   function itemRow(item: MenuItem): HTMLElement {
-    const marks = itemChips(app, item);
-
     return el(
       "li",
       { class: `menu-item ${item.available ? "" : "menu-item-unavailable"}`.trim() },
-      item.image_id
-        ? el("img", {
-            class: "menu-thumb",
-            src: thumbnailURL(item.image_id),
-            alt: "",
-            loading: "lazy",
-          })
-        : el("div", { class: "menu-thumb menu-thumb-empty", "aria-hidden": "true" }),
-      el(
-        "div",
-        { class: "menu-item-text" },
-        el(
-          "div",
-          { class: "menu-item-head" },
-          item.external_id ? el("span", { class: "menu-number", text: item.external_id }) : null,
-          el("strong", { text: item.name }),
-          // Never colour or a strike-through alone: the state is also a word.
-          item.available
-            ? null
-            : el("span", { class: "badge", text: t.t("menu.item.unavailable") }),
-        ),
-        item.description ? el("p", { class: "muted", text: item.description }) : null,
-        marks.length > 0 ? el("div", { class: "chips" }, ...marks) : null,
-      ),
+      ...menuItemParts(app, item),
       el("span", {
         class: "menu-price",
         text: formatMoney(app.language, item.price_cents, restaurant.currency_code, moneyFormat),

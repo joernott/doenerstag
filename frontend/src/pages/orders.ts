@@ -8,13 +8,13 @@ import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { el, icon, type Child } from "../dom";
-import { formatDateTime, formatRelativeTime, orderTitle } from "../format";
+import { formatDateTime, formatRelativeTime, fulfilmentLabel, orderTitle } from "../format";
 import { logoMark } from "../logo";
 import { button, iconButton } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { confirmDialog } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
-import { overviewPage, overviewPageWithActions, page } from "./page";
+import { failedPage, overviewPage, overviewPageWithActions } from "./page";
 import type { OrderDetail, OrderHeader, OrderListEntry } from "../types";
 import { runAction, statusLine, type StatusLine } from "../components/status";
 
@@ -30,7 +30,7 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   try {
     orders = await getList<OrderListEntry>("/orders", "orders");
   } catch (error) {
-    return page(t.t("nav.orders"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.orders"), t, error);
   }
 
   // Whether this visitor takes part in each order, which decides whether the
@@ -94,9 +94,7 @@ function orderTile(
   parts.push(
     el("span", {
       class: "muted",
-      text: `${t.t(
-        order.fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup",
-      )} · ${formatDateTime(app.language, order.fulfilment_at)}`,
+      text: `${fulfilmentLabel(t, order.fulfilment)} · ${formatDateTime(app.language, order.fulfilment_at)}`,
     }),
   );
 

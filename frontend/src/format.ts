@@ -5,6 +5,8 @@
 // can render one restaurant's prices while the interface is in another
 // language. See docs/07_i18n.md.
 
+import type { Translator } from "./i18n";
+
 /**
  * How a currency is written and how it divides.
  *
@@ -358,4 +360,22 @@ export function formatBytes(locale: string, bytes: number): string {
     return `${formatNumber(locale, Math.round(bytes / kib))} KiB`;
   }
   return `${formatNumber(locale, bytes)} B`;
+}
+
+/**
+ * A `datetime-local` input's value for a moment, in the viewer's own time
+ * zone. The order page and the order form each had a copy (20.28).
+ */
+export function localInputValue(value: Date | string): string {
+  const date = toDate(value);
+  const pad = (part: number): string => String(part).padStart(2, "0");
+  return (
+    `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+/** "Pickup" or "Delivery", as an order's fulfilment is shown everywhere. */
+export function fulfilmentLabel(t: Translator, fulfilment: string): string {
+  return t.t(fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup");
 }

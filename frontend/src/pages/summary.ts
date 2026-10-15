@@ -10,9 +10,17 @@ import { api, ApiError, errorMessage } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { contactTarget } from "../contacts";
 import { mayTickPaid, paidCheckbox } from "../components/paid";
-import { append, el, type Child } from "../dom";
-import { formatDateTime, formatMoney, formatRelativeTime, orderTitle } from "../format";
+import { el, type Child } from "../dom";
+import { definitionList } from "../components/definitions";
+import {
+  formatDateTime,
+  formatMoney,
+  formatRelativeTime,
+  fulfilmentLabel,
+  orderTitle,
+} from "../format";
 import { button } from "../components/forms";
+import { copyText } from "../components/clipboard";
 import { moneyFormatOf, referenceData } from "../reference";
 import { isActive } from "./orders";
 import { actions, page, section } from "./page";
@@ -184,7 +192,7 @@ function headerCard(
   if (order) {
     rows.push([
       t.t("order.fulfilment.type"),
-      t.t(order.fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup"),
+      fulfilmentLabel(t, order.fulfilment),
     ]);
     rows.push([t.t("order.fulfilment.label"), formatDateTime(app.language, order.fulfilment_at)]);
     rows.push([
@@ -234,13 +242,7 @@ function headerCard(
     rows.push([t.t("contact_type.address"), block]);
   }
 
-  const list = el("dl", { class: "definitions" });
-  for (const [label, value] of rows) {
-    list.appendChild(el("dt", { text: label }));
-    const dd = el("dd");
-    append(dd, value);
-    list.appendChild(dd);
-  }
+  const list = definitionList(rows);
 
   return section(orderTitle(app.language, summary), list);
 }
@@ -440,21 +442,13 @@ function toolbar(app: App, summary: Summary): HTMLElement {
   const copy = button({
     label: t.t("summary.copy"),
     onclick: () => {
-      // The clipboard API is absent outside a secure context -- and a
-      // development server with a self-signed certificate is one such place, so
-      // this is not a hypothetical branch. Without the check the button did
-      // nothing at all: no copy, no message, no fallback.
-      if (!navigator.clipboard) {
-        offerTheText();
-        return;
-      }
-
-      void navigator.clipboard
-        .writeText(summary.plain_text)
-        .then(() => {
+      void copyText(summary.plain_text).then((copied) => {
+        if (copied) {
           status.say(t.t("action.copied"));
-        })
-        .catch(offerTheText);
+        } else {
+          offerTheText();
+        }
+      });
     },
   });
 

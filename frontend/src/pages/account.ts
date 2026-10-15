@@ -9,6 +9,8 @@ import { NAME_COOKIE, readCookie, writeCookie } from "../cookies";
 import { el, type Child } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, fieldError, form, input } from "../components/forms";
+import { openDeleteAccountDialog } from "../components/deleteaccount";
+import { copyText } from "../components/clipboard";
 import { dirtyTracker, saveAllButton, type EditableSection } from "../components/editable";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog, openModal } from "../components/modal";
@@ -531,14 +533,12 @@ function showToken(app: App, value: string): void {
     label: t.t("action.copy"),
     onclick: () => {
       valueInput.select();
-      void navigator.clipboard
-        ?.writeText(value)
-        .then(() => {
+      void copyText(value).then((copied) => {
+        // When it could not, the value is selected, so ctrl-c works.
+        if (copied) {
           copy.textContent = t.t("action.copied");
-        })
-        .catch(() => {
-          // No clipboard permission. The value is selected, so ctrl-c works.
-        });
+        }
+      });
     },
   });
 
@@ -596,31 +596,15 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
   }
 
   function openDeleteModal(impact: DeletionImpact): void {
-    const typed = input({ name: "confirm_name", autocomplete: "off" });
-    const mismatch = fieldError(typed);
-
-    openFormDialog({
+    openDeleteAccountDialog({
       t,
       title: t.t("account.delete"),
-      className: "modal-narrow",
-      submitLabel: t.t("account.delete"),
-      danger: true,
-      focus: "cancel",
-      fields: [
-        el("p", { text: t.t("account.delete.intro") }),
-        impactList(impact),
-        field({ label: t.t("account.delete.confirm_name"), control: typed, error: mismatch }),
-      ],
-      onSubmit: async () => {
-        if (typed.value.trim() !== user.name) {
-          mismatch.set(t.t("account.delete.name_mismatch"));
-          typed.focus();
-          return false;
-        }
-        mismatch.clear();
-        await api.delete(`/users/${user.id}`);
-        return true;
-      },
+      intro: t.t("account.delete.intro"),
+      impact,
+      name: user.name,
+      confirmLabel: t.t("account.delete.confirm_name"),
+      mismatch: t.t("account.delete.name_mismatch"),
+      remove: () => api.delete(`/users/${user.id}`),
       after: () => {
         // The server has already cleared the session cookies; this makes the
         // page agree with that rather than waiting for a 2002 to discover it.
@@ -630,33 +614,6 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
         app.router.refresh();
       },
     });
-  }
-
-  function impactList(impact: DeletionImpact): HTMLElement {
-    const lines: Child[] = [];
-    if (impact.active_items > 0) {
-      lines.push(
-        el("li", { text: t.t("account.delete.impact.active_items", { count: impact.active_items }) }),
-      );
-    }
-    if (impact.expired_items > 0) {
-      lines.push(
-        el("li", {
-          text: t.t("account.delete.impact.expired_items", { count: impact.expired_items }),
-        }),
-      );
-    }
-    if (impact.created_active_orders > 0) {
-      lines.push(
-        el("li", {
-          text: t.t("account.delete.impact.orders", { count: impact.created_active_orders }),
-        }),
-      );
-    }
-    if (lines.length === 0) {
-      return el("p", { class: "muted", text: t.t("account.delete.impact.none") });
-    }
-    return el("ul", { class: "impact" }, ...lines);
   }
 
   return start;

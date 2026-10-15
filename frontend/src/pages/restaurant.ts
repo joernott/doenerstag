@@ -18,7 +18,7 @@ import { moneyFormatOf, referenceData, type ReferenceData } from "../reference";
 import { availabilitySection } from "./availability";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, card, page, pageWithActions, section, setPageTitle } from "./page";
+import { actions, card, failedPage, page, pageWithActions, section, setPageTitle } from "./page";
 import type { Contact, OpeningPeriod, Restaurant, RestaurantDetail } from "../types";
 import { runAction, statusLine } from "../components/status";
 
@@ -30,7 +30,7 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
   try {
     reference = await referenceData();
   } catch (error) {
-    return page(t.t("nav.restaurants"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.restaurants"), t, error);
   }
 
   if (id === "new") {
@@ -41,7 +41,7 @@ export async function restaurantPage(app: App, id: string): Promise<HTMLElement>
   try {
     restaurant = await api.get<RestaurantDetail>(`/restaurants/${id}`);
   } catch (error) {
-    return page(t.t("nav.restaurants"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.restaurants"), t, error);
   }
 
   // Whether anything still points at this restaurant. Deleting one that an

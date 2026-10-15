@@ -3,7 +3,9 @@
 // Separate from the route table so that a page module can use these without
 // importing the module that imports it.
 
+import { errorMessage } from "../api";
 import { append, el, type Child } from "../dom";
+import type { Translator } from "../i18n";
 import { logoMark } from "../logo";
 
 /** A page: a heading and whatever follows it. Also sets the document title. */
@@ -114,4 +116,13 @@ export function actions(...content: Child[]): HTMLElement {
   const row = el("div", { class: "actions" });
   append(row, ...content);
   return row;
+}
+
+/**
+ * A page that could not be loaded: its title, and what went wrong, announced.
+ * Every page that fetches before it can draw anything ends this way when the
+ * fetch fails, and each wrote the same line out (20.28).
+ */
+export function failedPage(title: string, t: Translator, error: unknown): HTMLElement {
+  return page(title, el("p", { class: "field-error", role: "alert", text: errorMessage(t, error) }));
 }

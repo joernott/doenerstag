@@ -10,23 +10,15 @@
 // The form opens on an hour and two hours from now.
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
 import { button, field, fieldError, form, input, select } from "../components/forms";
+import { localInputValue } from "../format";
 import { isOpen } from "../openinghours";
-import { actions, page, section } from "./page";
+import { actions, failedPage, page, section } from "./page";
 import type { OpeningPeriod, Restaurant, RestaurantDetail } from "../types";
 import { runAction, statusLine } from "../components/status";
-
-/** A `datetime-local` value for a Date, in the viewer's own time zone. */
-export function localInputValue(date: Date): string {
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
 
 /**
  * A moment a given number of hours from now, which is what the form starts
@@ -49,7 +41,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
   try {
     restaurants = await getList<Restaurant>("/restaurants", "restaurants");
   } catch (error) {
-    return page(t.t("order.new"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("order.new"), t, error);
   }
 
   if (restaurants.length === 0) {

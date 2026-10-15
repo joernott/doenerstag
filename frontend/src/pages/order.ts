@@ -16,6 +16,7 @@ import { accountChoices, listAccounts } from "../accounts";
 import { contactTarget } from "../contacts";
 import { mayTickPaid, paidCheckbox } from "../components/paid";
 import { append, el, icon, keyed, rerender, type Child } from "../dom";
+import { definitionList } from "../components/definitions";
 import {
   EVENT_ORDER_DELETED,
   EVENT_ORDER_EXPIRED,
@@ -26,19 +27,19 @@ import {
   formatDateTime,
   formatMoney,
   formatRelativeTime,
+  fulfilmentLabel,
+  localInputValue,
   moneyInputValue,
   orderTitle,
 } from "../format";
 import { button, checkbox, field, fieldError, input, select, textarea } from "../components/forms";
-import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor } from "../components/menuitem";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog } from "../components/modal";
 import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
-import { itemChips } from "./menu";
 import { isActive, participates, summaryLink } from "./orders";
-import { actions, page, pageWithActions, section } from "./page";
+import { actions, failedPage, pageWithActions, section } from "./page";
 import type {
   Category,
   Contact,
@@ -50,6 +51,7 @@ import type {
 } from "../types";
 import { runAction, statusLine } from "../components/status";
 import { iconButton } from "../components/forms";
+import { menuItemParts } from "../components/menurow";
 
 /** What the page needs from whoever is rendering it. */
 export interface OrderPageOptions {
@@ -82,7 +84,7 @@ export async function orderPage(
   try {
     order = await api.get<OrderHeader | OrderDetail>(`/orders/${id}`);
   } catch (error) {
-    return page(t.t("nav.orders"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.orders"), t, error);
   }
 
   const [reference, restaurant, categories, menu] = await Promise.all([
@@ -172,7 +174,7 @@ export async function orderPage(
       [t.t("restaurant.data"), restaurantLine()],
       [
         t.t("order.fulfilment.type"),
-        t.t(order.fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup"),
+        fulfilmentLabel(t, order.fulfilment),
       ],
       [t.t("order.fulfilment.label"), formatDateTime(app.language, order.fulfilment_at)],
       [
@@ -218,13 +220,7 @@ export async function orderPage(
       ]);
     }
 
-    const list = el("dl", { class: "definitions" });
-    for (const [label, value] of rows) {
-      list.appendChild(el("dt", { text: label }));
-      const dd = el("dd");
-      append(dd, value);
-      list.appendChild(dd);
-    }
+    const list = definitionList(rows);
 
     // Editing and deleting the order live on the title's line with the summary,
     // not in this card: all three act on the order as a whole rather than on
@@ -551,11 +547,7 @@ export async function orderPage(
       ]);
     }
 
-    const list = el("dl", { class: "definitions totals" });
-    for (const [label, value] of rows) {
-      list.appendChild(el("dt", { text: label }));
-      list.appendChild(el("dd", { text: value }));
-    }
+    const list = definitionList(rows, "definitions totals");
     list.appendChild(el("dt", { class: "grand", text: t.t("order.total") }));
     list.appendChild(
       el("dd", {
@@ -614,9 +606,9 @@ export async function orderPage(
     );
     const fulfilmentAt = input({
       type: "datetime-local",
-      value: localValue(order.fulfilment_at),
+      value: localInputValue(order.fulfilment_at),
     });
-    const deadlineAt = input({ type: "datetime-local", value: localValue(order.deadline_at) });
+    const deadlineAt = input({ type: "datetime-local", value: localInputValue(order.deadline_at) });
     const deadlineProblem = fieldError(deadlineAt);
     const choices = accountChoices(accounts, t.t("order.nobody"));
     const moneyCollector = select(choices, { value: own.money_collector_id ?? "" });
@@ -946,7 +938,6 @@ export async function orderPage(
   }
 
   function menuRow(item: MenuItem): HTMLElement {
-    const marks = itemChips(app, item);
     const addable = canOrder() && item.available;
     // 19.4: a wrong price or a missing option is found while ordering, and is
     // put right here rather than on the restaurant page. The same editor and
@@ -958,22 +949,7 @@ export async function orderPage(
     return el(
       "li",
       { class: `menu-item ${item.available ? "" : "menu-item-unavailable"}`.trim() },
-      item.image_id
-        ? el("img", { class: "menu-thumb", src: thumbnailURL(item.image_id), alt: "", loading: "lazy" })
-        : el("div", { class: "menu-thumb menu-thumb-empty", "aria-hidden": "true" }),
-      el(
-        "div",
-        { class: "menu-item-text" },
-        el(
-          "div",
-          { class: "menu-item-head" },
-          item.external_id ? el("span", { class: "menu-number", text: item.external_id }) : null,
-          el("strong", { text: item.name }),
-          item.available ? null : el("span", { class: "badge", text: t.t("menu.item.unavailable") }),
-        ),
-        item.description ? el("p", { class: "muted", text: item.description }) : null,
-        marks.length > 0 ? el("div", { class: "chips" }, ...marks) : null,
-      ),
+      ...menuItemParts(app, item),
       // The price and the button share a column at the end of the row rather
       // than sitting beside each other in it. Side by side, the two of them
       // and the chips competed for one line: a dish with four allergens
@@ -1241,16 +1217,6 @@ export async function orderPage(
     heading,
     banner,
     el("div", { class: "order-layout" }, left, right),
-  );
-}
-
-/** An API timestamp as a `datetime-local` value in the viewer's time zone. */
-function localValue(iso: string): string {
-  const date = new Date(iso);
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
 }
 

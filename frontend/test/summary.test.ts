@@ -363,6 +363,7 @@ describe("when the browser has no clipboard", () => {
     [...rendered.querySelectorAll("button")]
       .find((control) => control.textContent === app.t.t("summary.copy"))
       ?.click();
+    await settle();
 
     const fallback = rendered.querySelector<HTMLTextAreaElement>("textarea");
     expect(fallback?.hidden).toBe(false);

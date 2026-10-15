@@ -3,7 +3,7 @@
 // editor. A component since 20.28, so the editor no longer imports a page.
 
 import { api, getList } from "../api";
-import { el } from "../dom";
+import { el, icon } from "../dom";
 import type { App } from "../app";
 import { formatWeekday } from "../format";
 import type { AvailabilityFilter } from "../types";
@@ -107,5 +107,24 @@ export function describeFilter(app: App, filter: AvailabilityFilter): string {
   }
 
   return parts.length > 0 ? parts.join(" · ") : t.t("availability.always");
+}
+
+
+/** A short marker for a menu row: this dish is not always available. */
+export function availabilityChip(
+  app: App,
+  filters: readonly AvailabilityFilter[],
+): HTMLElement | null {
+  if (filters.length === 0) {
+    return null;
+  }
+  const { t } = app;
+  const summary = filters.map((filter) => filter.name).join(", ");
+  return el(
+    "span",
+    { class: "chip availability-chip", title: `${t.t("availability.attached")}: ${summary}` },
+    icon("clock"),
+    el("span", { text: summary }),
+  );
 }
 

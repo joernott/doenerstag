@@ -9,7 +9,8 @@ import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
-import { button, field, fieldError, input, textarea } from "../components/forms";
+import { button, field, input, textarea } from "../components/forms";
+import { openDeleteAccountDialog } from "../components/deleteaccount";
 import { passwordField } from "../components/password";
 import { dialogHint, openFormDialog } from "../components/formdialog";
 import { actions, page, section } from "./page";
@@ -236,45 +237,16 @@ export async function usersPage(app: App): Promise<HTMLElement> {
       return;
     }
 
-    const typed = input({ autocomplete: "off" });
-    const mismatch = fieldError(typed);
-
-    const lines = [
-      impact.active_items > 0
-        ? t.t("account.delete.impact.active_items", { count: impact.active_items })
-        : null,
-      impact.expired_items > 0
-        ? t.t("account.delete.impact.expired_items", { count: impact.expired_items })
-        : null,
-      impact.created_active_orders > 0
-        ? t.t("account.delete.impact.orders", { count: impact.created_active_orders })
-        : null,
-    ].filter((line): line is string => line !== null);
-
-    openFormDialog({
+    openDeleteAccountDialog({
       t,
       title: t.t("admin.delete_user"),
-      className: "modal-narrow",
       submitLabel: t.t("action.delete"),
-      danger: true,
-      focus: "cancel",
-      fields: [
-        el("p", { text: `${user.display_name || user.name} (${user.name})` }),
-        lines.length > 0
-          ? el("ul", { class: "impact" }, ...lines.map((line) => el("li", { text: line })))
-          : el("p", { class: "muted", text: t.t("account.delete.impact.none") }),
-        field({ label: t.t("admin.confirm_name"), control: typed, error: mismatch }),
-      ],
-      onSubmit: async () => {
-        if (typed.value.trim() !== user.name) {
-          mismatch.set(t.t("admin.name_mismatch"));
-          typed.focus();
-          return false;
-        }
-        mismatch.clear();
-        await api.delete(`/users/${user.id}`);
-        return true;
-      },
+      intro: `${user.display_name || user.name} (${user.name})`,
+      impact,
+      name: user.name,
+      confirmLabel: t.t("admin.confirm_name"),
+      mismatch: t.t("admin.name_mismatch"),
+      remove: () => api.delete(`/users/${user.id}`),
       after: reload,
     });
   }

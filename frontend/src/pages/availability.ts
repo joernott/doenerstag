@@ -9,7 +9,7 @@
 
 import type { App } from "../app";
 import { api } from "../api";
-import { el, icon, type Child } from "../dom";
+import { el, type Child } from "../dom";
 import { formatWeekday } from "../format";
 import { button, field, input } from "../components/forms";
 import { describeFilter, filterPicker, loadFilters, saveAttachments } from "../components/availability";
@@ -197,24 +197,6 @@ export function openFilterEditor(
     },
     after: onSaved,
   });
-}
-
-/** A short marker for a menu row: this dish is not always available. */
-export function availabilityChip(
-  app: App,
-  filters: readonly AvailabilityFilter[],
-): HTMLElement | null {
-  if (filters.length === 0) {
-    return null;
-  }
-  const { t } = app;
-  const summary = filters.map((filter) => filter.name).join(", ");
-  return el(
-    "span",
-    { class: "chip availability-chip", title: `${t.t("availability.attached")}: ${summary}` },
-    icon("clock"),
-    el("span", { text: summary }),
-  );
 }
 
 export interface AttachmentEditorOptions {
