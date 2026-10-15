@@ -123,8 +123,9 @@ func newUserDeleteCommand(app *appContext) *cobra.Command {
 		Long: `Delete an account, named either by --id or by --username.
 
 What happens to the orders and items that account left behind is the rule in
-docs/02_features.md F2.6, which this does not repeat or override: the database
-decides, and it refuses to remove the administrator or the placeholder.`,
+docs/02_features.md F2.6, the same as deleting it in the browser: its items in
+open orders are removed, those in closed orders kept under the deleted-user
+placeholder. The administrator and the placeholder cannot be deleted.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -134,7 +135,10 @@ decides, and it refuses to remove the administrator or the placeholder.`,
 				if err != nil {
 					return err
 				}
-				if err := db.DeleteUser(ctx, pool, user.ID); err != nil {
+				// DeleteAccount and not DeleteUser: F2.6 is carried out in Go,
+				// not by the schema, and a bare DELETE left this account's
+				// items standing in open orders (20.4).
+				if err := db.DeleteAccount(ctx, pool, user.ID, time.Now()); err != nil {
 					return fmt.Errorf("deleting %s: %w", user.Name, err)
 				}
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s (%s).\n", user.Name, user.ID)

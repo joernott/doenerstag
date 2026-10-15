@@ -233,7 +233,11 @@ func ListUsers(ctx context.Context, q Querier) ([]model.User, error) {
 	return users, rows.Err()
 }
 
-// DeleteUser removes an account.
+// DeleteUser removes the account row and nothing else.
+//
+// It is not how an account is deleted: that is DeleteAccount, which carries
+// out F2.6 first. Called alone, this leaves the account's items in open orders
+// standing under the placeholder -- the defect `user delete` had (20.4).
 //
 // The database refuses to delete the administrator or the placeholder, through
 // the trigger in migration 000002, so this does not repeat the check: a caller
