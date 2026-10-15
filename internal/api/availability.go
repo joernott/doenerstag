@@ -82,9 +82,12 @@ func (h *MenuHandlers) registerAvailability(r *Router) {
 // listAvailability returns a restaurant's filters. Public, like the menu: when
 // a dish is served is part of what a menu says.
 func (h *MenuHandlers) listAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, err := requiredUUID(Param(r, "id"), "id")
+	// Through restaurantID, as every other menu route: it parsed the id itself
+	// and never asked whether the restaurant exists, so an unknown one listed
+	// as an empty set rather than 404 (20.9).
+	restaurantID, err := h.restaurantID(r)
 	if err != nil {
-		WriteError(w, r, &Error{Code: CodeNotFound})
+		WriteError(w, r, err)
 		return
 	}
 
