@@ -7,17 +7,19 @@ import (
 
 // ValuesFrom maps every setting, and nothing quietly falls back to its default.
 //
-// The map inside ValuesFrom is written out by hand, one line per setting, and
-// the loop after it fills in anything missing with the declared default. That
-// fallback is there for a real case -- a verb that never populated a section
-// still writes a documented file -- and it also means a setting left out of the
-// map is invisible: the file is written, it is well formed, and the value the
+// ValuesFrom fills in anything it has no value for with the declared default.
+// That fallback is there for a real case -- a verb that never populated a
+// section still writes a documented file -- and it also means a setting it does
+// not read is invisible: the file is written, it is well formed, and the value the
 // operator asked for is silently replaced by the default.
 //
 // It happened. `behind-tls-proxy` was added to the registry, the struct and the
 // loader, and left out of the map, so `DOENER_BEHIND_TLS_PROXY=true` produced a
 // configuration file saying `behind_tls_proxy: false` -- which for that
-// particular setting means session cookies stop being marked Secure.
+// particular setting means session cookies stop being marked Secure. Since
+// 20.17 the map is gone and every setting is bound to its field in the
+// registry; TestEveryBoundSettingMatchesItsKind covers every kind, and this
+// stays as the check on the case that actually happened.
 //
 // Only the boolean settings are checked, because a boolean has an unambiguous
 // non-default value to set: flipping every bool in the struct to the opposite
