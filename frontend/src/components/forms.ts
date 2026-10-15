@@ -146,12 +146,20 @@ export function select(
 /** A checkbox with its own label beside it. */
 export function checkbox(
   label: string,
-  options: { name?: string; checked?: boolean; disabled?: boolean; onchange?: (event: Event) => void } = {},
+  options: {
+    name?: string;
+    checked?: boolean;
+    disabled?: boolean;
+    onchange?: (event: Event) => void;
+    /** On the input, which is what has focus: see `keyed` and `rerender`. */
+    key?: string;
+  } = {},
 ): HTMLElement {
   const box = el("input", {
     type: "checkbox",
     class: "checkbox",
     ...(options.name ? { name: options.name } : {}),
+    ...(options.key ? { "data-key": options.key } : {}),
     checked: options.checked === true,
     disabled: options.disabled === true,
     ...(options.onchange ? { onchange: options.onchange } : {}),

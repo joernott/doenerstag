@@ -15,7 +15,7 @@ import { currentPath, loginHref } from "../returnto";
 import { accountChoices, listAccounts } from "../accounts";
 import { contactTarget } from "../contacts";
 import { mayTickPaid, paidCheckbox } from "../components/paid";
-import { append, el, icon, type Child } from "../dom";
+import { append, el, icon, keyed, rerender, type Child } from "../dom";
 import {
   EVENT_ORDER_DELETED,
   EVENT_ORDER_EXPIRED,
@@ -162,7 +162,7 @@ export async function orderPage(
       parts.push(anonymousCard());
     }
 
-    left.replaceChildren(...parts.filter((part): part is Node => part instanceof Node));
+    rerender(left, ...parts);
     banner.replaceChildren(
       active()
         ? el("span", { hidden: true })
@@ -246,34 +246,40 @@ export async function orderPage(
    * stayed locked for the rest of the visit however many items you added.
    */
   function renderHeading(): void {
-    const controls: Child[] = [summaryLink(app, id, isParticipant())];
+    const controls: Child[] = [keyed(summaryLink(app, id, isParticipant()), "summary")];
 
     // F5.7: the creator edits while the order is active. F6.6 makes everything
     // read-only afterwards, for the administrator too, so there is nothing to
     // show then -- and a control that cannot be used is not shown at all.
     if (isCreator() && active()) {
       controls.push(
-        button({
-          label: t.t("order.edit"),
-          onclick: () => {
-            void openOrderEditor();
-          },
-        }),
+        keyed(
+          button({
+            label: t.t("order.edit"),
+            onclick: () => {
+              void openOrderEditor();
+            },
+          }),
+          "edit-order",
+        ),
       );
     }
     if ((isCreator() || app.session.isAdmin) && detail()) {
       controls.push(
-        button({
-          label: t.t("order.delete"),
-          variant: "danger",
-          onclick: () => {
-            void remove();
-          },
-        }),
+        keyed(
+          button({
+            label: t.t("order.delete"),
+            variant: "danger",
+            onclick: () => {
+              void remove();
+            },
+          }),
+          "delete-order",
+        ),
       );
     }
 
-    heading.replaceChildren(...controls.filter((part): part is Node => part instanceof Node));
+    rerender(heading, ...controls);
   }
 
   /** The restaurant, with its contacts as the links they are meant to be. */
@@ -312,9 +318,14 @@ export async function orderPage(
         "span",
         { class: "order-person" },
         el("span", { text: name }),
-        iconButton("close", `${t.t("order.release")}: ${jobName}`, "", () => {
-          void release(job);
-        }),
+        // The same key as "Me!": pressing one replaces it with the other, and
+        // focus follows to the control that undoes what was just done.
+        keyed(
+          iconButton("close", `${t.t("order.release")}: ${jobName}`, "", () => {
+            void release(job);
+          }),
+          `job:${job}`,
+        ),
       );
     }
 
@@ -327,14 +338,17 @@ export async function orderPage(
       "span",
       { class: "order-person" },
       nobody,
-      button({
-        label: t.t("order.volunteer"),
-        // Two buttons both called "Me!" cannot be told apart by ear.
-        ariaLabel: `${t.t("order.volunteer")}: ${jobName}`,
-        onclick: () => {
-          void volunteer(job);
-        },
-      }),
+      keyed(
+        button({
+          label: t.t("order.volunteer"),
+          // Two buttons both called "Me!" cannot be told apart by ear.
+          ariaLabel: `${t.t("order.volunteer")}: ${jobName}`,
+          onclick: () => {
+            void volunteer(job);
+          },
+        }),
+        `job:${job}`,
+      ),
     );
   }
 
@@ -495,12 +509,18 @@ export async function orderPage(
       // one of these per line and "Edit" alone does not say which.
       mine && canOrder()
         ? actions(
-            iconButton("pencil", `${t.t("action.edit")}: ${item.item_name}`, "", () => {
-              void openItemEditor(item);
-            }),
-            iconButton("trash", `${t.t("action.delete")}: ${item.item_name}`, "button-danger", () => {
-              void removeItem(item);
-            }),
+            keyed(
+              iconButton("pencil", `${t.t("action.edit")}: ${item.item_name}`, "", () => {
+                void openItemEditor(item);
+              }),
+              `edit-line:${item.id}`,
+            ),
+            keyed(
+              iconButton("trash", `${t.t("action.delete")}: ${item.item_name}`, "button-danger", () => {
+                void removeItem(item);
+              }),
+              `delete-line:${item.id}`,
+            ),
           )
         : null,
       // The paid tick, as on the summary. Not gated on the order being open
@@ -726,6 +746,10 @@ export async function orderPage(
   };
   // Per session and not persisted, exactly as docs/06_ui_ux.md asks.
   const collapsed = new Set<string>();
+  // The filter groups somebody has opened, kept across rebuilds. A group used to
+  // reopen only while one of its boxes was ticked, so unticking the last one
+  // closed the group around the box that had focus (20.12).
+  const openFilterGroups = new Set<string>();
 
   function renderMenu(): void {
     const groups: Child[] = [filterBar()];
@@ -757,25 +781,28 @@ export async function orderPage(
     if (app.session.isAuthenticated && reference) {
       groups.push(
         actions(
-          button({
-            label: t.t("order.add_missing_item"),
-            onclick: () => {
-              openMenuItemEditor({
-                app,
-                reference,
-                restaurantID: order.restaurant_id,
-                categories: categoryList,
-                money: moneyFormat,
-                item: null,
-                onSaved: reloadMenu,
-              });
-            },
-          }),
+          keyed(
+            button({
+              label: t.t("order.add_missing_item"),
+              onclick: () => {
+                openMenuItemEditor({
+                  app,
+                  reference,
+                  restaurantID: order.restaurant_id,
+                  categories: categoryList,
+                  money: moneyFormat,
+                  item: null,
+                  onSaved: reloadMenu,
+                });
+              },
+            }),
+            "add-missing",
+          ),
         ),
       );
     }
 
-    right.replaceChildren(section(t.t("menu.items"), ...groups));
+    rerender(right, section(t.t("menu.items"), ...groups));
   }
 
   function matchesFilter(item: MenuItem): boolean {
@@ -830,6 +857,7 @@ export async function orderPage(
       const list = el("div", { class: "chips" });
       for (const entry of entries) {
         const box = checkbox(entry.label, {
+          key: `filter:${entry.id}`,
           checked: chosen.has(entry.id),
           onchange: (event: Event) => {
             const target = event.target;
@@ -839,6 +867,9 @@ export async function orderPage(
               } else {
                 chosen.delete(entry.id);
               }
+              // A group somebody is working in stays open, even once nothing in
+              // it is ticked any more.
+              openFilterGroups.add(legend);
               renderMenu();
             }
           },
@@ -847,12 +878,20 @@ export async function orderPage(
       }
 
       const label = chosen.size > 0 ? `${legend} (${String(chosen.size)})` : legend;
-      return el(
+      const details = el(
         "details",
-        { class: "filter-group", open: chosen.size > 0 },
-        el("summary", { text: label }),
+        { class: "filter-group", open: chosen.size > 0 || openFilterGroups.has(legend) },
+        el("summary", { text: label, "data-key": `filter-group:${legend}` }),
         list,
       );
+      details.addEventListener("toggle", () => {
+        if (details.open) {
+          openFilterGroups.add(legend);
+        } else {
+          openFilterGroups.delete(legend);
+        }
+      });
+      return details;
     };
 
     append(
@@ -879,6 +918,7 @@ export async function orderPage(
         filters.additives,
       ),
       checkbox(t.t("menu.filter.available_only"), {
+        key: "filter:available-only",
         checked: filters.availableOnly,
         onchange: (event: Event) => {
           const target = event.target;
@@ -888,17 +928,20 @@ export async function orderPage(
           }
         },
       }),
-      button({
-        label: t.t("menu.filter.clear"),
-        variant: "quiet",
-        onclick: () => {
-          filters.tags.clear();
-          filters.allergens.clear();
-          filters.additives.clear();
-          filters.availableOnly = false;
-          renderMenu();
-        },
-      }),
+      keyed(
+        button({
+          label: t.t("menu.filter.clear"),
+          variant: "quiet",
+          onclick: () => {
+            filters.tags.clear();
+            filters.allergens.clear();
+            filters.additives.clear();
+            filters.availableOnly = false;
+            renderMenu();
+          },
+        }),
+        "filter:clear",
+      ),
     );
     return bar;
   }
@@ -915,6 +958,7 @@ export async function orderPage(
       {
         type: "button",
         class: "category-toggle",
+        "data-key": `category:${id}`,
         "aria-expanded": String(open),
         onclick: () => {
           if (collapsed.has(id)) {
@@ -985,20 +1029,26 @@ export async function orderPage(
               "div",
               { class: "menu-item-buttons" },
               editable
-                ? iconButton("pencil", `${t.t("action.edit")}: ${item.name}`, "", () => {
-                    editMenuItem(item);
-                  })
+                ? keyed(
+                    iconButton("pencil", `${t.t("action.edit")}: ${item.name}`, "", () => {
+                      editMenuItem(item);
+                    }),
+                    `edit-dish:${item.id}`,
+                  )
                 : null,
               addable
-                ? button({
-                    label: t.t("item.add"),
-                    variant: "primary",
-                    // Named for the dish: the menu column has one of these per item.
-                    ariaLabel: `${t.t("item.add")}: ${item.name}`,
-                    onclick: () => {
-                      void openItemEditor(null, item);
-                    },
-                  })
+                ? keyed(
+                    button({
+                      label: t.t("item.add"),
+                      variant: "primary",
+                      // Named for the dish: the menu column has one of these per item.
+                      ariaLabel: `${t.t("item.add")}: ${item.name}`,
+                      onclick: () => {
+                        void openItemEditor(null, item);
+                      },
+                    }),
+                    `add:${item.id}`,
+                  )
                 : null,
             )
           : null,

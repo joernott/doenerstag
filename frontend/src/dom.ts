@@ -74,6 +74,70 @@ export function replace(parent: Element, ...children: Child[]): void {
   append(parent, ...children);
 }
 
+/**
+ * Marks a control so `rerender` can find its replacement.
+ *
+ * The key names the control, not the element: "add:<menu item id>" is the same
+ * control in every rebuild of the menu, so focus can follow it there.
+ */
+export function keyed<T extends HTMLElement>(element: T, key: string): T {
+  element.dataset["key"] = key;
+  return element;
+}
+
+/**
+ * Replaces a region's contents and puts keyboard focus back where it was.
+ *
+ * A page that rebuilds a region from its data -- after a change, a filter, a
+ * live update -- destroys the control somebody was on, and focus falls to the
+ * page: a keyboard user starts again from the top after every tick of a
+ * checkbox. This finds the focused control's replacement by its `data-key` (see
+ * `keyed`) or its id and focuses that instead, with the caret where it was in a
+ * text field. A control with neither, or one the rebuild no longer has, cannot
+ * be followed; focus stays wherever the browser leaves it (20.12).
+ */
+export function rerender(container: Element, ...children: Child[]): void {
+  const active = document.activeElement;
+  const focused = active instanceof HTMLElement && container.contains(active) ? active : null;
+  const key = focused?.dataset["key"];
+  const id = focused?.id;
+  const caret =
+    focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement
+      ? caretOf(focused)
+      : null;
+
+  replace(container, ...children);
+
+  if (!focused) {
+    return;
+  }
+  const replacement = [...container.querySelectorAll<HTMLElement>("[data-key], [id]")].find(
+    (candidate) => (key ? candidate.dataset["key"] === key : id ? candidate.id === id : false),
+  );
+  if (!replacement) {
+    return;
+  }
+  replacement.focus({ preventScroll: true });
+  if (caret && (replacement instanceof HTMLInputElement || replacement instanceof HTMLTextAreaElement)) {
+    try {
+      replacement.setSelectionRange(caret[0], caret[1]);
+    } catch {
+      // A checkbox or a number field has no caret to restore.
+    }
+  }
+}
+
+/** Where the caret is in a text field, or null for a control that has none. */
+function caretOf(field: HTMLInputElement | HTMLTextAreaElement): [number, number] | null {
+  try {
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    return start === null || end === null ? null : [start, end];
+  } catch {
+    return null;
+  }
+}
+
 /** A document fragment, for returning several nodes from one function. */
 export function fragment(...children: Child[]): DocumentFragment {
   const result = document.createDocumentFragment();

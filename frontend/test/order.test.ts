@@ -1008,6 +1008,45 @@ describe("the order page", () => {
     expect(rendered.querySelector<HTMLElement>(".menu-items")?.hidden).toBe(true);
   });
 
+  // 20.12: folding a category or ticking a filter rebuilds the menu, which used
+  // to drop focus to the page: the toggle or the box that was just pressed was
+  // replaced and nothing put the keyboard back on it.
+  it("keeps focus on the toggle and the filter that were pressed", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    document.body.appendChild(rendered);
+    await settle();
+
+    const toggle = rendered.querySelector<HTMLButtonElement>(".category-toggle");
+    toggle?.focus();
+    toggle?.click();
+    await settle();
+    const folded = rendered.querySelector<HTMLButtonElement>(".category-toggle");
+    expect(folded).not.toBe(toggle);
+    expect(document.activeElement).toBe(folded);
+
+    const filter = rendered.querySelector<HTMLInputElement>(".filter-group input[type='checkbox']");
+    const key = filter?.dataset["key"];
+    filter?.focus();
+    filter?.click();
+    await settle();
+    const ticked = rendered.querySelector<HTMLInputElement>(`[data-key="${key ?? ""}"]`);
+    expect(ticked).not.toBe(filter);
+    expect(document.activeElement).toBe(ticked);
+
+    // Unticking the last box keeps its group open around it, so focus stays
+    // somewhere that can be seen.
+    ticked?.click();
+    await settle();
+    const unticked = rendered.querySelector<HTMLInputElement>(`[data-key="${key ?? ""}"]`);
+    expect(unticked?.closest("details")?.open).toBe(true);
+    expect(document.activeElement).toBe(unticked);
+    rendered.remove();
+  });
+
   it("offers a way to add a dish the menu is missing", async () => {
     stubServer(orderStubs(detail()));
 
@@ -1194,6 +1233,37 @@ describe("live updates on the order page", () => {
     await settle();
 
     expect(rendered.textContent).toContain(app.t.t("order.deleted"));
+  });
+
+  // 20.12: a live update rebuilds both columns, and used to drop focus to the
+  // page for everybody watching -- a keyboard user lost their place whenever
+  // somebody else ordered.
+  it("keeps focus on the control it was on through a live update", async () => {
+    stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const stream = controllable();
+    const rendered = await orderPage(app, "o1", { factory: stream.factory });
+    document.body.appendChild(rendered);
+    await settle();
+
+    const add = (): HTMLButtonElement | null =>
+      rendered.querySelector<HTMLButtonElement>(`[data-key="add:${menuItem.id}"]`);
+    const paid = (): HTMLInputElement | null =>
+      rendered.querySelector<HTMLInputElement>(`[data-key="paid:${orderItem.id}"]`);
+
+    add()?.focus();
+    stream.opened();
+    stream.fire("item.created", { id: "i2" });
+    await settle(20);
+    expect(document.activeElement).toBe(add());
+
+    paid()?.focus();
+    stream.fire("item.updated", { id: orderItem.id });
+    await settle(20);
+    expect(document.activeElement).toBe(paid());
+    rendered.remove();
   });
 
   // 20.11: logging in or out makes the stream again, and the new one has to

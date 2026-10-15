@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { button, field, input, select } from "../src/components/forms";
 import { closeAllModals, confirmDialog, openModal } from "../src/components/modal";
 import { addTile, tile, tileGrid } from "../src/components/tiles";
+import { keyed, rerender } from "../src/dom";
 import { Translator } from "../src/i18n";
 
 const t = new Translator("en");
@@ -184,5 +185,62 @@ describe("tiles", () => {
     expect(expired.querySelector(".tile-faded")).not.toBeNull();
     // Opacity is not information: the state is in the text as well.
     expect(expired.textContent).toContain("Closed");
+  });
+});
+
+// 20.12: rebuilding a region keeps the keyboard where it was.
+describe("rerender", () => {
+  it("puts focus on the replacement of the control that had it", () => {
+    const region = document.createElement("div");
+    document.body.appendChild(region);
+    const build = (): HTMLElement[] => [
+      keyed(document.createElement("button"), "first"),
+      keyed(document.createElement("button"), "second"),
+    ];
+
+    rerender(region, ...build());
+    const before = region.querySelectorAll("button")[1];
+    before?.focus();
+
+    rerender(region, ...build());
+    const after = region.querySelectorAll("button")[1];
+
+    expect(after).not.toBe(before);
+    expect(document.activeElement).toBe(after);
+    region.remove();
+  });
+
+  it("keeps the caret where it was in a text field", () => {
+    const region = document.createElement("div");
+    document.body.appendChild(region);
+    const field = (): HTMLInputElement => {
+      const input = keyed(document.createElement("input"), "name");
+      input.value = "Döner Palast";
+      return input;
+    };
+
+    rerender(region, field());
+    const before = region.querySelector("input");
+    before?.focus();
+    before?.setSelectionRange(3, 3);
+
+    rerender(region, field());
+    const after = region.querySelector("input");
+    expect(document.activeElement).toBe(after);
+    expect(after?.selectionStart).toBe(3);
+    region.remove();
+  });
+
+  it("leaves focus alone when it was outside the region", () => {
+    const region = document.createElement("div");
+    const outside = document.createElement("button");
+    document.body.append(region, outside);
+    outside.focus();
+
+    rerender(region, keyed(document.createElement("button"), "inside"));
+
+    expect(document.activeElement).toBe(outside);
+    region.remove();
+    outside.remove();
   });
 });

@@ -118,6 +118,13 @@ test.describe("the keyboard alone", () => {
 
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByText(fixture.itemName).first()).toBeVisible();
+
+    // And the keyboard is back on the Add button, ready for the next dish. The
+    // page rebuilds after an item is added, and focus used to fall to the page
+    // and start again from the top (20.12).
+    await expect
+      .poll(() => focused(page))
+      .toContain(`Add an item: ${fixture.itemName}`);
   });
 
   test("keeps Tab inside a modal and gives focus back when it closes", async ({ page, request }) => {
