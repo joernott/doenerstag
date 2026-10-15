@@ -13,7 +13,8 @@ import (
 // queryTracer logs every statement at DEBUG with its duration.
 //
 // docs/08_technologies.md puts database queries at DEBUG alongside function
-// entry. It is deliberately verbose and is a diagnostic level, not one to run
+// entry, each carrying the request_id of the request it was made for, so one
+// request can be followed through the database with a single grep. It is deliberately verbose and is a diagnostic level, not one to run
 // in production.
 type queryTracer struct {
 	logger *zerolog.Logger
@@ -59,6 +60,7 @@ func (t *queryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn,
 
 	event = event.
 		Str(logging.FieldComponent, Component).
+		Str(logging.FieldRequestID, logging.RequestIDFrom(ctx)).
 		Str("sql", state.sql).
 		Dur("duration_ms", time.Since(state.started)).
 		Int64("rows", data.CommandTag.RowsAffected())
@@ -67,6 +69,7 @@ func (t *queryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn,
 		// A failed query is worth an ERROR line rather than hiding at DEBUG.
 		t.logger.Error().
 			Str(logging.FieldComponent, Component).
+			Str(logging.FieldRequestID, logging.RequestIDFrom(ctx)).
 			Str("sql", state.sql).
 			Dur("duration_ms", time.Since(state.started)).
 			Err(data.Err).

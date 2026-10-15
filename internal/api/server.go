@@ -75,6 +75,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 
 	routerOptions := Options{
 		CORSOrigins: ParseCORSOrigins(cfg.Server.CORSAllowedOrigins),
+		Logger:      opts.Logger,
 	}
 	if opts.Assets != nil {
 		routerOptions.Assets = opts.Assets.Handler()

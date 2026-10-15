@@ -717,7 +717,7 @@ as tasks of its own.
 | ✅ 20.18 | The reset mail's subject, body, link and mail options written once, shared by the CLI and the API, whose copies had drifted | S | — |
 | ✅ 20.19 | The field validators in one file, `internal/api/fields.go`, with one message per kind of failure and limits taken from their constants | S | — |
 | ✅ 20.20 | Dead code: three cleanup functions only tests call, unused exports, two error constructors nobody uses; comments that name callers which do not exist or retell history fixed | S | — |
-| 20.21 | DEBUG logging as docs/08 specifies it: function entry with parameters and every database query with its timing, through the redaction that exists and is not yet called | M | [08](08_logging.md) |
+| ✅ 20.21 | DEBUG logging as docs/08 specifies it: function entry with parameters and every database query with its timing, through the redaction that exists and is not yet called | M | [08](08_logging.md) |
 | 20.22 | `orders.go` split along its seams: the job claims to `orderjobs.go`, `validateNewOrder` beside `validateOrderPatch`, the detail shape embedding the list shape. The restaurant handlers' duplicated detail writer made one | M | — |
 | 20.23 | Moves and renames: `classification.go` split into modifications and tags, `db/orderqueries.go` named for what it holds, the db sentinels in one file, lookups named `lookupX`; duplicated `now()`, `log()` and test helpers shared | S | — |
 | 20.24 | Frontend: one `runAction` helper for busy, try, catch and status, replacing about thirty copies, with the status line the only way an error is reported | M | [06](06_ui_ux.md) |

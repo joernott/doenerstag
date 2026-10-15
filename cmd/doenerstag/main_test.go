@@ -188,3 +188,44 @@ func nonEmptyLines(s string) []string {
 }
 
 func isWindows() bool { return os.PathSeparator == '\\' }
+
+// 20.21: the startup line at DEBUG carries the resolved configuration, and
+// carries no secret from it: every secret field in Config is tagged `log:"-"`
+// and left out, and a field merely named like one would be ***.
+func TestTheResolvedConfigurationIsLoggedWithoutItsSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "doenerstag.yaml")
+	content := "log:\n  level: DEBUG\n" +
+		"database:\n  server: db.example.invalid\n  password: Datenbank-Geheimnis\n" +
+		"session:\n  jwt_secret: JWT-Geheimnis-0123456789abcdef0123456789abcdef\n" +
+		"mail:\n  host: smtp.example.invalid\n  password: Mail-Geheimnis\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	run([]string{"update", "--config", path}, stdout, stderr)
+
+	line := ""
+	for _, candidate := range strings.Split(stdout.String(), "\n") {
+		if strings.Contains(candidate, "configuration resolved") {
+			line = candidate
+		}
+	}
+	if line == "" {
+		t.Fatalf("no startup line:\nstdout: %s\nstderr: %s", stdout, stderr)
+	}
+	for _, want := range []string{"db.example.invalid", "smtp.example.invalid"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the startup line lacks %s:\n%s", want, line)
+		}
+	}
+	for _, secret := range []string{"Datenbank-Geheimnis", "JWT-Geheimnis", "Mail-Geheimnis"} {
+		if strings.Contains(line, secret) {
+			t.Errorf("the startup line carries %s:\n%s", secret, line)
+		}
+	}
+}

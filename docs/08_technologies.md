@@ -323,13 +323,29 @@ given by `--log-file`.
 | `ERROR` | 2      | Errors that cannot be compensated for.                                             |
 | `WARN`  | 3      | Situations the application recovers from and continues processing.                 |
 | `INFO`  | 4      | All API requests, and every data-changing event. This is the audit trail.          |
-| `DEBUG` | 5      | Every function entry with its parameters, and every database query with its timing.|
+| `DEBUG` | 5      | Every API handler's entry with its parameters, every database query with its timing, and the resolved configuration at startup. |
 
 Each level also emits everything from the lower-numbered levels.
 `--log-level` accepts any casing and normalizes to upper case.
 
 DEBUG is intentionally very verbose. It is a development and incident tool, not
 a level to run in production.
+
+What DEBUG writes, precisely:
+
+- On entering an API handler, one `call` line: the handler (`func`, e.g.
+  `api.(*OrderHandlers).get`), the `route`, every path parameter, every query
+  parameter as `query.<name>`, and of a JSON body only its top-level field
+  names as `body_fields`. Values go through the redaction below.
+- For every database statement, one `query` line: the SQL text, its duration and
+  the rows it touched. The statement's arguments are never logged; every
+  statement is parameterised, so the text is fixed and the arguments are where
+  password hashes and personal data would be. A failed statement is an `ERROR`
+  line instead.
+- At startup, the resolved configuration, section by section, as
+  `configuration resolved`.
+
+Both the `call` and the `query` lines carry the `request_id`.
 
 ### Standard fields
 

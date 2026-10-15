@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/rs/zerolog"
 )
 
 // APIPrefix is the base path every endpoint lives below.
@@ -46,6 +47,10 @@ type Options struct {
 	// watch which routes the suite actually reaches. Counting operations in the
 	// OpenAPI document proves the opposite thing -- that they are described.
 	RouteServed func(RouteInfo)
+
+	// Logger receives the DEBUG line each handler writes on entry. Nil, as in
+	// most tests, logs nothing and adds nothing to a request's path.
+	Logger *zerolog.Logger
 }
 
 // Router builds the application's single router.
@@ -115,7 +120,7 @@ func NewRouter(opts Options) *Router {
 // readability; the registered path is :id.
 func (r *Router) Handle(method, path string, handler http.Handler) {
 	info := RouteInfo{Method: method, Path: path}
-	r.mux.Handler(method, APIPrefix+path, r.observe(info, handler))
+	r.mux.Handler(method, APIPrefix+path, r.observe(info, r.logEntry(info, handlerName(handler), handler)))
 	r.routes = append(r.routes, info)
 }
 
