@@ -197,11 +197,17 @@ func UpdateOrder(ctx context.Context, q Querier, id, actor uuid.UUID, in OrderUp
 	}
 
 	add("updated_by = $%d", actor)
-	args = append(args, id)
+	// F5.8 in the statement itself, not only in the handler that checked a
+	// moment earlier: an item added between that check and this write would
+	// otherwise leave an order at one restaurant holding another's food
+	// (20.14). Bound rather than appended, so the statement stays a literal.
+	args = append(args, id, in.RestaurantID != nil)
 
-	tag, err := q.Exec(ctx,
-		`UPDATE food_order SET `+strings.Join(sets, ", ")+
-			fmt.Sprintf(" WHERE id = $%d", len(args)), args...)
+	tag, err := q.Exec(ctx, `UPDATE food_order SET `+strings.Join(sets, ", ")+
+		fmt.Sprintf(` WHERE id = $%d
+		   AND (NOT $%d::boolean
+		        OR NOT EXISTS (SELECT 1 FROM order_item i WHERE i.order_id = food_order.id))`,
+			len(args)-1, len(args)), args...)
 	if err != nil {
 		if isForeignKeyViolation(err) {
 			return model.Order{}, ErrUnknownReference
@@ -209,10 +215,19 @@ func UpdateOrder(ctx context.Context, q Querier, id, actor uuid.UUID, in OrderUp
 		return model.Order{}, err
 	}
 	if tag.RowsAffected() == 0 {
+		if in.RestaurantID != nil {
+			if _, lookupErr := OrderByID(ctx, q, id); lookupErr == nil {
+				return model.Order{}, ErrRestaurantLocked
+			}
+		}
 		return model.Order{}, ErrNotFound
 	}
 	return OrderByID(ctx, q, id)
 }
+
+// ErrRestaurantLocked is returned when an order's restaurant is changed while
+// the order has items (F5.8).
+var ErrRestaurantLocked = errors.New("db: the order has items, so its restaurant is fixed")
 
 // DeleteOrder removes an order and everything below it.
 //

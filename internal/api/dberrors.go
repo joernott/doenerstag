@@ -22,6 +22,8 @@ func dbError(err error) *Error {
 		return &Error{Code: CodeNotFound}
 	case errors.Is(err, db.ErrUnknownReference):
 		return &Error{Code: CodeInvalidField, Detail: "a referenced record does not exist"}
+	case errors.Is(err, db.ErrRestaurantLocked):
+		return &Error{Code: CodeRestaurantLocked}
 	default:
 		return &Error{Code: CodeDatabaseUnavailable, Cause: err}
 	}

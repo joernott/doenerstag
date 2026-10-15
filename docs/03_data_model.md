@@ -225,7 +225,7 @@ separate address column on `restaurant`.
 | --------------- | ------------- | ---- | ----------------------------------------------------------- |
 | `id`            | `uuid`        | no   | PK, UUIDv7.                                                  |
 | `restaurant_id` | `uuid`        | no   | FK `restaurant`, `ON DELETE CASCADE`.                        |
-| `category_id`   | `uuid`        | yes  | FK `menu_category`, `ON DELETE SET NULL`.                    |
+| `category_id`   | `uuid`        | yes  | FK `(restaurant_id, category_id)` → `menu_category (restaurant_id, id)`, so the category is always one of the item's own restaurant's. `ON DELETE SET NULL (category_id)`. |
 | `external_id`   | `text`        | yes  | The restaurant's own item number, e.g. `A12`. Alphanumeric.  |
 | `name`          | `text`        | no   |                                                              |
 | `description`   | `text`        | yes  |                                                              |
@@ -505,7 +505,9 @@ Constraints:
   - Status = `active` while `now() < deadline_at`, otherwise `expired` (F5.5).
 - The copied currency / minimum value / delivery fee are snapshots. Changing the
   restaurant afterwards does not update existing orders.
-- `restaurant_id` may only be changed while the order has zero items (F5.8).
+- `restaurant_id` may only be changed while the order has zero items (F5.8). The
+  `UPDATE` carries the condition itself, so an item added between a check and
+  the write cannot slip through.
 
 Indexes: `(deadline_at)` for the overview and the `cleanup` verb,
 `(restaurant_id)`.

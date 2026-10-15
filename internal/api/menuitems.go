@@ -414,9 +414,8 @@ func (h *MenuHandlers) writeItem(w http.ResponseWriter, r *http.Request, id uuid
 // parseCategory resolves an optional category and checks it belongs to the
 // same restaurant.
 //
-// Without that check an item could be filed under another restaurant's
-// category, which would put it in the wrong menu and is not something the
-// foreign key can prevent.
+// The schema refuses another restaurant's category too, since migration 000014
+// (20.14); checking here first is what lets the answer name the field.
 func (h *MenuHandlers) parseCategory(
 	r *http.Request, restaurantID uuid.UUID, value *string,
 ) (*uuid.UUID, *Error) {
