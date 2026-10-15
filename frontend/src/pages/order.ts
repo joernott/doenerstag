@@ -1193,44 +1193,45 @@ export async function orderPage(
 
   // --- live updates --------------------------------------------------------
 
-  let stream = subscribeToOrder(
-    id,
-    {
-      onEvent: (name) => {
-        if (name === EVENT_ORDER_DELETED) {
-          // Nothing left to look at: say so and go back to the overview.
-          app.announce(t.t("order.deleted"));
-          left.replaceChildren(
-            section(order.title, el("p", { text: t.t("order.deleted") })),
-          );
-          stream.close();
-          return;
-        }
+  // One set of handlers for every subscription this page makes. The one made
+  // after logging in or out used to be a bare re-fetch, so a deleted order
+  // stayed on screen and nothing was announced (20.11).
+  const handlers = {
+    onEvent: (name: string): void => {
+      if (name === EVENT_ORDER_DELETED) {
+        // Nothing left to look at: say so and go back to the overview.
+        app.announce(t.t("order.deleted"));
+        left.replaceChildren(
+          section(orderTitle(app.language, order), el("p", { text: t.t("order.deleted") })),
+        );
+        stream.close();
+        return;
+      }
 
-        // Every other event is answered by re-fetching. The payloads carry
-        // enough to patch the DOM in place, and doing so would mean a second
-        // implementation of "what an order looks like" that could drift from
-        // the first. One fetch on a local network is cheaper than that risk.
-        void refresh().then(() => {
-          app.announce(
-            name === EVENT_ORDER_EXPIRED ? t.t("order.closed_notice") : t.t("order.live.changed"),
-          );
-        });
-      },
-      onReconnect: () => {
-        // Whatever happened while the stream was down was never delivered.
-        void refresh();
-      },
+      // Every other event is answered by re-fetching. The payloads carry
+      // enough to patch the DOM in place, and doing so would mean a second
+      // implementation of "what an order looks like" that could drift from
+      // the first. One fetch on a local network is cheaper than that risk.
+      void refresh().then(() => {
+        app.announce(
+          name === EVENT_ORDER_EXPIRED ? t.t("order.closed_notice") : t.t("order.live.changed"),
+        );
+      });
     },
-    factory,
-  );
+    onReconnect: (): void => {
+      // Whatever happened while the stream was down was never delivered.
+      void refresh();
+    },
+  };
+
+  let stream = subscribeToOrder(id, handlers, factory);
 
   // Logging in or out changes what the stream is allowed to send, so the
   // subscription is made again -- and the page is re-fetched, because the shape
   // of the answer changes too.
   const unsubscribe = app.session.subscribe(() => {
     stream.close();
-    stream = subscribeToOrder(id, { onEvent: () => void refresh(), onReconnect: () => void refresh() }, factory);
+    stream = subscribeToOrder(id, handlers, factory);
     void refresh();
   });
 

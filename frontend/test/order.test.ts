@@ -1096,19 +1096,27 @@ describe("live updates on the order page", () => {
     fire: (name: string, data: unknown) => void;
     opened: () => void;
   } {
-    const listeners = new Map<string, ((event: Event) => void)[]>();
-    const factory = (): EventSource =>
-      ({
+    // Each source has listeners of its own, and closing it silences them, as a
+    // real EventSource does. Shared listeners let a closed subscription go on
+    // answering events and hid that its replacement did not (20.11).
+    const sources: Map<string, ((event: Event) => void)[]>[] = [];
+    const factory = (): EventSource => {
+      const listeners = new Map<string, ((event: Event) => void)[]>();
+      sources.push(listeners);
+      return {
         readyState: 1,
         addEventListener: (name: string, listener: (event: Event) => void) => {
           listeners.set(name, [...(listeners.get(name) ?? []), listener]);
         },
-        close: () => {},
-      }) as unknown as EventSource;
+        close: () => listeners.clear(),
+      } as unknown as EventSource;
+    };
 
     const deliver = (name: string, event: Event): void => {
-      for (const listener of listeners.get(name) ?? []) {
-        listener(event);
+      for (const listeners of sources) {
+        for (const listener of listeners.get(name) ?? []) {
+          listener(event);
+        }
       }
     };
 
@@ -1186,5 +1194,31 @@ describe("live updates on the order page", () => {
     await settle();
 
     expect(rendered.textContent).toContain(app.t.t("order.deleted"));
+  });
+
+  // 20.11: logging in or out makes the stream again, and the new one has to
+  // answer the same way. It was made with a bare re-fetch: a deleted order
+  // stayed on screen and no change was announced. The heading of a deleted
+  // order is the local-time title, which 19.1 missed here.
+  it("still handles a deleted order after logging in on the page", async () => {
+    const when = "2026-09-10T10:30:00Z";
+    stubServer(orderStubs(detail({ title: "Pinar Kebap — server time", fulfilment_at: when })));
+
+    const app = mountApp(() => []);
+    const stream = controllable();
+    const rendered = await orderPage(app, "o1", { factory: stream.factory });
+    await settle();
+
+    loggedIn(app);
+    await settle(20);
+
+    stream.opened();
+    stream.fire("order.deleted", { id: "o1" });
+    await settle();
+
+    expect(rendered.textContent).toContain(app.t.t("order.deleted"));
+    expect(document.getElementById("live-region")?.textContent).toBe(app.t.t("order.deleted"));
+    expect(rendered.textContent).toContain(`Pinar Kebap — ${formatDateTime(app.language, when)}`);
+    expect(rendered.textContent).not.toContain("server time");
   });
 });
