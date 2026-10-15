@@ -9,7 +9,7 @@ import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
-import { button, field, input, textarea } from "../components/forms";
+import { button, field, fieldError, input, textarea } from "../components/forms";
 import { passwordField } from "../components/password";
 import { dialogHint, openFormDialog } from "../components/formdialog";
 import { actions, page, runAction, section, statusLine } from "./page";
@@ -242,6 +242,7 @@ export async function usersPage(app: App): Promise<HTMLElement> {
     }
 
     const typed = input({ autocomplete: "off" });
+    const mismatch = fieldError(typed);
 
     const lines = [
       impact.active_items > 0
@@ -267,14 +268,15 @@ export async function usersPage(app: App): Promise<HTMLElement> {
         lines.length > 0
           ? el("ul", { class: "impact" }, ...lines.map((line) => el("li", { text: line })))
           : el("p", { class: "muted", text: t.t("account.delete.impact.none") }),
-        field({ label: t.t("admin.confirm_name"), control: typed }),
+        field({ label: t.t("admin.confirm_name"), control: typed, error: mismatch }),
       ],
-      onSubmit: async (dialog) => {
+      onSubmit: async () => {
         if (typed.value.trim() !== user.name) {
-          dialog.status.fail(t.t("admin.name_mismatch"));
+          mismatch.set(t.t("admin.name_mismatch"));
           typed.focus();
           return false;
         }
+        mismatch.clear();
         await api.delete(`/users/${user.id}`);
         return true;
       },

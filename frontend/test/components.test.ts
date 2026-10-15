@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { button, field, input, select } from "../src/components/forms";
+import { button, field, fieldError, input, select } from "../src/components/forms";
 import { openFormDialog } from "../src/components/formdialog";
 import { closeAllModals, confirmDialog, openModal } from "../src/components/modal";
 import { addTile, tile, tileGrid } from "../src/components/tiles";
@@ -133,13 +133,29 @@ describe("form controls", () => {
     expect(control.getAttribute("aria-describedby")).toBe(`${control.id}-hint`);
   });
 
-  it("marks an invalid control and announces the reason", () => {
+  // 20.27: an error appears and goes with the value, and while it is there the
+  // control says so and is described by it, alongside any hint it already had.
+  it("marks an invalid control and announces the reason, and takes both back", () => {
     const control = input({ name: "name" });
-    const rendered = field({ label: "Name", control, error: "That name is taken." });
+    const error = fieldError(control);
+    const rendered = field({ label: "Name", control, hint: "As on the menu.", error });
+    const hint = `${control.id}-hint`;
+    const errorId = `${control.id}-error`;
 
+    expect(control.getAttribute("aria-invalid")).toBeNull();
+    expect(control.getAttribute("aria-describedby")).toBe(hint);
+
+    error.set("That name is taken.");
     expect(control.getAttribute("aria-invalid")).toBe("true");
-    expect(control.getAttribute("aria-describedby")).toBe(`${control.id}-error`);
-    expect(rendered.querySelector(".field-error")?.getAttribute("role")).toBe("alert");
+    expect(control.getAttribute("aria-describedby")).toBe(`${hint} ${errorId}`);
+    const message = rendered.querySelector<HTMLElement>(".field-error");
+    expect(message?.getAttribute("role")).toBe("alert");
+    expect(message?.textContent).toBe("That name is taken.");
+
+    error.clear();
+    expect(control.getAttribute("aria-invalid")).toBeNull();
+    expect(control.getAttribute("aria-describedby")).toBe(hint);
+    expect(message?.hidden).toBe(true);
   });
 
   it("explains a disabled control rather than leaving it a mystery", () => {

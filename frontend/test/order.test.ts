@@ -351,6 +351,14 @@ describe("creating an order", () => {
     deadline.dispatchEvent(new Event("input"));
 
     expect(rendered.textContent).toContain(app.t.t("order.deadline_before_fulfilment"));
+    // And tied to the field it is about (20.27): a screen reader on the
+    // deadline hears what is wrong with it.
+    expect(deadline.getAttribute("aria-invalid")).toBe("true");
+    const describedBy = (deadline.getAttribute("aria-describedby") ?? "").split(" ");
+    const message = describedBy
+      .map((id) => document.getElementById(id) ?? rendered.querySelector(`#${id}`))
+      .find((node) => node?.classList.contains("field-error"));
+    expect(message?.textContent).toBe(app.t.t("order.deadline_before_fulfilment"));
 
     rendered.querySelector("form")?.dispatchEvent(new Event("submit"));
     await settle();

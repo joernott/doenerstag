@@ -29,7 +29,7 @@ import {
   moneyInputValue,
   orderTitle,
 } from "../format";
-import { button, checkbox, field, input, select, textarea } from "../components/forms";
+import { button, checkbox, field, fieldError, input, select, textarea } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
 import { openFormDialog } from "../components/formdialog";
@@ -619,6 +619,7 @@ export async function orderPage(
       value: localValue(order.fulfilment_at),
     });
     const deadlineAt = input({ type: "datetime-local", value: localValue(order.deadline_at) });
+    const deadlineProblem = fieldError(deadlineAt);
     const choices = accountChoices(accounts, t.t("order.nobody"));
     const moneyCollector = select(choices, { value: own.money_collector_id ?? "" });
     const pickupPerson = select(choices, { value: own.pickup_person_id ?? "" });
@@ -638,7 +639,7 @@ export async function orderPage(
       fields: [
         field({ label: t.t("order.fulfilment.type"), control: fulfilment }),
         field({ label: t.t("order.fulfilment.label"), control: fulfilmentAt }),
-        field({ label: t.t("order.deadline.label"), control: deadlineAt }),
+        field({ label: t.t("order.deadline.label"), control: deadlineAt, error: deadlineProblem }),
         restaurantNote,
         field({
           label: t.t("order.money_collector"),
@@ -651,13 +652,15 @@ export async function orderPage(
           optionalLabel: t.t("auth.optional"),
         }),
       ],
-      onSubmit: async (dialog) => {
+      onSubmit: async () => {
         const fulfils = new Date(fulfilmentAt.value);
         const closes = new Date(deadlineAt.value);
         if (Number.isNaN(fulfils.getTime()) || closes.getTime() >= fulfils.getTime()) {
-          dialog.status.fail(t.t("order.deadline_before_fulfilment"));
+          deadlineProblem.set(t.t("order.deadline_before_fulfilment"));
+          deadlineAt.focus();
           return false;
         }
+        deadlineProblem.clear();
         await api.patch(`/orders/${id}`, {
           fulfilment: fulfilment.value,
           fulfilment_at: fulfils.toISOString(),

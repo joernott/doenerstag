@@ -8,7 +8,7 @@ import { api, errorMessage, type SessionUser } from "../api";
 import { NAME_COOKIE, readCookie, writeCookie } from "../cookies";
 import { el, type Child } from "../dom";
 import { formatDateTime } from "../format";
-import { button, field, form, input } from "../components/forms";
+import { button, field, fieldError, form, input } from "../components/forms";
 import { dirtyTracker, saveAllButton, type EditableSection } from "../components/editable";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog, openModal } from "../components/modal";
@@ -602,6 +602,7 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
 
   function openDeleteModal(impact: DeletionImpact): void {
     const typed = input({ name: "confirm_name", autocomplete: "off" });
+    const mismatch = fieldError(typed);
 
     openFormDialog({
       t,
@@ -613,14 +614,15 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
       fields: [
         el("p", { text: t.t("account.delete.intro") }),
         impactList(impact),
-        field({ label: t.t("account.delete.confirm_name"), control: typed }),
+        field({ label: t.t("account.delete.confirm_name"), control: typed, error: mismatch }),
       ],
-      onSubmit: async (dialog) => {
+      onSubmit: async () => {
         if (typed.value.trim() !== user.name) {
-          dialog.status.fail(t.t("account.delete.name_mismatch"));
+          mismatch.set(t.t("account.delete.name_mismatch"));
           typed.focus();
           return false;
         }
+        mismatch.clear();
         await api.delete(`/users/${user.id}`);
         return true;
       },
@@ -680,6 +682,7 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
 function forgottenPasswordDialog(app: App, prefill: string): void {
   const { t } = app;
   const who = input({ name: "name", autocomplete: "username", required: true, value: prefill });
+  const missing = fieldError(who);
 
   openFormDialog({
     t,
@@ -688,15 +691,16 @@ function forgottenPasswordDialog(app: App, prefill: string): void {
     focus: who,
     fields: [
       el("p", { text: t.t("auth.forgot_password_explain") }),
-      field({ label: t.t("auth.name_or_email"), control: who }),
+      field({ label: t.t("auth.name_or_email"), control: who, error: missing }),
     ],
-    onSubmit: async (dialog) => {
+    onSubmit: async () => {
       const value = who.value.trim();
       if (!value) {
-        dialog.status.fail(t.t("auth.name_or_email_required"));
+        missing.set(t.t("auth.name_or_email_required"));
         who.focus();
         return false;
       }
+      missing.clear();
       await api.post("/auth/password-reset", { name: value });
       return true;
     },

@@ -13,7 +13,7 @@ import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
-import { button, field, form, input, select } from "../components/forms";
+import { button, field, fieldError, form, input, select } from "../components/forms";
 import { isOpen } from "../openinghours";
 import { actions, page, runAction, section, statusLine } from "./page";
 import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
@@ -102,7 +102,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
   const moneyCollector = select(people, { name: "money_collector_id" });
   const pickupPerson = select(people, { name: "pickup_person_id" });
 
-  const deadlineProblem = el("p", { class: "field-error", role: "alert" });
+  const deadlineProblem = fieldError(deadlineAt);
   const hoursWarning = el("p", { class: "field-hint" });
 
   // The opening hours of whichever restaurant is selected, for the warning.
@@ -130,11 +130,13 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
     const ordered = known && closes.getTime() < fulfils.getTime();
     const future = known && closes.getTime() > Date.now();
 
-    deadlineProblem.textContent = !ordered
-      ? t.t("order.deadline_before_fulfilment")
-      : future
-        ? ""
-        : t.t("error.1014");
+    if (!ordered) {
+      deadlineProblem.set(t.t("order.deadline_before_fulfilment"));
+    } else if (!future) {
+      deadlineProblem.set(t.t("error.1014"));
+    } else {
+      deadlineProblem.clear();
+    }
 
     // F5.4: a warning, never a refusal.
     hoursWarning.textContent =
@@ -188,8 +190,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
         field({ label: t.t("order.fulfilment.type"), control: fulfilment }),
         field({ label: t.t("order.fulfilment.label"), control: fulfilmentAt }),
         hoursWarning,
-        field({ label: t.t("order.deadline.label"), control: deadlineAt }),
-        deadlineProblem,
+        field({ label: t.t("order.deadline.label"), control: deadlineAt, error: deadlineProblem }),
         field({
           label: t.t("order.money_collector"),
           control: moneyCollector,

@@ -21,8 +21,11 @@ export interface FieldOptions {
   control: HTMLElement;
   /** A hint below the control: a password rule, a format. */
   hint?: string;
-  /** An error message. Announced, and bound to the control. */
-  error?: string;
+  /**
+   * Where this field's errors appear: a fieldError for the same control,
+   * placed in the field so the message sits under what it is about.
+   */
+  error?: FieldError;
   /** Marks the field optional in the label, per the catalog's wording. */
   optionalLabel?: string;
 }
@@ -49,16 +52,11 @@ export function field(options: FieldOptions): HTMLElement {
     described.push(hintId);
     parts.push(el("p", { class: "field-hint", id: hintId, text: options.hint }));
   }
-  if (options.error) {
-    const errorId = `${control.id}-error`;
-    described.push(errorId);
-    control.setAttribute("aria-invalid", "true");
-    parts.push(
-      el("p", { class: "field-error", id: errorId, role: "alert", text: options.error }),
-    );
-  }
   if (described.length > 0) {
     control.setAttribute("aria-describedby", described.join(" "));
+  }
+  if (options.error) {
+    parts.push(options.error.element);
   }
 
   return el("div", { class: "field" }, ...parts);
@@ -233,7 +231,52 @@ export function form(onSubmit: () => void, ...children: Child[]): HTMLFormElemen
   return element;
 }
 
-/** A form-level error, announced when it appears. */
-export function formError(message: string): HTMLElement {
-  return el("p", { class: "form-error", role: "alert", text: message });
+
+/** A field's error message, which can appear and go as the value changes. */
+export interface FieldError {
+  readonly element: HTMLElement;
+  /** Shows the message, and tells assistive technology the field is invalid. */
+  set(message: string): void;
+  clear(): void;
+}
+
+/**
+ * The error for one control, tied to it as docs/06_ui_ux.md requires: the
+ * message is announced, the control is marked invalid, and the message is in
+ * its aria-describedby, so a screen reader on the field hears what is wrong
+ * with it rather than an alert from somewhere on the page (20.27). Pass it to
+ * field() as `error` so it appears under the control.
+ */
+export function fieldError(control: HTMLElement): FieldError {
+  if (!control.id) {
+    control.id = fieldId();
+  }
+  const id = `${control.id}-error`;
+  const element = el("p", { class: "field-error", id, role: "alert", hidden: true });
+
+  const describedBy = (): string[] =>
+    (control.getAttribute("aria-describedby") ?? "").split(" ").filter((part) => part !== "");
+
+  return {
+    element,
+    set(message: string): void {
+      element.textContent = message;
+      element.hidden = false;
+      control.setAttribute("aria-invalid", "true");
+      if (!describedBy().includes(id)) {
+        control.setAttribute("aria-describedby", [...describedBy(), id].join(" "));
+      }
+    },
+    clear(): void {
+      element.textContent = "";
+      element.hidden = true;
+      control.removeAttribute("aria-invalid");
+      const rest = describedBy().filter((part) => part !== id);
+      if (rest.length > 0) {
+        control.setAttribute("aria-describedby", rest.join(" "));
+      } else {
+        control.removeAttribute("aria-describedby");
+      }
+    },
+  };
 }
