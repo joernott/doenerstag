@@ -237,46 +237,6 @@ func TestRevokedTokenNoLongerAuthenticates(t *testing.T) {
 	}
 }
 
-func TestExpiredTokensAreCollected(t *testing.T) {
-	pool := testdb.Migrated(t)
-	ctx := context.Background()
-	u := newUser(t, pool, "Gerd")
-
-	past := time.Now().Add(-time.Hour)
-	expired, err := auth.GenerateAPIToken()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.CreateAPIToken(ctx, pool, db.NewAPIToken{
-		UserID: u.ID, Name: "old", Hash: expired.Hash, Prefix: expired.Prefix,
-		ExpiresAt: &past,
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	live, err := auth.GenerateAPIToken()
-	if err != nil {
-		t.Fatal(err)
-	}
-	kept, err := db.CreateAPIToken(ctx, pool, db.NewAPIToken{
-		UserID: u.ID, Name: "current", Hash: live.Hash, Prefix: live.Prefix,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	removed, err := db.DeleteExpiredAPITokens(ctx, pool, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if removed != 1 {
-		t.Errorf("collected %d tokens, want 1", removed)
-	}
-	if _, err := db.APITokenByID(ctx, pool, kept.ID); err != nil {
-		t.Errorf("a token with no expiry was collected: %v", err)
-	}
-}
-
 func TestDeletingAUserRemovesTheirTokens(t *testing.T) {
 	pool := testdb.Migrated(t)
 	ctx := context.Background()

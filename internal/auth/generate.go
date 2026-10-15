@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"math/big"
 )
 
@@ -105,19 +104,4 @@ func shuffle(runes []rune) error {
 		runes[i], runes[j.Int64()] = runes[j.Int64()], runes[i]
 	}
 	return nil
-}
-
-// GenerateResetToken returns the identifier that appears in a password reset
-// link.
-//
-// It is the secret: anybody holding it can set the password of the account it
-// belongs to, so it is generated the same way a session secret is and is long
-// enough that guessing is not a strategy. base64url, so it survives being a
-// path segment in a mail client that has reformatted the message.
-func GenerateResetToken() (string, error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
 }

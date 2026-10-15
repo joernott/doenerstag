@@ -18,10 +18,6 @@ import (
 )
 
 // Field limits, matching migration 000007.
-//
-// The two 200-character limits that were here went with the columns: who
-// collects the money and who fetches the food are accounts now, and an account
-// reference is either a real one or nothing.
 const (
 	MaxOrderNoteLength   = 500
 	MaxOrderItemQuantity = 99
@@ -111,10 +107,10 @@ type orderHeaderBody struct {
 	// creator lives on orderDetailBody, which only an authenticated caller
 	// receives. See docs/adr/0011-tiered-order-visibility.md.
 
-	// Neither is the money collector nor the person fetching the food. They
-	// were free text here until sprint 17 made them accounts, and an account is
-	// a named person: the same rule that keeps the creator out of this struct
-	// keeps them out of it. They are on orderDetailBody.
+	// Neither is the money collector nor the person fetching the food: both are
+	// accounts, and an account is a named person, so the rule that keeps the
+	// creator out of this struct keeps them out of it. They are on
+	// orderDetailBody.
 
 	CurrencyCode       string `json:"currency_code"`
 	MinOrderValueCents *int64 `json:"min_order_value_cents"`

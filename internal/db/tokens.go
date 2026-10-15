@@ -149,15 +149,3 @@ func DeleteAPIToken(ctx context.Context, q Querier, id uuid.UUID) error {
 	}
 	return nil
 }
-
-// DeleteExpiredAPITokens removes tokens past their expiry date, for the cleanup
-// verb. As with sessions, expiry is enforced on use as well.
-func DeleteExpiredAPITokens(ctx context.Context, q Querier, now time.Time) (int64, error) {
-	tag, err := q.Exec(ctx,
-		`DELETE FROM api_token WHERE expires_at IS NOT NULL AND expires_at <= $1`,
-		at(now))
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}

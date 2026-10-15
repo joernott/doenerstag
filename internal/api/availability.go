@@ -67,7 +67,7 @@ func clockString(minutes int) *string {
 	return &value
 }
 
-// Register adds the availability routes to the menu handlers.
+// registerAvailability adds the availability routes to the menu handlers.
 func (h *MenuHandlers) registerAvailability(r *Router) {
 	r.HandleFunc(http.MethodGet, "/restaurants/:id/availability", h.listAvailability)
 	r.HandleFunc(http.MethodPost, "/restaurants/:id/availability", h.createAvailability)
@@ -113,8 +113,8 @@ type availabilityRequest struct {
 	raw       rawPatch `json:"-"`
 }
 
-// validated is what a request means once it has been checked: nil pointers for
-// absent fields, and values that the schema will accept.
+// validatedAvailability is what a request means once it has been checked: nil
+// pointers for absent fields, and values that the schema will accept.
 type validatedAvailability struct {
 	name      string
 	onDate    *time.Time

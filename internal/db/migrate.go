@@ -100,15 +100,6 @@ func (m *Migrator) Down() error {
 	return nil
 }
 
-// Migrate moves the schema to an exact version, in either direction.
-func (m *Migrator) Migrate(version uint) error {
-	err := m.m.Migrate(version)
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("migrating to version %d: %w", version, err)
-	}
-	return nil
-}
-
 // Steps applies n migrations forward, or -n backwards.
 func (m *Migrator) Steps(n int) error {
 	err := m.m.Steps(n)

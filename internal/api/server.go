@@ -213,10 +213,6 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	return s, nil
 }
 
-// Handler exposes the fully wrapped handler, so a test can drive the whole
-// chain through httptest without binding a port.
-func (s *Server) Handler() http.Handler { return s.http.Handler }
-
 // Routes lists the API routes this server serves.
 //
 // Exported so the OpenAPI test can compare the document against the routes the
@@ -224,9 +220,6 @@ func (s *Server) Handler() http.Handler { return s.http.Handler }
 // keeps up to date by hand -- which is what it did, and which is how the
 // document came to describe four endpoints out of sixty.
 func (s *Server) Routes() []RouteInfo { return s.routes }
-
-// Addr is the address the server listens on.
-func (s *Server) Addr() string { return s.http.Addr }
 
 // StartupChecks are the five things that must hold before the server begins
 // listening, per docs/09_configuration.md.

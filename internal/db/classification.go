@@ -194,21 +194,6 @@ func CreateTag(ctx context.Context, q Querier, code, name string, actor uuid.UUI
 	return t, err
 }
 
-// TagByCode reads one tag.
-func TagByCode(ctx context.Context, q Querier, code string) (model.Tag, error) {
-	var t model.Tag
-	err := q.QueryRow(ctx,
-		`SELECT id, code, name, sort_order FROM tag WHERE code = $1`, code).
-		Scan(&t.ID, &t.Code, &t.Name, &t.SortOrder)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.Tag{}, ErrNotFound
-		}
-		return model.Tag{}, err
-	}
-	return t, nil
-}
-
 // ListAllergens returns the seeded Annex II list. Read-only.
 func ListAllergens(ctx context.Context, q Querier) ([]model.Allergen, error) {
 	rows, err := q.Query(ctx,

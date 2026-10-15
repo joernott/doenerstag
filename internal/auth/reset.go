@@ -133,11 +133,6 @@ func (s *ResetSigner) ParseReset(token string, now time.Time) (user uuid.UUID, i
 	return parsed, tokenIdentity(token), nil
 }
 
-// ResetExpiry reports when a token stops working, for a caller that wants to
-// say so. It does not validate the signature and must not be used to decide
-// anything.
-func ResetExpiry(issuedAt time.Time) time.Time { return issuedAt.Add(ResetLifetime) }
-
 func (s *ResetSigner) sign(encoded string) string {
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(resetPurpose))

@@ -215,17 +215,6 @@ func Errorf(code Code, format string, args ...any) *Error {
 	return &Error{Code: code, Detail: fmt.Sprintf(format, args...)}
 }
 
-// Newf is Errorf with a wrapped cause, for a failure worth logging in full but
-// not worth describing to the client.
-func Newf(code Code, cause error, format string, args ...any) *Error {
-	return &Error{Code: code, Detail: fmt.Sprintf(format, args...), Cause: cause}
-}
-
-// FieldError builds a validation error naming the offending field.
-func FieldError(code Code, field, format string, args ...any) *Error {
-	return &Error{Code: code, Field: field, Detail: fmt.Sprintf(format, args...)}
-}
-
 // envelope is the wire format from docs/04_api.md.
 type envelope struct {
 	Error envelopeBody `json:"error"`

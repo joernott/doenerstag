@@ -104,29 +104,3 @@ func TestGeneratedPasswordsDiffer(t *testing.T) {
 		seen[password] = true
 	}
 }
-
-// The reset token is the secret in a password reset link: anybody holding it
-// can set the password of the account it belongs to.
-func TestResetTokensAreLongUniqueAndURLSafe(t *testing.T) {
-	seen := map[string]bool{}
-	for range 500 {
-		token, err := auth.GenerateResetToken()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if seen[token] {
-			t.Fatalf("generated the reset token %q twice", token)
-		}
-		seen[token] = true
-
-		// 32 bytes as base64url without padding.
-		if len(token) != 43 {
-			t.Fatalf("token %q is %d characters, want 43", token, len(token))
-		}
-		// It goes in a URL path, and a mail client will have had its way with
-		// the message before anybody clicks it.
-		if strings.ContainsAny(token, "+/=?&#% ") {
-			t.Fatalf("token %q contains a character that does not survive a URL", token)
-		}
-	}
-}

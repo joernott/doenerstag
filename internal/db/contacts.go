@@ -159,12 +159,3 @@ func DeleteContact(ctx context.Context, q Querier, id uuid.UUID) error {
 	}
 	return ErrNotFound
 }
-
-// CountContacts is how many a restaurant has.
-func CountContacts(ctx context.Context, q Querier, restaurantID uuid.UUID) (int, error) {
-	var count int
-	err := q.QueryRow(ctx,
-		`SELECT count(*) FROM restaurant_contact WHERE restaurant_id = $1`,
-		restaurantID).Scan(&count)
-	return count, err
-}
