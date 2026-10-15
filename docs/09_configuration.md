@@ -250,7 +250,9 @@ Order of operations, each in its own transaction:
    `order_item`.
 4. Physically delete soft-deleted `menu_category` and `restaurant` rows no
    longer referenced by anything.
-5. Delete `image` rows referenced by no restaurant and no menu item.
+5. Delete `image` rows referenced by no restaurant and no menu item and
+   uploaded more than a day ago. Attaching a picture is two requests, the upload
+   and the change that names it, and an image is unreferenced in between.
 6. Delete `session` rows past their idle or absolute expiry, and `api_token`
    rows past their expiry.
 
