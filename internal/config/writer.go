@@ -389,6 +389,14 @@ func WriteFile(path, content string) error {
 		return fmt.Errorf("closing %s: %w", tempName, err)
 	}
 
+	// A file that already exists keeps its owner and group. Without this a
+	// root-run update left the service unable to read its own configuration.
+	if existing, statErr := os.Stat(path); statErr == nil {
+		if err := keepOwner(existing, tempName); err != nil {
+			return fmt.Errorf("keeping the owner of %s: %w", path, err)
+		}
+	}
+
 	if err := os.Rename(tempName, path); err != nil {
 		return fmt.Errorf("replacing %s: %w", path, err)
 	}

@@ -500,7 +500,9 @@ it names, so `update` is run as `root` or with `sudo -u doenerstag`. Run as
 somebody else it stops at the configuration file, which is the security rule
 doing its job. It no longer stops at the **log** file: an administrative verb
 that cannot write the log warns and writes to standard error instead, because
-refusing to migrate a database over a log line helps nobody.
+refusing to migrate a database over a log line helps nobody. Whoever runs it, the
+rewritten file keeps the owner and group it had, so the service can still read
+it afterwards.
 
 Plain binary:
 
