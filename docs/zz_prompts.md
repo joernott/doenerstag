@@ -1190,3 +1190,16 @@ recorded on the branch of the sprint it belongs to.
 > -Review the UI code and enhance readability. Think about using a framework
 >   like vue.js to determine if that can minimize the amount of own code. Then
 >   discuss your findings with me.
+
+---
+
+### Prompt 79
+
+> My decisions:
+> 1: Yes, please fix the bugs first
+> 2: eMail addresses can be shared, e.g. I will use the same address for root
+>    and my personal account. Users who decide to share email addresses, decide
+>    that conciously
+> 3: I agreeto do the helper work instead
+> 4: Please wire it in
+> 5: I'll follow your suggestion there
