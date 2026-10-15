@@ -590,3 +590,23 @@ func (m *menuFixture) readCategories() []categoryResponse {
 	decode(m.t, rec, &body)
 	return body.Categories
 }
+
+// 20.8: naming an image that does not exist is the caller's mistake about that
+// image, 1002 -- not "404", which says the restaurant or the dish being changed
+// is missing when it is right there. Creating already answered 1002; changing
+// answered 404, because the db layer used one sentinel for both.
+func TestAnUnknownImageIsABadReferenceNotAMissingRow(t *testing.T) {
+	m := newMenuFixture(t)
+	item := m.addItem(map[string]any{"name": "Döner", "price_cents": 950})
+	unknown := "01900000-0000-7000-8000-000000000000"
+
+	restaurant := m.patch(m.menuPath(""), map[string]any{"logo_image_id": unknown}, m.cookies...)
+	expectError(t, restaurant, http.StatusBadRequest, api.CodeInvalidField)
+
+	dish := m.patch(m.menuPath("/menu-items/"+item.ID), map[string]any{"image_id": unknown}, m.cookies...)
+	expectError(t, dish, http.StatusBadRequest, api.CodeInvalidField)
+
+	created := m.post(m.menuPath("/menu-items"),
+		map[string]any{"name": "Lahmacun", "price_cents": 700, "image_id": unknown}, m.cookies...)
+	expectError(t, created, http.StatusBadRequest, api.CodeInvalidField)
+}

@@ -104,8 +104,8 @@ export function moneyFormatOf(currencies: readonly Currency[], code: string): Mo
   return {
     digits: currency.minor_unit,
     // An installation whose reference data predates the column sends no ratio
-    // at all. Ten to the power of the digits is what this used to assume, and
-    // it is right for every currency that installation can name.
+    // at all. Ten to the power of the digits is right for every currency that
+    // installation can name.
     perMajor: currency.minor_per_major ?? 10 ** currency.minor_unit,
   };
 }

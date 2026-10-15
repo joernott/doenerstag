@@ -32,13 +32,6 @@ type MenuItemFilter struct {
 	Available *bool
 }
 
-// Empty reports whether the filter selects everything.
-func (f MenuItemFilter) Empty() bool {
-	return len(f.CategoryIDs) == 0 && len(f.TagCodes) == 0 &&
-		len(f.ExcludeAllergenCodes) == 0 && len(f.ExcludeAdditiveCodes) == 0 &&
-		f.Available == nil
-}
-
 // ListMenuItems returns a restaurant's living items in F4.6 order.
 //
 // The classification is loaded in three further queries rather than by joining

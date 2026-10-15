@@ -5,6 +5,8 @@
 // can render one restaurant's prices while the interface is in another
 // language. See docs/07_i18n.md.
 
+import type { Translator } from "./i18n";
+
 /**
  * How a currency is written and how it divides.
  *
@@ -71,15 +73,6 @@ export function formatDate(locale: string, value: Date | string): string {
     cached(`d:${locale}`, () => new Intl.DateTimeFormat(locale, { dateStyle: "medium" })).format(
       date,
     )
-  );
-}
-
-/** Formats a time. The locale decides 12- or 24-hour, not this code. */
-export function formatTime(locale: string, value: Date | string): string {
-  const date = toDate(value);
-  return (
-    unformattable(value, date) ??
-    cached(`t:${locale}`, () => new Intl.DateTimeFormat(locale, { timeStyle: "short" })).format(date)
   );
 }
 
@@ -358,4 +351,22 @@ export function formatBytes(locale: string, bytes: number): string {
     return `${formatNumber(locale, Math.round(bytes / kib))} KiB`;
   }
   return `${formatNumber(locale, bytes)} B`;
+}
+
+/**
+ * A `datetime-local` input's value for a moment, in the viewer's own time
+ * zone, for the order page and the order form alike.
+ */
+export function localInputValue(value: Date | string): string {
+  const date = toDate(value);
+  const pad = (part: number): string => String(part).padStart(2, "0");
+  return (
+    `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+/** "Pickup" or "Delivery", as an order's fulfilment is shown everywhere. */
+export function fulfilmentLabel(t: Translator, fulfilment: string): string {
+  return t.t(fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup");
 }

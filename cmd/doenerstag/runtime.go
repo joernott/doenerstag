@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
 	"github.com/joernott/doenerstag/internal/config"
@@ -105,11 +106,25 @@ func (a *appContext) setup(cmd *cobra.Command, scope config.Scope) error {
 	startup := logger.Component("startup")
 	event := startup.Debug()
 	if event.Enabled() {
-		event.
+		event = event.
 			Str("verb", cmd.Name()).
 			Str("config_file", configFileForLog(cfg)).
-			Str("log_level", cfg.Log.Level.String()).
-			Msg("configuration resolved")
+			Str("log_level", cfg.Log.Level.String())
+		// What the server actually runs with, section by section, through the
+		// redaction docs/08 specifies: a `log:"-"` field is left out and a field
+		// named like a secret is ***, so the line can be pasted into a bug
+		// report (20.21).
+		for _, section := range []struct {
+			name  string
+			value any
+		}{
+			{"database", cfg.Database}, {"server", cfg.Server}, {"session", cfg.Session},
+			{"mail", cfg.Mail}, {"cleanup", cfg.Cleanup},
+		} {
+			event = event.Dict(section.name,
+				logging.AddFields(zerolog.Dict(), logging.RedactStruct(section.value)))
+		}
+		event.Msg("configuration resolved")
 	}
 	if config.SkipPermissionCheck() {
 		startup.Debug().Msg(

@@ -109,16 +109,21 @@ func Cleanup(ctx context.Context, pool Pool, retention time.Duration, now time.T
 			           AND NOT EXISTS (SELECT 1 FROM menu_category c WHERE c.restaurant_id = r.id)`,
 			args: func() []any { return nil },
 		},
-		// 5. Images no restaurant and no menu item points at.
+		// 5. Images no restaurant and no menu item points at, uploaded more than
+		//    a day ago. Attaching a picture is two requests -- upload, then the
+		//    PATCH that names it -- and a run between them deleted the upload
+		//    and failed the PATCH (20.6). Nothing is attached a day later.
 		{
 			object: "images",
 			count: `SELECT count(*) FROM image i
-			        WHERE NOT EXISTS (SELECT 1 FROM restaurant r WHERE r.logo_image_id = i.id)
+			        WHERE i.created_at < $1
+			          AND NOT EXISTS (SELECT 1 FROM restaurant r WHERE r.logo_image_id = i.id)
 			          AND NOT EXISTS (SELECT 1 FROM menu_item m WHERE m.image_id = i.id)`,
 			delete: `DELETE FROM image i
-			         WHERE NOT EXISTS (SELECT 1 FROM restaurant r WHERE r.logo_image_id = i.id)
+			         WHERE i.created_at < $1
+			           AND NOT EXISTS (SELECT 1 FROM restaurant r WHERE r.logo_image_id = i.id)
 			           AND NOT EXISTS (SELECT 1 FROM menu_item m WHERE m.image_id = i.id)`,
-			args: func() []any { return nil },
+			args: func() []any { return []any{at(now).Add(-imageGrace)} },
 		},
 		// 6a. Sessions past their absolute or idle expiry.
 		{
@@ -161,6 +166,13 @@ func Cleanup(ctx context.Context, pool Pool, retention time.Duration, now time.T
 // security control; collecting rows the instant they lapse would mean a
 // cleanup run racing a user who is about to come back to their laptop.
 const idleCleanupWindow = 30 * 24 * time.Hour
+
+// imageGrace is how long an unreferenced image is kept after its upload.
+//
+// An upload and the request that attaches it are two requests, and the image
+// is unreferenced in between. A day is far longer than that gap, and far
+// shorter than anybody would mind an abandoned upload lingering.
+const imageGrace = 24 * time.Hour
 
 // runCleanupStep counts, and deletes unless this is a dry run.
 //

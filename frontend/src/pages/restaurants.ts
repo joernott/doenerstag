@@ -1,20 +1,15 @@
 // The restaurant overview: a grid of tiles, the first of which creates one.
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { el } from "../dom";
 import { logoMark } from "../logo";
 import { thumbnailURL } from "../components/images";
 import { addTile, tile, tileGrid } from "../components/tiles";
 import { isOpen } from "../openinghours";
-import { overviewPage, page } from "./page";
-import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-  opening_hours: OpeningPeriod[];
-}
+import { failedPage, overviewPage } from "./page";
+import type { Contact, Restaurant, RestaurantDetail } from "../types";
 
 /** What one tile shows, gathered from the three endpoints that hold it. */
 interface TileData {
@@ -31,7 +26,7 @@ export async function restaurantsPage(app: App): Promise<HTMLElement> {
   try {
     restaurants = await getList<Restaurant>("/restaurants", "restaurants");
   } catch (error) {
-    return page(t.t("nav.restaurants"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.restaurants"), t, error);
   }
 
   // Alphabetical, and nothing else: docs/06_ui_ux.md says search and sorting do
@@ -95,8 +90,8 @@ function render(app: App, data: TileData): HTMLElement {
 /**
  * The restaurant's logo, or ours.
  *
- * A restaurant nobody has given a picture to used to get an empty dashed box,
- * which read as a missing image rather than as a restaurant. The doenerstag
+ * A restaurant nobody has given a picture to gets the doenerstag mark. An empty
+ * dashed box would read as a missing image rather than as a restaurant; the
  * mark says the same thing and looks deliberate.
  */
 function logo(app: App, restaurant: Restaurant): HTMLElement {

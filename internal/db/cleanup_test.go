@@ -253,7 +253,38 @@ func TestCleanupReleasesSoftDeletedMenuDataInOrder(t *testing.T) {
 	}
 }
 
+// 20.6: an upload is unreferenced until the request that attaches it, so a
+// cleanup run in between must leave it alone. One uploaded long enough ago is
+// abandoned and goes.
+func TestCleanupSparesAnUploadNotYetAttached(t *testing.T) {
+	f := newCleanupFixture(t)
+
+	fresh := f.addImageUploaded(f.now.Add(-time.Minute))
+	abandoned := f.addImage()
+
+	report, err := db.Cleanup(context.Background(), f.pool, 365*24*time.Hour, f.now, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.count("image", "id = $1", fresh) != 1 {
+		t.Error("an image uploaded a minute ago was removed before it could be attached")
+	}
+	if f.count("image", "id = $1", abandoned) != 0 {
+		t.Error("an image unreferenced for two days survived")
+	}
+	if got := stepCount(report, "images"); got != 1 {
+		t.Errorf("the report counts %d images, want the abandoned one", got)
+	}
+}
+
+// addImage seeds an image uploaded two days ago, past the grace period an
+// unreferenced upload is kept for.
 func (f *cleanupFixture) addImage() uuid.UUID {
+	f.t.Helper()
+	return f.addImageUploaded(f.now.Add(-48 * time.Hour))
+}
+
+func (f *cleanupFixture) addImageUploaded(at time.Time) uuid.UUID {
 	f.t.Helper()
 
 	id := uuid.Must(uuid.NewV7())
@@ -264,11 +295,11 @@ func (f *cleanupFixture) addImage() uuid.UUID {
 	sum := append(append([]byte{}, id[:]...), id[:]...)
 
 	if _, err := f.pool.Exec(context.Background(), `
-		INSERT INTO image (id, media_type, width, height, byte_size, data,
+		INSERT INTO image (id, created_at, media_type, width, height, byte_size, data,
 		                   thumb_media_type, thumb_width, thumb_height, thumb_data, sha256)
-		VALUES ($1, 'image/png', 1, 1, 4, '\x00010203'::bytea,
+		VALUES ($1, $3, 'image/png', 1, 1, 4, '\x00010203'::bytea,
 		        'image/png', 1, 1, '\x00010203'::bytea, $2::bytea)`,
-		id, sum); err != nil {
+		id, sum, at); err != nil {
 		f.t.Fatalf("seeding an image: %v", err)
 	}
 	return id

@@ -166,20 +166,6 @@ func DeleteSession(ctx context.Context, q Querier, id uuid.UUID) error {
 	return err
 }
 
-// DeleteExpiredSessions removes rows past their absolute lifetime.
-//
-// Sessions are also rejected on use, so this is housekeeping rather than a
-// security control: without it the table would grow by one abandoned row per
-// login forever. The cleanup verb calls it.
-func DeleteExpiredSessions(ctx context.Context, q Querier, now time.Time) (int64, error) {
-	tag, err := q.Exec(ctx,
-		`DELETE FROM session WHERE absolute_expires <= $1`, at(now))
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
 // DeleteSessionsForUser ends every session of one account.
 //
 // Used when a password is reset. Somebody resetting a password may be doing it

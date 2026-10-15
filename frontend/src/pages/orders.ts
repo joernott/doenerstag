@@ -8,79 +8,15 @@ import type { App } from "../app";
 import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { el, icon, type Child } from "../dom";
-import { formatDateTime, formatRelativeTime, orderTitle } from "../format";
+import { formatDateTime, formatRelativeTime, fulfilmentLabel, orderTitle } from "../format";
 import { logoMark } from "../logo";
-import { button } from "../components/forms";
+import { button, iconButton } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { confirmDialog } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
-import { overviewPage, overviewPageWithActions, page, statusLine, type StatusLine } from "./page";
-
-/** The order header, which every caller receives. */
-export interface OrderHeader {
-  id: string;
-  title: string;
-  restaurant_id: string;
-  restaurant_name: string;
-  restaurant_logo_image_id: string | null;
-  fulfilment: string;
-  fulfilment_at: string;
-  deadline_at: string;
-  status: string;
-  currency_code: string;
-  min_order_value_cents: number | null;
-  delivery_fee_cents: number | null;
-  item_count: number;
-}
-
-/**
- * The list entry a logged-in caller receives: the header plus the people.
- *
- * Who opened the order, who collects the money and who fetches the food are all
- * here rather than on OrderHeader, because OrderHeader is what an anonymous
- * caller is served and it names nobody (ADR-0011).
- */
-export interface OrderListEntry extends OrderHeader {
-  creator_id?: string;
-  creator_name?: string;
-  money_collector_id?: string | null;
-  money_collector_name?: string;
-  pickup_person_id?: string | null;
-  pickup_person_name?: string;
-}
-
-/** One order item, which only an authenticated caller ever sees. */
-export interface OrderItem {
-  id: string;
-  user_id: string;
-  user_name: string;
-  menu_item_id: string;
-  quantity: number;
-  item_name: string;
-  unit_price_cents: number;
-  note: string;
-  modifications: { id: string; modification_id: string | null; name: string; price_delta_cents: number }[];
-  line_total_cents: number;
-  /** Ticked as settled. Not a payment: the application takes none. */
-  paid: boolean;
-}
-
-/** The authenticated order shape: the header, the creator and the items. */
-export interface OrderDetail extends OrderHeader {
-  creator_id: string;
-  creator_name: string;
-  money_collector_id: string | null;
-  money_collector_name: string;
-  pickup_person_id: string | null;
-  pickup_person_name: string;
-  items: OrderItem[];
-  item_total_cents: number;
-  /** The item total split by the paid tick; the two always add up to it. */
-  unpaid_total_cents: number;
-  paid_total_cents: number;
-  grand_total_cents: number;
-  below_minimum: boolean;
-}
+import { failedPage, overviewPage, overviewPageWithActions } from "./page";
+import type { OrderDetail, OrderHeader, OrderListEntry } from "../types";
+import { runAction, statusLine, type StatusLine } from "../components/status";
 
 /** Whether an order is still open, judged on the viewer's clock. */
 export function isActive(order: OrderHeader, now: Date = new Date()): boolean {
@@ -94,15 +30,15 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   try {
     orders = await getList<OrderListEntry>("/orders", "orders");
   } catch (error) {
-    return page(t.t("nav.orders"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("nav.orders"), t, error);
   }
 
   // Whether this visitor takes part in each order, which decides whether the
   // tile offers its summary. The list carries no item data for anybody
   // (ADR-0011), so it cannot answer that, and the order itself is fetched per
   // entry and in parallel to find out. Affordable at the scale ADR-0006
-  // assumes; the tiles no longer show a participant count or a total, so this
-  // is the only thing the extra request still buys.
+  // assumes; the tiles do not show a participant count or a total, so this is
+  // the only thing the extra request buys.
   const details = app.session.isAuthenticated
     ? await Promise.all(
         orders.map((order) =>
@@ -141,9 +77,9 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
  *
  * What it shows is deliberately thin: the restaurant, when the food arrives and
  * when the order closes. The item count, the participant count, the running
- * total and who opened it all used to be here and are not any more -- they are
- * on the order itself, which is one click away, and a grid of tiles is a place
- * to choose from rather than a place to read from.
+ * total and who opened it are left to the order itself, which is one click
+ * away: a grid of tiles is a place to choose from rather than a place to read
+ * from.
  */
 function orderTile(
   app: App,
@@ -158,9 +94,7 @@ function orderTile(
   parts.push(
     el("span", {
       class: "muted",
-      text: `${t.t(
-        order.fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup",
-      )} · ${formatDateTime(app.language, order.fulfilment_at)}`,
+      text: `${fulfilmentLabel(t, order.fulfilment)} · ${formatDateTime(app.language, order.fulfilment_at)}`,
     }),
   );
 
@@ -247,8 +181,8 @@ export function participates(app: App, order: OrderDetail): boolean {
  * The link to an order's summary.
  *
  * Always rendered, and disabled with the reason when this visitor is not one of
- * the people the summary is for (F1.3). It used to be left out entirely, which
- * leaves somebody wondering whether the feature exists at all; a control that is
+ * the people the summary is for (F1.3). Leaving it out entirely would leave
+ * somebody wondering whether the feature exists at all; a control that is
  * visibly unavailable and says why answers that.
  *
  * The disabled form is a button rather than a link, because a link that goes
@@ -276,25 +210,6 @@ export function summaryLink(app: App, orderID: string, allowed: boolean): HTMLEl
 /** A square icon control that leads somewhere. */
 function iconLink(href: string, name: string, label: string): HTMLElement {
   return el("a", { class: "button button-icon", href, "aria-label": label, title: label }, icon(name));
-}
-
-/**
- * A square icon control that does something.
- *
- * Exported for the order page's item rows, which have the same problem the
- * tiles do: a narrow column with no room for two words beside a price.
- */
-export function iconButton(
-  name: string,
-  label: string,
-  variant: string,
-  onclick: () => void,
-): HTMLElement {
-  return el(
-    "button",
-    { type: "button", class: `button button-icon ${variant}`, "aria-label": label, title: label, onclick },
-    icon(name),
-  );
 }
 
 /**
@@ -344,8 +259,8 @@ async function removeOrder(
 /**
  * The restaurant's logo, or ours.
  *
- * A restaurant nobody has given a picture to used to get an empty dashed box,
- * which read as a missing image rather than as a restaurant. The doenerstag
+ * A restaurant nobody has given a picture to gets the doenerstag mark. An empty
+ * dashed box would read as a missing image rather than as a restaurant; the
  * mark says the same thing and looks deliberate.
  */
 function logo(order: OrderHeader, t: App["t"]): HTMLElement {
@@ -381,9 +296,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
 
   const control = button({
     label: t.t("admin.cleanup"),
-    onclick: () => {
-      void run();
-    },
+    onclick: () => run(),
   });
 
   async function run(): Promise<void> {
@@ -397,9 +310,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
       return;
     }
 
-    status.clear();
-    control.disabled = true;
-    try {
+    await runAction({ status, t, busy: control }, async () => {
       const report = await api.post<{ total: number }>("/cleanup", {});
       status.say(
         report.total > 0
@@ -407,11 +318,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
           : t.t("admin.cleanup_nothing"),
       );
       reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      control.disabled = false;
-    }
+    });
   }
 
   return control;

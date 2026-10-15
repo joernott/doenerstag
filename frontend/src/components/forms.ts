@@ -5,7 +5,7 @@
 // aria-describedby, which is what docs/06_ui_ux.md asks for and what makes the
 // forms usable without a mouse or without sight.
 
-import { append, el, type Child } from "../dom";
+import { append, el, icon, type Child } from "../dom";
 
 let sequence = 0;
 
@@ -21,8 +21,11 @@ export interface FieldOptions {
   control: HTMLElement;
   /** A hint below the control: a password rule, a format. */
   hint?: string;
-  /** An error message. Announced, and bound to the control. */
-  error?: string;
+  /**
+   * Where this field's errors appear: a fieldError for the same control,
+   * placed in the field so the message sits under what it is about.
+   */
+  error?: FieldError;
   /** Marks the field optional in the label, per the catalog's wording. */
   optionalLabel?: string;
 }
@@ -49,16 +52,11 @@ export function field(options: FieldOptions): HTMLElement {
     described.push(hintId);
     parts.push(el("p", { class: "field-hint", id: hintId, text: options.hint }));
   }
-  if (options.error) {
-    const errorId = `${control.id}-error`;
-    described.push(errorId);
-    control.setAttribute("aria-invalid", "true");
-    parts.push(
-      el("p", { class: "field-error", id: errorId, role: "alert", text: options.error }),
-    );
-  }
   if (described.length > 0) {
     control.setAttribute("aria-describedby", described.join(" "));
+  }
+  if (options.error) {
+    parts.push(options.error.element);
   }
 
   return el("div", { class: "field" }, ...parts);
@@ -146,12 +144,20 @@ export function select(
 /** A checkbox with its own label beside it. */
 export function checkbox(
   label: string,
-  options: { name?: string; checked?: boolean; disabled?: boolean; onchange?: (event: Event) => void } = {},
+  options: {
+    name?: string;
+    checked?: boolean;
+    disabled?: boolean;
+    onchange?: (event: Event) => void;
+    /** On the input, which is what has focus: see `keyed` and `rerender`. */
+    key?: string;
+  } = {},
 ): HTMLElement {
   const box = el("input", {
     type: "checkbox",
     class: "checkbox",
     ...(options.name ? { name: options.name } : {}),
+    ...(options.key ? { "data-key": options.key } : {}),
     checked: options.checked === true,
     disabled: options.disabled === true,
     ...(options.onchange ? { onchange: options.onchange } : {}),
@@ -177,7 +183,12 @@ export interface ButtonOptions {
    * voice.
    */
   ariaLabel?: string;
-  onclick?: (event: Event) => void;
+  /**
+   * What pressing it does. May be async: the button takes care of the promise,
+   * so a call site is `onclick: () => save()` rather than a block wrapping it
+   * in `void`. An action that can fail reports through runAction.
+   */
+  onclick?: (event: Event) => void | Promise<unknown>;
 }
 
 /** A button. */
@@ -190,7 +201,13 @@ export function button(options: ButtonOptions): HTMLButtonElement {
     disabled: options.disabled === true,
     ...(options.title ? { title: options.title } : {}),
     ...(options.ariaLabel ? { "aria-label": options.ariaLabel } : {}),
-    ...(options.onclick ? { onclick: options.onclick } : {}),
+    ...(options.onclick
+      ? {
+          onclick: (event: Event) => {
+            void options.onclick?.(event);
+          },
+        }
+      : {}),
   });
 }
 
@@ -214,7 +231,73 @@ export function form(onSubmit: () => void, ...children: Child[]): HTMLFormElemen
   return element;
 }
 
-/** A form-level error, announced when it appears. */
-export function formError(message: string): HTMLElement {
-  return el("p", { class: "form-error", role: "alert", text: message });
+
+/** A field's error message, which can appear and go as the value changes. */
+export interface FieldError {
+  readonly element: HTMLElement;
+  /** Shows the message, and tells assistive technology the field is invalid. */
+  set(message: string): void;
+  clear(): void;
 }
+
+/**
+ * The error for one control, tied to it as docs/06_ui_ux.md requires: the
+ * message is announced, the control is marked invalid, and the message is in
+ * its aria-describedby, so a screen reader on the field hears what is wrong
+ * with it rather than an alert from somewhere on the page. Pass it to
+ * field() as `error` so it appears under the control.
+ */
+export function fieldError(control: HTMLElement): FieldError {
+  if (!control.id) {
+    control.id = fieldId();
+  }
+  const id = `${control.id}-error`;
+  const element = el("p", { class: "field-error", id, role: "alert", hidden: true });
+
+  const describedBy = (): string[] =>
+    (control.getAttribute("aria-describedby") ?? "").split(" ").filter((part) => part !== "");
+
+  return {
+    element,
+    set(message: string): void {
+      element.textContent = message;
+      element.hidden = false;
+      control.setAttribute("aria-invalid", "true");
+      if (!describedBy().includes(id)) {
+        control.setAttribute("aria-describedby", [...describedBy(), id].join(" "));
+      }
+    },
+    clear(): void {
+      element.textContent = "";
+      element.hidden = true;
+      control.removeAttribute("aria-invalid");
+      const rest = describedBy().filter((part) => part !== id);
+      if (rest.length > 0) {
+        control.setAttribute("aria-describedby", rest.join(" "));
+      } else {
+        control.removeAttribute("aria-describedby");
+      }
+    },
+  };
+}
+
+/**
+ * A square icon control that does something: a pencil, a bin, a cross.
+ *
+ * For a narrow column with no room for a word beside a price -- the order
+ * overview's tiles, the order page's item rows. The label is the accessible
+ * name and the tooltip, so it should name what it acts on: "Edit: Lahmacun".
+ */
+export function iconButton(
+  name: string,
+  label: string,
+  variant: string,
+  onclick: () => void,
+): HTMLElement {
+  return el(
+    "button",
+    { type: "button", class: `button button-icon ${variant}`, "aria-label": label, title: label, onclick },
+    icon(name),
+  );
+}
+

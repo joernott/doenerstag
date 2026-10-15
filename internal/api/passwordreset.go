@@ -13,7 +13,6 @@ import (
 
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
-	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/mail"
 	"github.com/joernott/doenerstag/internal/model"
 )
@@ -56,10 +55,7 @@ type ResetHandlers struct {
 }
 
 func (h *ResetHandlers) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now()
+	return nowFrom(h.Now)
 }
 
 // Register adds the reset routes.
@@ -133,10 +129,11 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 
 	// Everything past this point answers the same way. The work is still done,
 	// and the failures are still logged, but the response does not vary.
-	user, found := h.lookup(r.Context(), name)
-	if found {
-		h.issue(r.Context(), r, user)
-	} else {
+	users := h.lookupAccounts(r.Context(), name)
+	for i := range users {
+		h.issue(r.Context(), r, users[i])
+	}
+	if len(users) == 0 {
 		h.log(r).Info().Str("asked_for", name).
 			Msg("a password reset was asked for an account that does not exist")
 	}
@@ -146,25 +143,28 @@ func (h *ResetHandlers) request(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// lookup finds the account by name or by e-mail address.
-func (h *ResetHandlers) lookup(ctx context.Context, name string) (model.User, bool) {
+// lookupAccounts finds the accounts a reset was asked for: the one with that name, or
+// else every one with that e-mail address.
+//
+// An address may be shared on purpose -- an administrator account and a
+// personal one with the same mailbox -- so every account that has it gets a
+// link of its own, and each mail says which account its link is for (20.5).
+func (h *ResetHandlers) lookupAccounts(ctx context.Context, name string) []model.User {
 	user, err := db.UserByName(ctx, h.Pool, name)
 	if err == nil {
-		return user, true
+		return []model.User{user}
 	}
 	if !errors.Is(err, db.ErrNotFound) {
 		h.log(nil).Error().Err(err).Msg("looking up an account for a password reset")
-		return model.User{}, false
+		return nil
 	}
 
-	user, err = db.UserByEmail(ctx, h.Pool, name)
-	if err == nil {
-		return user, true
-	}
-	if !errors.Is(err, db.ErrNotFound) {
+	users, err := db.UsersByEmail(ctx, h.Pool, name)
+	if err != nil {
 		h.log(nil).Error().Err(err).Msg("looking up an account for a password reset")
+		return nil
 	}
-	return model.User{}, false
+	return users
 }
 
 // issue mints a token and sends the mail.
@@ -180,15 +180,15 @@ func (h *ResetHandlers) issue(ctx context.Context, r *http.Request, user model.U
 	}
 
 	token := h.Signer.IssueReset(user.ID, h.now())
-	link := strings.TrimRight(h.BaseURL, "/") + "/reset-password/" + token
+	link := auth.ResetLink(h.BaseURL, token)
 
 	// The link is not logged. A log line carrying a working reset link is a
 	// credential in the log, readable by anybody who can read logs -- which
 	// includes the operator this feature exists to be independent of.
 	if err := h.Sender.Send(ctx, mail.Message{
 		To:      user.Email,
-		Subject: ResetMailSubject,
-		Body:    ResetMailBody(user.DisplayName, link),
+		Subject: auth.ResetMailSubject,
+		Body:    auth.ResetMailBody(user, link),
 	}); err != nil {
 		logger.Error().Err(err).Str("user", user.Name).
 			Msg("sending a password reset message")
@@ -269,36 +269,5 @@ func (h *ResetHandlers) complete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ResetHandlers) log(r *http.Request) *zerolog.Logger {
-	if h.Logger == nil {
-		nop := zerolog.Nop()
-		return &nop
-	}
-	if r == nil {
-		return h.Logger
-	}
-	logger := h.Logger.With().
-		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
-		Logger()
-	return &logger
-}
-
-// ResetMailSubject is the subject of the one message this application sends.
-const ResetMailSubject = "Reset your doenerstag password"
-
-// ResetMailBody is the message.
-//
-// English only, and deliberately: the server does not know which language the
-// recipient reads. The interface language lives in a cookie in a browser, and
-// there is no browser here. A language column on app_user would fix that and is
-// the obvious next step if anybody asks for it.
-func ResetMailBody(displayName, link string) string {
-	var b strings.Builder
-	b.WriteString("Hello " + displayName + ",\n\n")
-	b.WriteString("somebody asked to reset your doenerstag password.\n\n")
-	b.WriteString("Open this link to choose a new one:\n\n")
-	b.WriteString("  " + link + "\n\n")
-	b.WriteString("The link stops working after " + auth.ResetLifetime.String() + ".\n\n")
-	b.WriteString("If you did not ask for this, you can ignore this message.\n")
-	b.WriteString("Your password has not changed.\n")
-	return b.String()
+	return requestLogger(h.Logger, r)
 }

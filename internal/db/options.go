@@ -113,10 +113,9 @@ func (o Options) dsn(password string) string {
 
 // OptionsFromDSN parses a PostgreSQL connection URL back into Options.
 //
-// The installer needs to reach the same server as several different users and
-// databases in turn — root to create things, admin to migrate them, runtime to
-// verify the result — and this is what lets one connection string be varied
-// rather than six settings being threaded around.
+// The tests use it to turn a test container's connection string into the
+// Options the application connects with, so that they go through the same
+// path a configured installation does.
 func OptionsFromDSN(dsn string) (Options, error) {
 	u, err := url.Parse(dsn)
 	if err != nil {

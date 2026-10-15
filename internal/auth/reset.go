@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/joernott/doenerstag/internal/model"
 )
 
 // ResetLifetime is how long a password reset link works.
@@ -131,11 +133,6 @@ func (s *ResetSigner) ParseReset(token string, now time.Time) (user uuid.UUID, i
 	return parsed, tokenIdentity(token), nil
 }
 
-// ResetExpiry reports when a token stops working, for a caller that wants to
-// say so. It does not validate the signature and must not be used to decide
-// anything.
-func ResetExpiry(issuedAt time.Time) time.Time { return issuedAt.Add(ResetLifetime) }
-
 func (s *ResetSigner) sign(encoded string) string {
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(resetPurpose))
@@ -148,4 +145,39 @@ func (s *ResetSigner) sign(encoded string) string {
 func tokenIdentity(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// ResetMailSubject is the subject of the one message this application sends.
+const ResetMailSubject = "Reset your doenerstag password"
+
+// ResetLink is the address a reset token is opened at, on the installation
+// whose base URL this is.
+func ResetLink(baseURL, token string) string {
+	return strings.TrimRight(baseURL, "/") + "/reset-password/" + token
+}
+
+// ResetMailBody is the message, the same whether the browser or the command
+// line sent it. The two used to keep a copy each, and the copies had drifted
+// (20.18).
+//
+// English only, and deliberately: the server does not know which language the
+// recipient reads. The interface language lives in a cookie in a browser, and
+// there is no browser here. A language column on app_user would fix that and is
+// the obvious next step if anybody asks for it.
+//
+// It names the account, because one mailbox may receive a link for each of
+// several accounts that share its address (20.5), and the greeting falls back
+// to the account name, so an account with no display name is not greeted
+// "Hello ,".
+func ResetMailBody(user model.User, link string) string {
+	var b strings.Builder
+	b.WriteString("Hello " + user.Label() + ",\n\n")
+	b.WriteString("somebody asked to reset the password of your doenerstag account \"" +
+		user.Name + "\".\n\n")
+	b.WriteString("Open this link to choose a new one:\n\n")
+	b.WriteString("  " + link + "\n\n")
+	b.WriteString("The link stops working after " + ResetLifetime.String() + ".\n\n")
+	b.WriteString("If you did not ask for this, you can ignore this message.\n")
+	b.WriteString("Your password has not changed.\n")
+	return b.String()
 }

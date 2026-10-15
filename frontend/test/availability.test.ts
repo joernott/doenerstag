@@ -5,14 +5,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  describeFilter,
-  filterPicker,
-  openAttachmentEditor,
-  openFilterEditor,
-} from "../src/pages/availability";
+import { openAttachmentEditor, openFilterEditor } from "../src/pages/availability";
 import { restaurantPage } from "../src/pages/restaurant";
 import { mountApp, referenceStubs, settle, stubServer } from "./helpers";
+import { filterPicker } from "../src/components/availability";
+import { describeFilter } from "../src/components/availability";
 
 const restaurant = {
   id: "r1",

@@ -211,7 +211,7 @@ func TestMigratedTemplateIsUsable(t *testing.T) {
 func TestConnectionsRunInUTC(t *testing.T) {
 	dsn := testdb.AdminDSN(t)
 
-	opts, err := optionsFromDSN(dsn)
+	opts, err := db.OptionsFromDSN(dsn)
 	if err != nil {
 		t.Fatalf("parsing the test DSN: %v", err)
 	}

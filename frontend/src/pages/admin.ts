@@ -9,10 +9,13 @@ import { api, errorMessage, getList } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { append, el } from "../dom";
 import { formatDateTime } from "../format";
-import { button, field, form, input, textarea } from "../components/forms";
+import { button, field, input, textarea } from "../components/forms";
+import { openDeleteAccountDialog } from "../components/deleteaccount";
 import { passwordField } from "../components/password";
-import { openModal } from "../components/modal";
-import { actions, page, section, statusLine } from "./page";
+import { dialogHint, openFormDialog } from "../components/formdialog";
+import { actions, page, section } from "./page";
+import type { DeletionImpact } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 interface AdminUser {
   id: string;
@@ -22,13 +25,6 @@ interface AdminUser {
   is_admin: boolean;
   created_at: string;
   last_login_at?: string;
-}
-
-interface DeletionImpact {
-  active_orders: number;
-  active_items: number;
-  expired_items: number;
-  created_active_orders: number;
 }
 
 /** The page a non-administrator gets for an administration URL. */
@@ -57,12 +53,10 @@ export async function usersPage(app: App): Promise<HTMLElement> {
   const list = el("div", { class: "rows" });
 
   async function reload(): Promise<void> {
-    try {
+    await runAction({ status, t }, async () => {
       const users = await getList<AdminUser>("/users", "users");
       render(users);
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   function render(users: AdminUser[]): void {
@@ -120,9 +114,7 @@ export async function usersPage(app: App): Promise<HTMLElement> {
           : button({
               label: t.t("action.delete"),
               variant: "danger",
-              onclick: () => {
-                void remove(user);
-              },
+              onclick: () => remove(user),
             }),
       ),
     );
@@ -139,48 +131,25 @@ export async function usersPage(app: App): Promise<HTMLElement> {
     const name = input({ name: "name", required: true, value: user.name });
     const displayName = input({ name: "display_name", value: user.display_name });
     const email = input({ name: "email", type: "email", value: user.email ?? "" });
-    const problem = el("p", { class: "field-error", role: "alert" });
 
-    const save = button({
-      label: t.t("action.save"),
-      variant: "primary",
-      onclick: () => {
-        void perform();
-      },
-    });
-    const cancel = button({ label: t.t("action.cancel"), onclick: () => modal.close() });
-
-    const modal = openModal({
+    openFormDialog({
+      t,
       title: t.t("admin.edit_user"),
-      closeLabel: t.t("action.close"),
       className: "modal-narrow",
-      body: [
+      focus: name,
+      fields: [
         field({ label: t.t("auth.name"), control: name }),
         field({ label: t.t("auth.display_name"), control: displayName }),
         field({ label: t.t("auth.email"), control: email }),
-        problem,
       ],
-      actions: [save, cancel],
-    });
-    name.focus();
-
-    async function perform(): Promise<void> {
-      problem.textContent = "";
-      save.disabled = true;
-      try {
-        await api.patch(`/users/${user.id}`, {
+      onSubmit: () =>
+        api.patch(`/users/${user.id}`, {
           name: name.value.trim(),
           display_name: displayName.value.trim(),
           email: email.value.trim(),
-        });
-        modal.close();
-        await reload();
-      } catch (error) {
-        problem.textContent = errorMessage(t, error);
-      } finally {
-        save.disabled = false;
-      }
-    }
+        }),
+      after: reload,
+    });
   }
 
   /**
@@ -200,7 +169,6 @@ export async function usersPage(app: App): Promise<HTMLElement> {
    */
   function resetPassword(user: AdminUser): void {
     status.clear();
-    const dialogStatus = statusLine();
 
     const password = passwordField({
       t,
@@ -215,69 +183,39 @@ export async function usersPage(app: App): Promise<HTMLElement> {
       disabled: !user.email,
       // Never a mystery: a greyed-out button says why it is greyed out.
       ...(user.email ? {} : { title: t.t("admin.reset_password_no_email", { name: user.name }) }),
-      onclick: () => {
-        void sendLink();
+      onclick: async () => {
+        const sent = await runAction({ status: dialog.status, t, busy: send }, () =>
+          api.post("/auth/password-reset", { name: user.name }),
+        );
+        if (sent) {
+          dialog.modal.close();
+          status.say(t.t("admin.reset_password_sent", { email: user.email }));
+        }
       },
     });
-    const set = button({ label: t.t("admin.set_password"), variant: "primary", type: "submit" });
 
-    const body = form(
-      () => {
-        void setPassword();
-      },
-      el("p", {
-        text: user.email
-          ? t.t("admin.reset_password_confirm", { name: user.name, email: user.email })
-          : t.t("admin.reset_password_no_email", { name: user.name }),
-      }),
-      password.element,
-      el("p", { class: "field-hint", text: t.t("admin.set_password_hint", { name: user.name }) }),
-      dialogStatus.element,
-    );
-
-    async function sendLink(): Promise<void> {
-      dialogStatus.clear();
-      send.disabled = true;
-      try {
-        await api.post("/auth/password-reset", { name: user.name });
-      } catch (error) {
-        dialogStatus.fail(errorMessage(t, error));
-        send.disabled = false;
-        return;
-      }
-      modal.close();
-      status.say(t.t("admin.reset_password_sent", { email: user.email }));
-    }
-
-    async function setPassword(): Promise<void> {
-      dialogStatus.clear();
-      set.disabled = true;
-      try {
-        await api.patch(`/users/${user.id}`, { password: password.value() });
-      } catch (error) {
-        // A password the rules refuse comes back as a named error, and the
-        // indicator above the field already says which rules are unmet.
-        dialogStatus.fail(errorMessage(t, error));
-        set.disabled = false;
-        password.control.focus();
-        return;
-      }
-      modal.close();
-      status.say(t.t("admin.password_set", { name: user.name }));
-    }
-
-    const modal = openModal({
+    const dialog = openFormDialog({
+      t,
       title: `${t.t("admin.reset_password")}: ${user.name}`,
-      body,
-      actions: [send, set],
-      closeLabel: t.t("action.close"),
+      submitLabel: t.t("admin.set_password"),
+      focus: password.control,
+      extraActions: [send],
+      fields: [
+        el("p", {
+          text: user.email
+            ? t.t("admin.reset_password_confirm", { name: user.name, email: user.email })
+            : t.t("admin.reset_password_no_email", { name: user.name }),
+        }),
+        password.element,
+        dialogHint(t.t("admin.set_password_hint", { name: user.name })),
+      ],
+      // A password the rules refuse comes back as a named error, and the
+      // indicator above the field already says which rules are unmet.
+      onSubmit: () => api.patch(`/users/${user.id}`, { password: password.value() }),
+      after: () => {
+        status.say(t.t("admin.password_set", { name: user.name }));
+      },
     });
-
-    // The set button is in the footer, outside the form: without this it does
-    // nothing, which is the mistake 18.1 fixed in two other dialogs.
-    body.id = `admin-password-${user.id}`;
-    set.setAttribute("form", body.id);
-    password.control.focus();
   }
 
   /**
@@ -299,60 +237,18 @@ export async function usersPage(app: App): Promise<HTMLElement> {
       return;
     }
 
-    const typed = input({ autocomplete: "off" });
-    const problem = el("p", { class: "field-error", role: "alert" });
-
-    const confirm = button({
-      label: t.t("action.delete"),
-      variant: "danger",
-      onclick: () => {
-        if (typed.value.trim() !== user.name) {
-          problem.textContent = t.t("admin.name_mismatch");
-          typed.focus();
-          return;
-        }
-        void perform();
-      },
-    });
-    const cancel = button({ label: t.t("action.cancel"), onclick: () => modal.close() });
-
-    const lines = [
-      impact.active_items > 0
-        ? t.t("account.delete.impact.active_items", { count: impact.active_items })
-        : null,
-      impact.expired_items > 0
-        ? t.t("account.delete.impact.expired_items", { count: impact.expired_items })
-        : null,
-      impact.created_active_orders > 0
-        ? t.t("account.delete.impact.orders", { count: impact.created_active_orders })
-        : null,
-    ].filter((line): line is string => line !== null);
-
-    const modal = openModal({
+    openDeleteAccountDialog({
+      t,
       title: t.t("admin.delete_user"),
-      closeLabel: t.t("action.close"),
-      className: "modal-narrow",
-      body: [
-        el("p", { text: `${user.display_name || user.name} (${user.name})` }),
-        lines.length > 0
-          ? el("ul", { class: "impact" }, ...lines.map((line) => el("li", { text: line })))
-          : el("p", { class: "muted", text: t.t("account.delete.impact.none") }),
-        field({ label: t.t("admin.confirm_name"), control: typed }),
-        problem,
-      ],
-      actions: [cancel, confirm],
+      submitLabel: t.t("action.delete"),
+      intro: `${user.display_name || user.name} (${user.name})`,
+      impact,
+      name: user.name,
+      confirmLabel: t.t("admin.confirm_name"),
+      mismatch: t.t("admin.name_mismatch"),
+      remove: () => api.delete(`/users/${user.id}`),
+      after: reload,
     });
-    cancel.focus();
-
-    async function perform(): Promise<void> {
-      try {
-        await api.delete(`/users/${user.id}`);
-        modal.close();
-        await reload();
-      } catch (error) {
-        problem.textContent = errorMessage(t, error);
-      }
-    }
   }
 
   await reload();
@@ -395,50 +291,30 @@ export async function contentPage(app: App, key: "imprint" | "legal_notes"): Pro
     : null;
 
   function openEditor(): void {
-    const editorStatus = statusLine();
     const html = textarea({ rows: 16 });
     html.value = body.innerHTML.trim();
 
-    const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-    const editor = form(
-      () => {
-        void store();
-      },
-      field({
-        label: t.t("admin.snippet"),
-        control: html,
-        hint: t.t("admin.snippet_hint"),
-      }),
-      editorStatus.element,
-    );
-
-    async function store(): Promise<void> {
-      editorStatus.clear();
-      save.disabled = true;
-      try {
-        // The server answers with what it kept, which is what the page then
-        // shows: an administrator sees immediately that their <script> was not
-        // stored, rather than discovering it later.
-        body.innerHTML = await api.putText(`/pages/${key}`, html.value);
-        modal.close();
-        status.say(t.t("state.saved"));
-      } catch (error) {
-        editorStatus.fail(errorMessage(t, error));
-      } finally {
-        save.disabled = false;
-      }
-    }
-
-    const modal = openModal({
+    openFormDialog({
+      t,
       title: t.t("admin.replace_content"),
-      closeLabel: t.t("action.close"),
-      body: editor,
-      actions: [button({ label: t.t("action.cancel"), onclick: () => modal.close() }), save],
+      focus: html,
+      fields: [
+        field({
+          label: t.t("admin.snippet"),
+          control: html,
+          hint: t.t("admin.snippet_hint"),
+        }),
+      ],
+      // The server answers with what it kept, which is what the page then
+      // shows: an administrator sees immediately that their <script> was not
+      // stored, rather than discovering it later.
+      onSubmit: async () => {
+        body.innerHTML = await api.putText(`/pages/${key}`, html.value);
+      },
+      after: () => {
+        status.say(t.t("state.saved"));
+      },
     });
-    editor.id = `content-form-${key}`;
-    save.setAttribute("form", editor.id);
-    html.focus();
   }
 
   // A card without a heading of its own: the page already has the title as its

@@ -13,31 +13,37 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.4.0.** Everything the specification describes is built: accounts and
+**0.5.0.** Everything the specification describes is built: accounts and
 sessions, restaurants with menus and opening hours, orders with a deadline and a
 pickup or delivery time, per-person items, a summary page for whoever is calling
 the restaurant, live updates over SSE, German, English and French, and an
 administration surface.
 
-New since 0.3.0, from using it for real orders:
+0.5.0 is a release about the code rather than the features: three reviews --
+of the data model, the Go code and the frontend -- and the work that came of
+them. What changes for somebody using it:
 
-- **French**, as a third language, with the plural forms French has and German
-  and English do not.
-- **Both jobs can be claimed and given up.** "Me!" now sits beside collecting
-  the money as well as fetching the food, and an × takes somebody off either
-  job — for that person, whoever opened the order, and the administrator.
-- **Whoever collects the money can do it from the summary.** The collector and
-  the person fetching the food may open it without having ordered anything; the
-  paid tick sits on the order page too, and the totals split into unpaid and
-  paid.
-- **A dish can be corrected from the order page**, with the same editor the
-  restaurant page uses. Lines already ordered keep the price they were added
-  with.
-- **The administrator can set a password directly**, for somebody with no
-  access to their mail, as well as sending a reset link.
-- Smaller things: order titles in UTC beside times in local time, Save doing
-  nothing in the availability dialogs, a language list unreadable under the
-  pointer in the dark theme.
+- **Fixes the reviews found.** `doenerstag user delete` now follows the same
+  rules as deleting an account in the browser; a password reset for an address
+  several accounts share mails every one of them; the nightly cleanup leaves a
+  freshly uploaded picture alone; the account-deletion warning names the orders
+  somebody collects the money for or fetches; keyboard focus stays where it was
+  when the order page redraws; Save comes back after a failed save on the
+  restaurant page; `doenerstag update`, run as root, leaves the configuration
+  file readable by the service.
+- **Two rules the database now enforces itself**: a dish's category belongs to
+  the same restaurant, and an order's restaurant changes only while nothing has
+  been ordered from it.
+- **DEBUG logging** as docs/08 describes it: every request handler and every
+  query with its timing, secrets redacted.
+- **Errors sit beside their field**, announced to screen readers with it.
+- **Go 1.26.9 and golang.org/x/net 0.60.0**, for GO-2026-6612, -6613 and
+  -6617. There is no separate 0.4.1.
+
+Behind that, the code is easier to read: shared helpers in place of copied
+error handling, dialogs and dirty tracking, and the largest files split into
+modules with one job each. The frontend stays without a framework; the
+reasons are in docs/14_implementation_plan.md, sprint 20.
 
 Still a 0.x release, and marked as a pre-release for the reason it was at
 0.1.0: it works, and not many people have used it yet.
@@ -48,13 +54,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.4.0-1_amd64.deb
+apt install ./doenerstag_0.5.0-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.4.0-1.x86_64.rpm
+dnf install ./doenerstag-0.5.0-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.4.0
+docker pull docker.io/joernott/doenerstag:0.5.0
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```

@@ -266,56 +266,6 @@ func populate(cfg *Config, v *viper.Viper, flags *pflag.FlagSet, scope Scope,
 	getenv func(string) (string, bool)) error {
 	var errs []error
 
-	str := func(flag string) string {
-		s, _ := SettingByFlag(flag)
-		return v.GetString(s.Key)
-	}
-	num := func(flag string) int {
-		s, _ := SettingByFlag(flag)
-		return v.GetInt(s.Key)
-	}
-	boolean := func(flag string) bool {
-		s, _ := SettingByFlag(flag)
-		return v.GetBool(s.Key)
-	}
-	dur := func(flag string) time.Duration {
-		s, _ := SettingByFlag(flag)
-		raw := v.GetString(s.Key)
-		d, err := ParseDuration(raw)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("--%s: %w", flag, err))
-			return 0
-		}
-		return d
-	}
-	size := func(flag string) int64 {
-		s, _ := SettingByFlag(flag)
-		raw := v.GetString(s.Key)
-		n, err := ParseByteSize(raw)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("--%s: %w", flag, err))
-			return 0
-		}
-		return n
-	}
-
-	cfg.Database = DatabaseConfig{
-		Server:            str("database-server"),
-		Port:              num("database-port"),
-		Name:              str("database-name"),
-		User:              str("database-user"),
-		Password:          str("database-password"),
-		SSLMode:           str("database-sslmode"),
-		MaxConnectionPool: num("max-connection-pool"),
-	}
-
-	level, err := logging.ParseLevel(str("log-level"))
-	if err != nil {
-		errs = append(errs, fmt.Errorf("--log-level: %w", err))
-		level = logging.DefaultLevel
-	}
-	cfg.Log = LogConfig{Level: level, File: str("log-file")}
-
 	// Every section is populated, whatever the verb. Scope decides which flags
 	// exist, not which settings were resolved: the file and the environment are
 	// read the same way regardless, and a verb that cannot see a section is a
@@ -328,47 +278,21 @@ func populate(cfg *Config, v *viper.Viper, flags *pflag.FlagSet, scope Scope,
 	// configuration the server refuses to start from. install's own "keep the
 	// existing secret so a re-run does not log everyone out" branch was
 	// unreachable for exactly the same reason.
-	cfg.Server = ServerConfig{
-		Port:               num("port"),
-		BindAddress:        str("bind-address"),
-		NoHTTPS:            boolean("no-https"),
-		BehindTLSProxy:     boolean("behind-tls-proxy"),
-		TLSCert:            str("tls-cert"),
-		TLSKey:             str("tls-key"),
-		NoSwagger:          boolean("no-swagger"),
-		StaticDir:          str("static-dir"),
-		HTTPReadTimeout:    dur("http-read-timeout"),
-		HTTPWriteTimeout:   dur("http-write-timeout"),
-		HTTPIdleTimeout:    dur("http-idle-timeout"),
-		ShutdownGrace:      dur("shutdown-grace"),
-		MaxImageSize:       size("max-image-size"),
-		CORSAllowedOrigins: str("cors-allowed-origins"),
-		BaseURL:            str("base-url"),
-	}
-	cfg.Mail = MailConfig{
-		Host:       str("mail-host"),
-		Port:       num("mail-port"),
-		Username:   str("mail-username"),
-		Password:   str("mail-password"),
-		From:       str("mail-from"),
-		Encryption: str("mail-encryption"),
-		Timeout:    dur("mail-timeout"),
-	}
-	cfg.Session = SessionConfig{
-		JWTSecret:            str("jwt-secret"),
-		IdleTimeout:          dur("idle-timeout"),
-		AbsoluteTimeout:      dur("absolute-timeout"),
-		LoginRateLimitUser:   num("login-rate-limit-user"),
-		LoginRateLimitIP:     num("login-rate-limit-ip"),
-		LoginRateLimitWindow: dur("login-rate-limit-window"),
+	//
+	// Each setting's Bind says which field it fills, so this loop is the whole
+	// of reading the file, and ValuesFrom the whole of writing it (20.17).
+	for _, setting := range Settings {
+		if setting.Bind == nil {
+			continue
+		}
+		if err := readSetting(v, setting, setting.Bind(cfg)); err != nil {
+			errs = append(errs, fmt.Errorf("--%s: %w", setting.Flag, err))
+		}
 	}
 
-	cfg.Cleanup = CleanupConfig{
-		Retention: dur("retention"),
-		// The only flag-only value here, and absent unless cleanup registered
-		// it; flagBool answers false for a flag that does not exist.
-		DryRun: flagBool(flags, "dry-run"),
-	}
+	// The only flag-only value here, and absent unless cleanup registered it;
+	// flagBool answers false for a flag that does not exist.
+	cfg.Cleanup.DryRun = flagBool(flags, "dry-run")
 
 	// cfg.Install stays behind its scope. Nothing in it is written to the
 	// configuration file, and it reads privileged credentials out of the

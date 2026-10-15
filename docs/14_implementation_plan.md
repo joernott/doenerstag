@@ -688,6 +688,65 @@ be corrected without leaving the order.
 
 ---
 
+## Sprint 20 — Refactoring and readability
+
+**Goal:** after nineteen sprints of features and fixes, make the code easier to
+read and to change. This sprint starts with three reviews; what they find is
+discussed before anything is built, and the work that comes of it is added here
+as tasks of its own.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 20.1 | Review the data model for possible optimizations, and list the improvements worth discussing. Nothing changes until they have been discussed; those agreed become tasks | M | [03](03_data_model.md) |
+| ✅ 20.2 | Review the Go code for refactorings that make it easier to read, and list them for discussion | M | — |
+| ✅ 20.3 | Review the frontend code for readability, and whether a framework such as Vue.js would reduce the amount of code of our own. Findings discussed before anything changes | M | [06](06_ui_ux.md) |
+| ✅ 20.4 | **Bug.** `doenerstag user delete` ran a bare `DELETE FROM app_user`, so the F2.6 rule -- items in active orders removed, items in expired ones reassigned -- applied only to deletions made in the browser. The verb uses `db.DeleteAccount`, as the web path does | S | [02](02_features.md) |
+| ✅ 20.5 | **Bug.** A password reset looked one account up by address, and addresses are not unique, so a shared one sent the link to whichever account the database returned first. Sharing an address is a deliberate choice (root and a personal account), so the reset mails every account with that address, each mail naming its account. docs/03 and the API description stop calling the address unused | M | [05](05_auth_and_permissions.md) |
+| ✅ 20.6 | **Bug.** The nightly cleanup deleted every unreferenced image, including one uploaded a moment ago and not yet attached to its dish. Images younger than a day are left alone. The unused `DeleteUnreferencedImages` goes | S | [10](10_operations.md) |
+| ✅ 20.7 | **Bug.** The account-deletion warning counted the orders a user created or ordered in, not those they collect the money for or fetch -- the people 19.2 made participants. It counts them now, and ADR-0011 lists them | S | [05](05_auth_and_permissions.md) |
+| ✅ 20.7.1 | 20.7 counted the jobs into `active_orders`, and the deletion dialog never shows that number: it lists items and orders opened. Somebody collecting the money for tomorrow's order was still told nothing else was affected. The impact carries `active_jobs` of its own, and the dialog names them, in all three languages. Found while sharing the dialog between the account page and the user administration (20.28) | S | [05](05_auth_and_permissions.md) |
+| ✅ 20.8 | **Bug.** A `PATCH` naming an image that does not exist answered "404 restaurant not found": the db layer returned `ErrNotFound` for a foreign-key violation. A sentinel of its own, `ErrUnknownReference`, maps to 1002 for every verb, and the exported `IsForeignKeyViolation` goes | S | [04](04_api.md) |
+| ✅ 20.9 | **Bug.** The availability list answered `200 []` for a restaurant that does not exist, where every other menu route answers 404 | S | [04](04_api.md) |
+| ✅ 20.10 | **Bug.** After a failed save on the restaurant page, Save stayed disabled until a field was edited: the data section swallowed its own error, and the button is re-enabled only by one that reaches it | S | [06](06_ui_ux.md) |
+| ✅ 20.11 | **Bug.** After logging in or out on an order page the live stream was made again without the deleted-order handling or the screen-reader announcements. One handler serves both subscriptions; the deleted-order heading uses the local-time title 19.1 missed | S | [06](06_ui_ux.md) |
+| ✅ 20.12 | **Bug.** The order page rebuilds whole columns, so keyboard focus fell to the page after adding or editing an item, ticking a filter, folding a category, and on every live update. A `rerender` helper restores focus to the same control by key | M | [06](06_ui_ux.md) |
+| ✅ 20.13 | Deleting a user rewrote `updated_at` on every row they ever created or edited: the audit columns' `ON DELETE SET NULL` is an UPDATE, which fires `set_updated_at`. The trigger ignores changes to the audit columns alone, which also stops a no-op update moving the timestamp | M | [03](03_data_model.md) |
+| ✅ 20.14 | Two rules only Go enforces, enforced by the schema: a dish's category belongs to the dish's restaurant (a composite foreign key), and an order's restaurant changes only while it has no items (in the UPDATE itself, closing a check-then-act race) | M | [03](03_data_model.md) |
+| ✅ 20.15 | docs/03 brought level with the migrations: `order_item.paid`, the availability tables and both job links in the overview, category soft-delete, token cleanup, the creator index, `ON DELETE` notes. Three redundant indexes dropped | S | [03](03_data_model.md) |
+| ✅ 20.16 | `internal/api`: `dbError(err)` for the standard database-error mapping and a generic `loadParam` for "an id from the path, then its row", replacing about 40 hand-written switches and 11 lookup functions; lookup-before-authorize made uniform | M | — |
+| ✅ 20.17 | Configuration bound to its fields in one place. `populate` and `ValuesFrom` are two hand-written mirror maps, which is how 17.13.1 lost a setting; a mistyped flag name fails loudly | M | [09](09_configuration.md) |
+| ✅ 20.18 | The reset mail's subject, body, link and mail options written once, shared by the CLI and the API, whose copies had drifted | S | — |
+| ✅ 20.19 | The field validators in one file, `internal/api/fields.go`, with one message per kind of failure and limits taken from their constants | S | — |
+| ✅ 20.20 | Dead code: three cleanup functions only tests call, unused exports, two error constructors nobody uses; comments that name callers which do not exist or retell history fixed | S | — |
+| ✅ 20.21 | DEBUG logging as docs/08 specifies it: function entry with parameters and every database query with its timing, through the redaction that exists and is not yet called | M | [08](08_logging.md) |
+| ✅ 20.22 | `orders.go` split along its seams: the job claims to `orderjobs.go`, `validateNewOrder` beside `validateOrderPatch`, the detail shape embedding the list shape. The restaurant handlers' duplicated detail writer made one | M | — |
+| ✅ 20.23 | Moves and renames: `classification.go` split into modifications and tags, `db/orderqueries.go` named for what it holds, the db sentinels in one file, lookups named `lookupX`; duplicated `now()`, `log()` and test helpers shared | S | — |
+| ✅ 20.24 | Frontend: one `runAction` helper for busy, try, catch and status, replacing about thirty copies, with the status line the only way an error is reported | M | [06](06_ui_ux.md) |
+| ✅ 20.25 | Frontend: one `openFormDialog` owning the form, the footer, Cancel and closing on success, replacing seven hand-wired dialogs -- the kind of wiring 18.1's dead Save button came from | M | [06](06_ui_ux.md) |
+| ✅ 20.26 | Frontend: one dirty-tracking helper and one heading Save for the restaurant and account pages | S | [06](06_ui_ux.md) |
+| ✅ 20.27 | Frontend: errors tied to their field with `aria-describedby`, as docs/06 requires and no form does yet | S | [06](06_ui_ux.md) |
+| ✅ 20.28 | Frontend: shared types in one module, shared pieces (menu item row, delete-account dialog, definition list, load-failed page, clipboard copy) in `components/`, so no component imports a page | M | — |
+| ✅ 20.29 | Frontend: `order.ts`, `account.ts` and `restaurant.ts` split into modules along their sections | L | — |
+| ✅ 20.30 | Frontend: dead code removed, stale comments fixed, history moved out of comments | S | — |
+| ✅ 20.31 | Version references moved to 0.5.0, the README's status rewritten, sprint 20 squashed into `main` and released as 0.5.0 -- which also carries Go 1.26.9 and x/net 0.60.0 for GO-2026-6612, -6613 and -6617; there is no separate 0.4.1 | S | [10](10_operations.md) |
+| ✅ 20.32 | **Bug.** `doenerstag update`, run as root as docs/10 says, rewrote the configuration file owned by root, which the service user cannot read: the server then refused to start until somebody changed the owner back. Found by updating the development VM during this sprint. The file keeps the owner and group it had | S | [10](10_operations.md) |
+
+**Decided after the reviews** (2026-10-15): the bugs they found come first.
+Addresses may be shared, deliberately, so a reset mails every account that has
+one. No UI framework: Vue or Preact would replace about 500–700 of some 7,200
+lines of frontend code, at the price of a build switch, a larger bundle and
+rewriting most of the tests, while the helpers in 20.24–20.28 save as much and
+keep all three. Preact is worth a trial on the order page only if 20.12's
+`rerender` proves not enough. The DEBUG logging docs/08 describes is wired in
+rather than its unused code removed.
+
+**Exit criteria:** every bug the reviews found is fixed with a test that fails
+without the fix; the refactorings leave every test green and change no
+behaviour a user can see; `order.ts` and `orders.go` read as several files with
+one job each.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

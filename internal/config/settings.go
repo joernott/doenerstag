@@ -63,6 +63,14 @@ type Setting struct {
 	// is still registered, hidden, so that passing it produces the documented
 	// FATAL security error rather than an unhelpful "unknown flag".
 	Secret bool
+
+	// Bind points at the field of Config this setting fills, for every setting
+	// the configuration file records. Reading the file and writing it both go
+	// through it, so a setting cannot be read and then lost on the way back
+	// out -- which two hand-written mirror maps allowed, and which is how
+	// --behind-tls-proxy came to be written as false (17.13.1, 20.17). The
+	// pointer's type has to match Kind; a test holds every setting to that.
+	Bind func(*Config) any
 }
 
 // Env returns the environment variable for a setting: the prefix, then the flag
@@ -95,54 +103,63 @@ var Settings = []Setting{
 	// --- global ------------------------------------------------------------
 	{
 		Flag: "database-server", Short: "S", Key: "database.server",
+		Bind: func(c *Config) any { return &c.Database.Server },
 		Kind: KindString, Default: "localhost",
 		Usage:  "PostgreSQL host name",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "database-port", Short: "P", Key: "database.port",
+		Bind: func(c *Config) any { return &c.Database.Port },
 		Kind: KindInt, Default: 5432,
 		Usage:  "PostgreSQL port",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "database-name", Short: "N", Key: "database.name",
+		Bind: func(c *Config) any { return &c.Database.Name },
 		Kind: KindString, Default: "doenerstag",
 		Usage:  "database name",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "database-user", Short: "U", Key: "database.user",
+		Bind: func(c *Config) any { return &c.Database.User },
 		Kind: KindString, Default: "doener",
 		Usage:  "database user used at runtime",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "database-password", Key: "database.password",
+		Bind: func(c *Config) any { return &c.Database.Password },
 		Kind: KindString, Default: "", Secret: true,
 		Usage:  "password for the runtime database user (config file or environment only)",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "database-sslmode", Key: "database.sslmode",
+		Bind: func(c *Config) any { return &c.Database.SSLMode },
 		Kind: KindString, Default: "prefer",
 		Usage:  "TLS mode for the database connection: disable, allow, prefer, require, verify-ca or verify-full",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "max-connection-pool", Key: "database.max_connection_pool",
+		Bind: func(c *Config) any { return &c.Database.MaxConnectionPool },
 		Kind: KindInt, Default: 10,
 		Usage:  "upper bound for open and for idle database connections",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "log-level", Short: "l", Key: "log.level",
+		Bind: func(c *Config) any { return &c.Log.Level },
 		Kind: KindString, Default: "INFO",
 		Usage:  "log level: FATAL, ERROR, WARN, INFO or DEBUG",
 		Scopes: ScopeGlobal,
 	},
 	{
 		Flag: "log-file", Short: "L", Key: "log.file",
+		Bind: func(c *Config) any { return &c.Log.File },
 		Kind: KindString, Default: "",
 		Usage:  "log destination; empty writes to stdout",
 		Scopes: ScopeGlobal,
@@ -151,24 +168,28 @@ var Settings = []Setting{
 	// --- server ------------------------------------------------------------
 	{
 		Flag: "port", Short: "p", Key: "server.port",
+		Bind: func(c *Config) any { return &c.Server.Port },
 		Kind: KindInt, Default: 8443,
 		Usage:  "TCP port to listen on",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "bind-address", Short: "b", Key: "server.bind_address",
+		Bind: func(c *Config) any { return &c.Server.BindAddress },
 		Kind: KindString, Default: "",
 		Usage:  "address to bind to; empty binds to all addresses",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "no-https", Key: "server.no_https",
+		Bind: func(c *Config) any { return &c.Server.NoHTTPS },
 		Kind: KindBool, Default: false,
 		Usage:  "serve plain HTTP instead of HTTPS",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "behind-tls-proxy", Key: "server.behind_tls_proxy",
+		Bind: func(c *Config) any { return &c.Server.BehindTLSProxy },
 		Kind: KindBool, Default: false,
 		Usage: "a reverse proxy in front terminates TLS; keep cookies Secure and " +
 			"send HSTS although this server speaks plain HTTP",
@@ -176,96 +197,112 @@ var Settings = []Setting{
 	},
 	{
 		Flag: "tls-cert", Short: "t", Key: "server.tls_cert",
+		Bind: func(c *Config) any { return &c.Server.TLSCert },
 		Kind: KindString, Default: "server.crt",
 		Usage:  "PEM certificate chain",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "tls-key", Short: "T", Key: "server.tls_key",
+		Bind: func(c *Config) any { return &c.Server.TLSKey },
 		Kind: KindString, Default: "server.key",
 		Usage:  "PEM private key",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "no-swagger", Key: "server.no_swagger",
+		Bind: func(c *Config) any { return &c.Server.NoSwagger },
 		Kind: KindBool, Default: false,
 		Usage:  "do not serve the Swagger UI",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "static-dir", Short: "s", Key: "server.static_dir",
+		Bind: func(c *Config) any { return &c.Server.StaticDir },
 		Kind: KindString, Default: "static",
 		Usage:  "directory to serve assets from; ignored in embedded builds",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "http-read-timeout", Key: "server.http_read_timeout",
+		Bind: func(c *Config) any { return &c.Server.HTTPReadTimeout },
 		Kind: KindDuration, Default: "30s",
 		Usage:  "maximum time to read a request, including its body",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "http-write-timeout", Key: "server.http_write_timeout",
+		Bind: func(c *Config) any { return &c.Server.HTTPWriteTimeout },
 		Kind: KindDuration, Default: "60s",
 		Usage:  "maximum time to write a response; the event stream is exempt",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "http-idle-timeout", Key: "server.http_idle_timeout",
+		Bind: func(c *Config) any { return &c.Server.HTTPIdleTimeout },
 		Kind: KindDuration, Default: "120s",
 		Usage:  "maximum time a keep-alive connection may sit idle",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "shutdown-grace", Key: "server.shutdown_grace",
+		Bind: func(c *Config) any { return &c.Server.ShutdownGrace },
 		Kind: KindDuration, Default: "30s",
 		Usage:  "how long to wait for in-flight requests during shutdown",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "max-image-size", Key: "server.max_image_size",
+		Bind: func(c *Config) any { return &c.Server.MaxImageSize },
 		Kind: KindByteSize, Default: "5MiB",
 		Usage:  "largest accepted image upload, for example 5MiB",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "cors-allowed-origins", Key: "server.cors_allowed_origins",
+		Bind: func(c *Config) any { return &c.Server.CORSAllowedOrigins },
 		Kind: KindString, Default: "",
 		Usage:  "comma-separated origins allowed to call the API cross-origin; empty sends no CORS headers",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "jwt-secret", Key: "session.jwt_secret",
+		Bind: func(c *Config) any { return &c.Session.JWTSecret },
 		Kind: KindString, Default: "", Secret: true,
 		Usage:  "signing key for session tokens (config file or environment only)",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "idle-timeout", Key: "session.idle_timeout",
+		Bind: func(c *Config) any { return &c.Session.IdleTimeout },
 		Kind: KindDuration, Default: "6h",
 		Usage:  "session idle timeout",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "absolute-timeout", Key: "session.absolute_timeout",
+		Bind: func(c *Config) any { return &c.Session.AbsoluteTimeout },
 		Kind: KindDuration, Default: "7d",
 		Usage:  "session lifetime regardless of activity",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "login-rate-limit-user", Key: "session.login_rate_limit_user",
+		Bind: func(c *Config) any { return &c.Session.LoginRateLimitUser },
 		Kind: KindInt, Default: 10,
 		Usage:  "failed logins per user name per window",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "login-rate-limit-ip", Key: "session.login_rate_limit_ip",
+		Bind: func(c *Config) any { return &c.Session.LoginRateLimitIP },
 		Kind: KindInt, Default: 60,
 		Usage:  "failed logins per client address per window",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "login-rate-limit-window", Key: "session.login_rate_limit_window",
+		Bind: func(c *Config) any { return &c.Session.LoginRateLimitWindow },
 		Kind: KindDuration, Default: "15m",
 		Usage:  "rate limit window",
 		Scopes: ScopeServer,
@@ -279,30 +316,35 @@ var Settings = []Setting{
 	// internal mail relay is a reasonable thing to run.
 	{
 		Flag: "mail-host", Key: "mail.host",
+		Bind: func(c *Config) any { return &c.Mail.Host },
 		Kind: KindString, Default: "",
 		Usage:  "SMTP host for outgoing mail; empty disables sending",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "mail-port", Key: "mail.port",
+		Bind: func(c *Config) any { return &c.Mail.Port },
 		Kind: KindInt, Default: 25,
 		Usage:  "SMTP port",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "mail-username", Key: "mail.username",
+		Bind: func(c *Config) any { return &c.Mail.Username },
 		Kind: KindString, Default: "",
 		Usage:  "user name for SMTP authentication; empty sends unauthenticated",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "mail-password", Key: "mail.password",
+		Bind: func(c *Config) any { return &c.Mail.Password },
 		Kind: KindString, Default: "", Secret: true,
 		Usage:  "password for SMTP authentication (config file or environment only)",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "mail-from", Key: "mail.from",
+		Bind: func(c *Config) any { return &c.Mail.From },
 		Kind: KindString, Default: "",
 		Usage:  "envelope and header From address; defaults to doenerstag@<hostname>",
 		Scopes: ScopeServer,
@@ -312,12 +354,14 @@ var Settings = []Setting{
 		// and the third -- implicit TLS on port 465 -- is not "more" or "less"
 		// of the second.
 		Flag: "mail-encryption", Key: "mail.encryption",
+		Bind: func(c *Config) any { return &c.Mail.Encryption },
 		Kind: KindString, Default: "starttls",
 		Usage:  "transport security for SMTP: none, starttls or tls",
 		Scopes: ScopeServer,
 	},
 	{
 		Flag: "mail-timeout", Key: "mail.timeout",
+		Bind: func(c *Config) any { return &c.Mail.Timeout },
 		Kind: KindDuration, Default: "10s",
 		Usage:  "how long to wait for the mail server before giving up",
 		Scopes: ScopeServer,
@@ -328,6 +372,7 @@ var Settings = []Setting{
 		// says: --port and --bind-address describe the socket, not the name a
 		// person types, and a reverse proxy makes the two different.
 		Flag: "base-url", Key: "server.base_url",
+		Bind: func(c *Config) any { return &c.Server.BaseURL },
 		Kind: KindString, Default: "",
 		Usage:  "public address of this installation, for links in mail, e.g. https://doener.example",
 		Scopes: ScopeGlobal,
@@ -396,6 +441,7 @@ var Settings = []Setting{
 	// --- cleanup -----------------------------------------------------------
 	{
 		Flag: "retention", Short: "r", Key: "cleanup.retention",
+		Bind: func(c *Config) any { return &c.Cleanup.Retention },
 		Kind: KindDuration, Default: "14d",
 		Usage:  "orders whose deadline is older than this are deleted",
 		Scopes: ScopeCleanup,

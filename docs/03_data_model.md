@@ -30,7 +30,7 @@ Every table carries these four columns:
 | ------------ | ------------- | ---- | -------------------------------------------------- |
 | `created_at` | `timestamptz` | no   | Default `now()`.                                    |
 | `created_by` | `uuid`        | yes  | FK to `app_user.id`. Null for seeded/system rows.    |
-| `updated_at` | `timestamptz` | no   | Default `now()`, maintained by a trigger.            |
+| `updated_at` | `timestamptz` | no   | Default `now()`, maintained by a trigger: moved when the row's data changes, not when only the audit columns do -- so deleting an account, which sets its `created_by` and `updated_by` to NULL everywhere, is not a modification of every row it touched. |
 | `updated_by` | `uuid`        | yes  | FK to `app_user.id`. Null for seeded/system rows.    |
 
 `created_by`/`updated_by` use `ON DELETE SET NULL` so that deleting a user never
@@ -47,15 +47,20 @@ Audit columns are omitted from the per-table listings below for brevity.
 app_user ──< session
          ──< api_token
          ──< food_order (creator)
+         ──< food_order (money collector, 0..1)
+         ──< food_order (pickup person, 0..1)
          ──< order_item (owner)
 
 restaurant ──< restaurant_contact >── contact_type
            ──< opening_hours
            ──< menu_category ──< menu_item
+                            ──< menu_category_availability >── availability_filter
+           ──< availability_filter
            ──< menu_item ──< menu_item_modification
                          ──< menu_item_tag      >── tag
                          ──< menu_item_allergen >── allergen
                          ──< menu_item_additive >── additive
+                         ──< menu_item_availability >── availability_filter
                          ──  image (0..1)
            ──  image (logo, 0..1)
            ──  currency
@@ -80,7 +85,7 @@ app_version
 | `name`          | `text`        | no   | Login name. Unique on `lower(name)`. 3–64 chars.                |
 | `display_name`  | `text`        | yes  | Shown in the UI. Falls back to `name` when null.                |
 | `password_hash` | `text`        | no   | Argon2id PHC string. See [05](05_auth_and_permissions.md).      |
-| `email`         | `text`        | yes  | Optional. Not verified. Not used for sending mail.              |
+| `email`         | `text`        | yes  | Optional. Not verified. Where a password reset link is sent. Not unique: several accounts may share one deliberately, and a reset by address mails each of them. |
 | `is_admin`      | `boolean`     | no   | Default `false`. True only for `root`.                          |
 | `last_login_at` | `timestamptz` | yes  |                                                                 |
 
@@ -225,7 +230,7 @@ separate address column on `restaurant`.
 | --------------- | ------------- | ---- | ----------------------------------------------------------- |
 | `id`            | `uuid`        | no   | PK, UUIDv7.                                                  |
 | `restaurant_id` | `uuid`        | no   | FK `restaurant`, `ON DELETE CASCADE`.                        |
-| `category_id`   | `uuid`        | yes  | FK `menu_category`, `ON DELETE SET NULL`.                    |
+| `category_id`   | `uuid`        | yes  | FK `(restaurant_id, category_id)` → `menu_category (restaurant_id, id)`, so the category is always one of the item's own restaurant's. `ON DELETE SET NULL (category_id)`. |
 | `external_id`   | `text`        | yes  | The restaurant's own item number, e.g. `A12`. Alphanumeric.  |
 | `name`          | `text`        | no   |                                                              |
 | `description`   | `text`        | yes  |                                                              |
@@ -491,7 +496,7 @@ Primary key is the column pair. These tables carry audit columns as well.
 | `fulfilment`            | `text`        | no   | `pickup` or `delivery`. `CHECK`ed.                        |
 | `fulfilment_at`         | `timestamptz` | no   | When the food is picked up or delivered.                  |
 | `deadline_at`           | `timestamptz` | no   | Last moment items may be added or changed.                |
-| `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. |
+| `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. `ON DELETE SET NULL`. |
 | `pickup_person_id`      | `uuid`        | yes  | The account fetching the order. `ON DELETE SET NULL`.     |
 | `currency_code`         | `char(3)`     | no   | Copied from the restaurant at creation.                   |
 | `min_order_value_cents` | `bigint`      | yes  | Copied from the restaurant at creation.                   |
@@ -505,10 +510,12 @@ Constraints:
   - Status = `active` while `now() < deadline_at`, otherwise `expired` (F5.5).
 - The copied currency / minimum value / delivery fee are snapshots. Changing the
   restaurant afterwards does not update existing orders.
-- `restaurant_id` may only be changed while the order has zero items (F5.8).
+- `restaurant_id` may only be changed while the order has zero items (F5.8). The
+  `UPDATE` carries the condition itself, so an item added between a check and
+  the write cannot slip through.
 
 Indexes: `(deadline_at)` for the overview and the `cleanup` verb,
-`(restaurant_id)`.
+`(restaurant_id)`, `(creator_id)`.
 
 ### `order_item`
 
@@ -522,6 +529,7 @@ Indexes: `(deadline_at)` for the overview and the `cleanup` verb,
 | `item_name`       | `text`    | no   | **Snapshot** of `menu_item.name` at ordering time.        |
 | `unit_price_cents`| `bigint`  | no   | **Snapshot** of `menu_item.price_cents`.                  |
 | `note`            | `text`    | yes  | Free-text modification.                                   |
+| `paid`            | `boolean` | no   | Ticked as settled (17.10). Default `false`. Not tied to the deadline. |
 
 - The snapshot columns are the authoritative values for display and totals.
   `menu_item_id` exists only for grouping in the summary and for the "still on
@@ -658,10 +666,10 @@ application's own history; `golang-migrate` maintains its separate
 
 | Action                          | Effect                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Sessions and tokens → cascade. |
+| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Sessions and tokens → cascade. |
 | Delete restaurant (admin)       | Rejected while any `food_order` references it. Otherwise soft delete.                        |
-| Delete menu category (admin)    | Soft delete. Items keep their `category_id` until `cleanup` nulls it.                        |
+| Delete menu category (admin)    | Soft delete. Its items lose their `category_id` at once and appear under no category.       |
 | Delete menu item (admin)        | Soft delete. Hidden from menus immediately.                                                  |
 | Delete modification (admin)     | Soft delete. Snapshots in existing order items are unaffected.                               |
 | Delete order (creator or admin) | Hard delete, cascading to items and item modifications.                                      |
-| `cleanup`                       | Deletes orders past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images, then expired sessions. |
+| `cleanup`                       | Deletes orders past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images older than a day, then expired sessions and API tokens. |

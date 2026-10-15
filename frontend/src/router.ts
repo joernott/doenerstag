@@ -84,7 +84,6 @@ function segments(path: string): string[] {
 /** The router. */
 export class Router {
   private outlet: HTMLElement | null = null;
-  private listeners = new Set<(context: RouteContext) => void>();
 
   // Renders are asynchronous, so two navigations in quick succession can
   // finish out of order. Each render takes a ticket and only the newest one is
@@ -136,12 +135,6 @@ export class Router {
   /** Re-renders the current page, after a language or session change. */
   refresh(): void {
     void this.render();
-  }
-
-  /** Notified after every render, with the context that was rendered. */
-  onRender(listener: (context: RouteContext) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
   }
 
   private static run(cleanups: (() => void)[]): void {
@@ -222,10 +215,6 @@ export class Router {
     if (moveFocus) {
       outlet.focus({ preventScroll: true });
       window.scrollTo(0, 0);
-    }
-
-    for (const listener of this.listeners) {
-      listener(context);
     }
   }
 

@@ -109,12 +109,3 @@ func ParseLevel(s string) (Level, error) {
 	return 0, fmt.Errorf("unknown log level %q, expected one of %s",
 		s, strings.Join(LevelNames(), ", "))
 }
-
-// MustParseLevel is ParseLevel for values known to be valid at compile time.
-func MustParseLevel(s string) Level {
-	level, err := ParseLevel(s)
-	if err != nil {
-		panic(err)
-	}
-	return level
-}

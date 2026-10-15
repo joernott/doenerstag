@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/model"
 	"github.com/joernott/doenerstag/internal/sse"
@@ -24,7 +22,7 @@ type addItemRequest struct {
 // F6.1: any logged-in user may add items to an active order. Not just the
 // creator -- the whole point is that colleagues fill in the order themselves.
 func (h *OrderHandlers) addItem(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -91,7 +89,7 @@ type patchItemRequest struct {
 
 // patchItem changes quantity, note or modifications. Owner or administrator.
 func (h *OrderHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -160,7 +158,7 @@ func (h *OrderHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 
 // deleteItem removes an order item. Owner or administrator, while active.
 func (h *OrderHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -225,24 +223,16 @@ func (h *OrderHandlers) requireItemOwner(r *http.Request, item model.OrderItem) 
 	return principal, nil
 }
 
-// lookupItem resolves both path parameters and checks the item is in the order.
-func (h *OrderHandlers) lookupItem(r *http.Request) (model.Order, model.OrderItem, *Error) {
-	order, err := h.lookup(r)
+// lookupOrderItem resolves both path parameters and checks the item is in the order.
+func (h *OrderHandlers) lookupOrderItem(r *http.Request) (model.Order, model.OrderItem, *Error) {
+	order, err := h.lookupOrder(r)
 	if err != nil {
 		return model.Order{}, model.OrderItem{}, err
 	}
 
-	id, parseErr := uuid.Parse(Param(r, "iid"))
-	if parseErr != nil {
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeNotFound}
-	}
-
-	item, dbErr := db.OrderItemByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+	item, err := loadParam(r, h.Pool, "iid", db.OrderItemByID)
+	if err != nil {
+		return model.Order{}, model.OrderItem{}, err
 	}
 	if item.OrderID != order.ID {
 		// One order's item must not be reachable through another's URL.
@@ -302,7 +292,7 @@ func validateQuantity(quantity int) *Error {
 //     arrives, which is always after the deadline. A tick that could only be
 //     made while the order was open could never be made at all.
 func (h *OrderHandlers) setItemPaid(w http.ResponseWriter, r *http.Request) {
-	order, item, lookupErr := h.lookupItem(r)
+	order, item, lookupErr := h.lookupOrderItem(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return

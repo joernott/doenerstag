@@ -10,36 +10,24 @@
 // The form opens on an hour and two hours from now.
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
-import { button, field, form, input, select } from "../components/forms";
+import { button, field, fieldError, form, input, select } from "../components/forms";
+import { localInputValue } from "../format";
 import { isOpen } from "../openinghours";
-import { actions, page, section, statusLine } from "./page";
-import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-  opening_hours: OpeningPeriod[];
-}
-
-/** A `datetime-local` value for a Date, in the viewer's own time zone. */
-export function localInputValue(date: Date): string {
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
+import { actions, failedPage, page, section } from "./page";
+import type { OpeningPeriod, Restaurant, RestaurantDetail } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /**
  * A moment a given number of hours from now, which is what the form starts
  * from.
  *
- * The form used to default to today at 11:00 and 12:00 -- a lunch order, on the
- * assumption that it is being opened in the morning. Opened at ten in the
- * evening it offered a deadline eleven hours in the past, and the order created
- * from it was closed before it existed. An hour and two hours from now is right
+ * Not a fixed time of day: today at 11:00 and 12:00 -- a lunch order -- assumes
+ * the form is opened in the morning. Opened at ten in the evening it would
+ * offer a deadline eleven hours in the past, and the order created from it
+ * would be closed before it existed. An hour and two hours from now is right
  * whatever the time is.
  */
 function inHours(hours: number): Date {
@@ -53,7 +41,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
   try {
     restaurants = await getList<Restaurant>("/restaurants", "restaurants");
   } catch (error) {
-    return page(t.t("order.new"), el("p", { class: "field-error", text: errorMessage(t, error) }));
+    return failedPage(t.t("order.new"), t, error);
   }
 
   if (restaurants.length === 0) {
@@ -102,7 +90,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
   const moneyCollector = select(people, { name: "money_collector_id" });
   const pickupPerson = select(people, { name: "pickup_person_id" });
 
-  const deadlineProblem = el("p", { class: "field-error", role: "alert" });
+  const deadlineProblem = fieldError(deadlineAt);
   const hoursWarning = el("p", { class: "field-hint" });
 
   // The opening hours of whichever restaurant is selected, for the warning.
@@ -130,11 +118,13 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
     const ordered = known && closes.getTime() < fulfils.getTime();
     const future = known && closes.getTime() > Date.now();
 
-    deadlineProblem.textContent = !ordered
-      ? t.t("order.deadline_before_fulfilment")
-      : future
-        ? ""
-        : t.t("error.1014");
+    if (!ordered) {
+      deadlineProblem.set(t.t("order.deadline_before_fulfilment"));
+    } else if (!future) {
+      deadlineProblem.set(t.t("error.1014"));
+    } else {
+      deadlineProblem.clear();
+    }
 
     // F5.4: a warning, never a refusal.
     hoursWarning.textContent =
@@ -162,8 +152,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
       return;
     }
 
-    submit.disabled = true;
-    try {
+    await runAction({ status, t, busy: submit }, async () => {
       const created = await api.post<{ id: string }>("/orders", {
         restaurant_id: restaurant.value,
         fulfilment: fulfilment.value,
@@ -174,11 +163,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
         pickup_person_id: pickupPerson.value,
       });
       app.navigate(`/orders/${created.id}`);
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
-    }
+    });
   }
 
   return page(
@@ -193,8 +178,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
         field({ label: t.t("order.fulfilment.type"), control: fulfilment }),
         field({ label: t.t("order.fulfilment.label"), control: fulfilmentAt }),
         hoursWarning,
-        field({ label: t.t("order.deadline.label"), control: deadlineAt }),
-        deadlineProblem,
+        field({ label: t.t("order.deadline.label"), control: deadlineAt, error: deadlineProblem }),
         field({
           label: t.t("order.money_collector"),
           control: moneyCollector,

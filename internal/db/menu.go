@@ -61,7 +61,7 @@ func CreateCategory(
 		return model.MenuCategory{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.MenuCategory{}, ErrNotFound
+		return model.MenuCategory{}, ErrUnknownReference
 	}
 	return c, err
 }
@@ -211,7 +211,7 @@ func CreateMenuItem(ctx context.Context, q Querier, in NewMenuItem, actor uuid.U
 		return model.MenuItem{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.MenuItem{}, ErrNotFound
+		return model.MenuItem{}, ErrUnknownReference
 	}
 	return m, err
 }
@@ -283,7 +283,7 @@ func UpdateMenuItem(
 		return model.MenuItem{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.MenuItem{}, ErrNotFound
+		return model.MenuItem{}, ErrUnknownReference
 	}
 	return m, err
 }

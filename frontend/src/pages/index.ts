@@ -1,6 +1,6 @@
 // The route table, and the pages that exist so far.
 //
-// Every route now leads to a screen. The table is the one place that knows
+// Every route leads to a screen. The table is the one place that knows
 // which path shows what, so a page can be replaced without anything else
 // having to be told.
 
@@ -8,6 +8,7 @@ import type { App } from "../app";
 import { api, type VersionInfo } from "../api";
 import { returnPathFrom } from "../returnto";
 import { el } from "../dom";
+import { definitionList } from "../components/definitions";
 import { formatDateTime } from "../format";
 import type { Route } from "../router";
 import { accountPage, resetPasswordPage } from "./account";
@@ -83,11 +84,7 @@ async function versionPage(app: App): Promise<HTMLElement> {
     [t.t("version.built"), formatDateTime(app.language, info.build_date)],
   ];
 
-  const list = el("dl", { class: "definitions" });
-  for (const [label, value] of rows) {
-    list.appendChild(el("dt", { text: label }));
-    list.appendChild(el("dd", { text: value }));
-  }
+  const list = definitionList(rows);
 
   // The mark behind it and the facts in a card, like the two overviews. This is
   // a short page, and three lines of text alone on a wide empty background

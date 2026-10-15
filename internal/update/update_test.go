@@ -98,7 +98,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	t.Cleanup(func() {
-		dropEverything(t, &install.Provisioner{
+		testdb.DropProvisioned(t, &install.Provisioner{
 			Server:   f.server,
 			Root:     install.Identity{User: f.server.User, Password: f.server.Password},
 			Admin:    install.Identity{User: f.adminUser},
@@ -107,30 +107,6 @@ func newFixture(t *testing.T) *fixture {
 		})
 	})
 	return f
-}
-
-// dropEverything removes the database and the roles the fixture created.
-func dropEverything(t *testing.T, p *install.Provisioner) {
-	t.Helper()
-
-	ctx := context.Background()
-	opts := p.Server.WithUser(p.Root.User, p.Root.Password).WithDatabase("postgres")
-	pool, err := db.Connect(ctx, opts, nil)
-	if err != nil {
-		t.Logf("cleaning up: %v", err)
-		return
-	}
-	defer pool.Close()
-
-	for _, statement := range []string{
-		`DROP DATABASE IF EXISTS "` + p.Database + `" WITH (FORCE)`,
-		`DROP ROLE IF EXISTS "` + p.Runtime.User + `"`,
-		`DROP ROLE IF EXISTS "` + p.Admin.User + `"`,
-	} {
-		if _, err := pool.Exec(ctx, statement); err != nil {
-			t.Logf("cleaning up: %v", err)
-		}
-	}
 }
 
 func TestUpdateAppliesNothingWhenTheSchemaIsCurrent(t *testing.T) {

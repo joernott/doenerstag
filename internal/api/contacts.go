@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/joernott/doenerstag/internal/db"
+	"github.com/joernott/doenerstag/internal/model"
 )
 
 // validateContacts turns request bodies into database inputs.
@@ -34,11 +35,7 @@ func (h *RestaurantHandlers) validateContact(
 ) (db.NewContact, *Error) {
 	typeID, err := uuid.Parse(strings.TrimSpace(in.ContactTypeID))
 	if err != nil {
-		return db.NewContact{}, &Error{
-			Code:   CodeInvalidField,
-			Field:  "contact_type_id",
-			Detail: "this is not a valid identifier",
-		}
+		return db.NewContact{}, invalidID("contact_type_id")
 	}
 
 	if _, dbErr := db.ContactTypeByID(r.Context(), h.Pool, typeID); dbErr != nil {
@@ -82,7 +79,7 @@ func (h *RestaurantHandlers) validateContact(
 }
 
 func (h *RestaurantHandlers) listContacts(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.lookup(r)
+	restaurant, err := h.lookupRestaurant(r)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -102,7 +99,7 @@ func (h *RestaurantHandlers) listContacts(w http.ResponseWriter, r *http.Request
 }
 
 func (h *RestaurantHandlers) createContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -127,14 +124,14 @@ func (h *RestaurantHandlers) createContact(w http.ResponseWriter, r *http.Reques
 
 	created, dbErr := db.CreateContact(r.Context(), h.Pool, contact, principal.User.ID)
 	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	_ = WriteJSON(w, http.StatusCreated, publicContact(created))
 }
 
 func (h *RestaurantHandlers) replaceContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -165,14 +162,14 @@ func (h *RestaurantHandlers) replaceContact(w http.ResponseWriter, r *http.Reque
 
 	updated, dbErr := db.ReplaceContact(r.Context(), h.Pool, existing.ID, contact, principal.User.ID)
 	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	_ = WriteJSON(w, http.StatusOK, publicContact(updated))
 }
 
 func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -199,11 +196,8 @@ func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Reques
 			Detail: "this is the restaurant's only contact; add another before removing it",
 		})
 		return
-	case errors.Is(err, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case err != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
@@ -216,27 +210,16 @@ func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Reques
 // The ownership check is what stops one restaurant's contact being edited or
 // removed through another's URL. It answers 404 rather than something more
 // specific: from the caller's side there is no such contact at this path.
-func (h *RestaurantHandlers) lookupContact(r *http.Request, restaurantID uuid.UUID) (contactRef, *Error) {
-	id, err := uuid.Parse(Param(r, "cid"))
+func (h *RestaurantHandlers) lookupContact(r *http.Request, restaurantID uuid.UUID) (model.Contact, *Error) {
+	contact, err := loadParam(r, h.Pool, "cid", db.ContactByID)
 	if err != nil {
-		return contactRef{}, &Error{Code: CodeNotFound}
-	}
-
-	contact, dbErr := db.ContactByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return contactRef{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return contactRef{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.Contact{}, err
 	}
 	if contact.RestaurantID != restaurantID {
-		return contactRef{}, &Error{Code: CodeNotFound}
+		return model.Contact{}, &Error{Code: CodeNotFound}
 	}
-	return contactRef{ID: contact.ID}, nil
+	return contact, nil
 }
-
-// contactRef is the little that the lookup needs to hand back.
-type contactRef struct{ ID uuid.UUID }
 
 // listCurrencies and listContactTypes serve the seeded reference tables.
 //

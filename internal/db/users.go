@@ -14,17 +14,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrNotFound is returned when a row does not exist.
-//
-// One sentinel for the whole package rather than one per table: every caller
-// turns it into the same 4000, and distinguishing "no such user" from "no such
-// order" at this layer would only invite an error message that tells an
-// anonymous caller which identifiers are real.
-var ErrNotFound = errors.New("db: not found")
-
-// ErrNameTaken is returned when a unique name constraint rejects a write.
-var ErrNameTaken = errors.New("db: name already taken")
-
 // userColumns is the projection every user query returns, so that scanUser can
 // be shared. Written once rather than repeated in each query, because a column
 // added to one list and not the other is a scan error at runtime.
@@ -233,7 +222,11 @@ func ListUsers(ctx context.Context, q Querier) ([]model.User, error) {
 	return users, rows.Err()
 }
 
-// DeleteUser removes an account.
+// DeleteUser removes the account row and nothing else.
+//
+// It is not how an account is deleted: that is DeleteAccount, which carries
+// out F2.6 first. Called alone, this leaves the account's items in open orders
+// standing under the placeholder -- the defect `user delete` had (20.4).
 //
 // The database refuses to delete the administrator or the placeholder, through
 // the trigger in migration 000002, so this does not repeat the check: a caller
@@ -249,35 +242,32 @@ func DeleteUser(ctx context.Context, q Querier, id uuid.UUID) error {
 	return nil
 }
 
-// isUniqueViolation reports whether err is PostgreSQL's 23505.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
-// isForeignKeyViolation reports whether err is PostgreSQL's 23503.
+// UsersByEmail reads every account with this e-mail address, by name.
 //
-// It means a referenced row does not exist -- an unknown currency code, or an
-// image id that was never uploaded -- which the API answers as 4000 rather than
-// as a server error.
-func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23503"
-}
-
-// IsForeignKeyViolation reports whether err is PostgreSQL's 23503.
-//
-// Exported for the api package, which turns a reference to a row that does not
-// exist into a 1002 naming the field rather than a server error.
-func IsForeignKeyViolation(err error) bool { return isForeignKeyViolation(err) }
-
-// UserByEmail reads one account by its e-mail address.
+// Every, because an address is not unique and need not be: somebody with an
+// administrator account and a personal one may give both the same address, and
+// that is their decision. A lookup that returned one row picked whichever the
+// database happened to return first (20.5).
 //
 // Case-insensitive, because an address is: somebody who registered as
 // Anna@example.com and asks for a reset as anna@example.com is the same person,
 // and telling them otherwise would be telling them their account does not
-// exist.
-func UserByEmail(ctx context.Context, q Querier, email string) (model.User, error) {
-	return scanUser(q.QueryRow(ctx,
-		`SELECT `+userColumns+` FROM app_user WHERE lower(email) = lower($1)`, email))
+// exist. An empty result is not an error.
+func UsersByEmail(ctx context.Context, q Querier, email string) ([]model.User, error) {
+	rows, err := q.Query(ctx,
+		`SELECT `+userColumns+` FROM app_user WHERE lower(email) = lower($1) ORDER BY name`, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
 }

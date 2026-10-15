@@ -289,7 +289,9 @@ paths:
 
         Accepts either the login name or the e-mail address, because somebody
         who has forgotten their password should not also have to remember which
-        of the two they registered with.
+        of the two they registered with. An address may be shared by several
+        accounts, deliberately; asking by address sends a link for each of
+        them, and each message names the account its link is for.
       requestBody:
         required: true
         content:
@@ -2424,11 +2426,13 @@ components:
 
     DeletionImpact:
       type: object
-      required: [active_orders, active_items, expired_items, created_active_orders]
+      required: [active_orders, active_items, expired_items, created_active_orders, active_jobs]
       properties:
         active_orders:
           type: integer
-          description: Active orders this account has items in.
+          description: >-
+            Active orders this account takes part in: opened, ordered in, or
+            collects the money or fetches the food for.
         active_items:
           type: integer
           description: Items that would be deleted.
@@ -2438,6 +2442,11 @@ components:
         created_active_orders:
           type: integer
           description: Active orders this account opened, which would be reassigned.
+        active_jobs:
+          type: integer
+          description: >-
+            Active orders this account collects the money for or fetches the
+            food for, which would be left with nobody doing it.
 
     Token:
       type: object

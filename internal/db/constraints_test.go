@@ -2,11 +2,14 @@ package db_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/testdb"
 )
 
@@ -490,4 +493,86 @@ func insertValidOrder(t *testing.T, f fixture) string {
 		t.Fatalf("creating an order: %v", err)
 	}
 	return id
+}
+
+// 20.14: a dish's category is one of its own restaurant's. Only the API used to
+// say so; now a write from anywhere else is refused as well.
+func TestADishCannotBeFiledUnderAnotherRestaurantsCategory(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	other := "00000000-0000-7000-8000-0000000000b2"
+	theirs := "00000000-0000-7000-8000-0000000000d2"
+	ours := "00000000-0000-7000-8000-0000000000d1"
+	for _, stmt := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO restaurant (id, name, currency_code) VALUES ($1, 'Pizza Place', 'EUR')`, []any{other}},
+		{`INSERT INTO menu_category (id, restaurant_id, name) VALUES ($1, $2, 'Pizza')`, []any{theirs, other}},
+		{`INSERT INTO menu_category (id, restaurant_id, name) VALUES ($1, $2, 'Kebap')`, []any{ours, f.restaurant}},
+	} {
+		if _, err := f.pool.Exec(ctx, stmt.sql, stmt.args...); err != nil {
+			t.Fatalf("building the fixture: %v", err)
+		}
+	}
+
+	if err := execErr(t, f.pool,
+		`UPDATE menu_item SET category_id = $2 WHERE id = $1`, f.menuItem, theirs); err == nil {
+		t.Error("a dish was filed under another restaurant's category")
+	}
+	if err := execErr(t, f.pool,
+		`UPDATE menu_item SET category_id = $2 WHERE id = $1`, f.menuItem, ours); err != nil {
+		t.Errorf("filing a dish under its own restaurant's category: %v", err)
+	}
+
+	// Deleting the category clears it from the dish and nothing else.
+	if _, err := f.pool.Exec(ctx, `DELETE FROM menu_category WHERE id = $1`, ours); err != nil {
+		t.Fatalf("deleting the category: %v", err)
+	}
+	var category *string
+	var restaurant string
+	if err := f.pool.QueryRow(ctx,
+		`SELECT category_id::text, restaurant_id::text FROM menu_item WHERE id = $1`, f.menuItem).
+		Scan(&category, &restaurant); err != nil {
+		t.Fatal(err)
+	}
+	if category != nil || restaurant != f.restaurant {
+		t.Errorf("after deleting its category the dish has category %v and restaurant %s", category, restaurant)
+	}
+}
+
+// 20.14: F5.8 -- an order's restaurant is fixed once it has items -- holds in
+// the UPDATE itself, so an item added between the handler's check and the write
+// cannot slip through. This calls UpdateOrder directly, past any handler.
+func TestAnOrdersRestaurantIsFixedOnceItHasItems(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	other := "00000000-0000-7000-8000-0000000000b2"
+	if _, err := f.pool.Exec(ctx,
+		`INSERT INTO restaurant (id, name, currency_code) VALUES ($1, 'Pizza Place', 'EUR')`, other); err != nil {
+		t.Fatal(err)
+	}
+	order := insertValidOrder(t, f)
+	if _, err := f.pool.Exec(ctx, `
+		INSERT INTO order_item (id, order_id, user_id, menu_item_id, quantity, item_name, unit_price_cents)
+		VALUES (gen_random_uuid(), $1, $2, $3, 1, 'Döner Kebab', 650)`,
+		order, f.userID, f.menuItem); err != nil {
+		t.Fatal(err)
+	}
+
+	otherID := uuid.MustParse(other)
+	_, err := db.UpdateOrder(ctx, f.pool, uuid.MustParse(order), uuid.MustParse(f.userID),
+		db.OrderUpdate{RestaurantID: &otherID})
+	if !errors.Is(err, db.ErrRestaurantLocked) {
+		t.Errorf("changing the restaurant of an order with items: %v, want ErrRestaurantLocked", err)
+	}
+
+	// An unknown order is still not found, rather than locked.
+	_, err = db.UpdateOrder(ctx, f.pool, uuid.Must(uuid.NewV7()), uuid.MustParse(f.userID),
+		db.OrderUpdate{RestaurantID: &otherID})
+	if !errors.Is(err, db.ErrNotFound) {
+		t.Errorf("changing the restaurant of an unknown order: %v, want ErrNotFound", err)
+	}
 }

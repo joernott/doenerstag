@@ -17,7 +17,9 @@ import (
 // It is shown before the deletion so the user can cancel, which is the only
 // warning they get: the deletion itself is immediate and irreversible.
 type DeletionImpact struct {
-	// ActiveOrders is how many still-open orders the user participates in.
+	// ActiveOrders is how many still-open orders the user participates in: as
+	// creator, with items, or collecting the money or fetching the food, the
+	// same people as IsParticipant (20.7).
 	ActiveOrders int
 	// ActiveItems is how many of their items would be deleted outright.
 	ActiveItems int
@@ -27,6 +29,9 @@ type DeletionImpact struct {
 	// CreatedActiveOrders is how many open orders they created, which pass to
 	// the placeholder rather than being removed.
 	CreatedActiveOrders int
+	// ActiveJobs is how many open orders they collect the money for or fetch
+	// the food for, which are left with nobody doing it (20.7.1).
+	ActiveJobs int
 }
 
 // ImpactOfDeleting counts what would change, without changing anything.
@@ -45,7 +50,8 @@ func ImpactOfDeleting(ctx context.Context, q Querier, userID uuid.UUID, now time
 			   FROM food_order o
 			   LEFT JOIN order_item i ON i.order_id = o.id AND i.user_id = $1
 			  WHERE o.deadline_at > $2
-			    AND (o.creator_id = $1 OR i.id IS NOT NULL)),
+			    AND (o.creator_id = $1 OR i.id IS NOT NULL
+			         OR o.money_collector_id = $1 OR o.pickup_person_id = $1)),
 			(SELECT count(*)
 			   FROM order_item i JOIN food_order o ON o.id = i.order_id
 			  WHERE i.user_id = $1 AND o.deadline_at > $2),
@@ -54,10 +60,14 @@ func ImpactOfDeleting(ctx context.Context, q Querier, userID uuid.UUID, now time
 			  WHERE i.user_id = $1 AND o.deadline_at <= $2),
 			(SELECT count(*)
 			   FROM food_order o
-			  WHERE o.creator_id = $1 AND o.deadline_at > $2)`,
+			  WHERE o.creator_id = $1 AND o.deadline_at > $2),
+			(SELECT count(*)
+			   FROM food_order o
+			  WHERE o.deadline_at > $2
+			    AND (o.money_collector_id = $1 OR o.pickup_person_id = $1))`,
 		userID, at(now)).
 		Scan(&impact.ActiveOrders, &impact.ActiveItems,
-			&impact.ExpiredItems, &impact.CreatedActiveOrders)
+			&impact.ExpiredItems, &impact.CreatedActiveOrders, &impact.ActiveJobs)
 	if err != nil {
 		return DeletionImpact{}, err
 	}

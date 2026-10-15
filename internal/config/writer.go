@@ -29,48 +29,11 @@ type Values map[string]string
 // nanoseconds is written as "7d" — so that a generated file reads like one a
 // person would write.
 func ValuesFrom(cfg *Config) Values {
-	v := Values{
-		"database-server":      cfg.Database.Server,
-		"database-port":        strconv.Itoa(cfg.Database.Port),
-		"database-name":        cfg.Database.Name,
-		"database-user":        cfg.Database.User,
-		"database-password":    cfg.Database.Password,
-		"database-sslmode":     cfg.Database.SSLMode,
-		"max-connection-pool":  strconv.Itoa(cfg.Database.MaxConnectionPool),
-		"log-level":            cfg.Log.Level.String(),
-		"log-file":             cfg.Log.File,
-		"port":                 strconv.Itoa(cfg.Server.Port),
-		"bind-address":         cfg.Server.BindAddress,
-		"no-https":             strconv.FormatBool(cfg.Server.NoHTTPS),
-		"behind-tls-proxy":     strconv.FormatBool(cfg.Server.BehindTLSProxy),
-		"tls-cert":             cfg.Server.TLSCert,
-		"tls-key":              cfg.Server.TLSKey,
-		"no-swagger":           strconv.FormatBool(cfg.Server.NoSwagger),
-		"static-dir":           cfg.Server.StaticDir,
-		"http-read-timeout":    FormatDuration(cfg.Server.HTTPReadTimeout),
-		"http-write-timeout":   FormatDuration(cfg.Server.HTTPWriteTimeout),
-		"http-idle-timeout":    FormatDuration(cfg.Server.HTTPIdleTimeout),
-		"shutdown-grace":       FormatDuration(cfg.Server.ShutdownGrace),
-		"max-image-size":       FormatByteSize(cfg.Server.MaxImageSize),
-		"cors-allowed-origins": cfg.Server.CORSAllowedOrigins,
-		"base-url":             cfg.Server.BaseURL,
-
-		"mail-host":       cfg.Mail.Host,
-		"mail-port":       strconv.Itoa(cfg.Mail.Port),
-		"mail-username":   cfg.Mail.Username,
-		"mail-password":   cfg.Mail.Password,
-		"mail-from":       cfg.Mail.From,
-		"mail-encryption": cfg.Mail.Encryption,
-		"mail-timeout":    FormatDuration(cfg.Mail.Timeout),
-
-		"jwt-secret":              cfg.Session.JWTSecret,
-		"idle-timeout":            FormatDuration(cfg.Session.IdleTimeout),
-		"absolute-timeout":        FormatDuration(cfg.Session.AbsoluteTimeout),
-		"login-rate-limit-user":   strconv.Itoa(cfg.Session.LoginRateLimitUser),
-		"login-rate-limit-ip":     strconv.Itoa(cfg.Session.LoginRateLimitIP),
-		"login-rate-limit-window": FormatDuration(cfg.Session.LoginRateLimitWindow),
-
-		"retention": FormatDuration(cfg.Cleanup.Retention),
+	v := Values{}
+	for _, setting := range Settings {
+		if setting.Bind != nil {
+			v[setting.Flag] = formatSetting(setting.Bind(cfg))
+		}
 	}
 
 	// A zero value in the struct means the section was never populated, because
@@ -424,6 +387,14 @@ func WriteFile(path, content string) error {
 	}
 	if err := temp.Close(); err != nil {
 		return fmt.Errorf("closing %s: %w", tempName, err)
+	}
+
+	// A file that already exists keeps its owner and group. Without this a
+	// root-run update left the service unable to read its own configuration.
+	if existing, statErr := os.Stat(path); statErr == nil {
+		if err := keepOwner(existing, tempName); err != nil {
+			return fmt.Errorf("keeping the owner of %s: %w", path, err)
+		}
 	}
 
 	if err := os.Rename(tempName, path); err != nil {

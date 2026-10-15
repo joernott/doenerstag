@@ -134,20 +134,3 @@ func ThumbnailData(ctx context.Context, q Querier, id uuid.UUID) (mediaType stri
 	}
 	return mediaType, data, nil
 }
-
-// DeleteUnreferencedImages removes images nothing points at.
-//
-// There is no DELETE /images: an image is referenced by id from two tables, and
-// letting a caller remove one would leave a restaurant with a broken logo. The
-// cleanup verb calls this instead, which is the whole reason the ADR calls
-// orphans impossible in the sense that matters.
-func DeleteUnreferencedImages(ctx context.Context, q Querier) (int64, error) {
-	tag, err := q.Exec(ctx, `
-		DELETE FROM image
-		WHERE NOT EXISTS (SELECT 1 FROM restaurant WHERE logo_image_id = image.id)
-		  AND NOT EXISTS (SELECT 1 FROM menu_item WHERE image_id = image.id)`)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}

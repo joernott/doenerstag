@@ -80,7 +80,7 @@ type personLine struct {
 // individual spends. RequireParticipant answers 3004 for a logged-in
 // non-participant and 2000 for an anonymous caller.
 func (h *OrderHandlers) summary(w http.ResponseWriter, r *http.Request) {
-	order, lookupErr := h.lookup(r)
+	order, lookupErr := h.lookupOrder(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return

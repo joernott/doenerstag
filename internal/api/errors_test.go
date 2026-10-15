@@ -121,8 +121,8 @@ func TestErrorEnvelopeShape(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", http.NoBody)
 
-	WriteError(rec, req, FieldError(CodeDeadlineAfterFulfil, "deadline_at",
-		"deadline must be before the fulfilment time"))
+	WriteError(rec, req, &Error{Code: CodeDeadlineAfterFulfil, Field: "deadline_at",
+		Detail: "deadline must be before the fulfilment time"})
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status %d, want 400", rec.Code)
@@ -173,7 +173,7 @@ func TestTheWrappedCauseIsNeverSent(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	WriteError(rec, httptest.NewRequest(http.MethodGet, "/x", http.NoBody),
-		Newf(CodeDatabaseUnavailable, cause, "the database is unavailable"))
+		&Error{Code: CodeDatabaseUnavailable, Cause: cause, Detail: "the database is unavailable"})
 
 	if strings.Contains(rec.Body.String(), "app_user") ||
 		strings.Contains(rec.Body.String(), "db.go") {
@@ -181,7 +181,7 @@ func TestTheWrappedCauseIsNeverSent(t *testing.T) {
 	}
 
 	// It is still reachable for the log.
-	err := Newf(CodeDatabaseUnavailable, cause, "x")
+	err := &Error{Code: CodeDatabaseUnavailable, Cause: cause}
 	if !errors.Is(err, cause) {
 		t.Error("the cause is not retrievable with errors.Is")
 	}

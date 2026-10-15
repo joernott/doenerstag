@@ -2,14 +2,9 @@ package db_test
 
 import (
 	"context"
-	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/joernott/doenerstag/internal/db"
 )
 
 // currentDatabase reports the database a pool is connected to.
@@ -49,38 +44,4 @@ func tableNames(t *testing.T, pool *pgxpool.Pool) []string {
 		t.Fatalf("listing tables: %v", err)
 	}
 	return names
-}
-
-// optionsFromDSN turns a connection string back into db.Options, so that
-// db.Connect can be exercised against whatever server the harness provided.
-func optionsFromDSN(dsn string) (db.Options, error) {
-	u, err := url.Parse(dsn)
-	if err != nil {
-		return db.Options{}, err
-	}
-
-	port := 5432
-	if p := u.Port(); p != "" {
-		port, err = strconv.Atoi(p)
-		if err != nil {
-			return db.Options{}, err
-		}
-	}
-
-	password, _ := u.User.Password()
-
-	sslMode := u.Query().Get("sslmode")
-	if sslMode == "" {
-		sslMode = "prefer"
-	}
-
-	return db.Options{
-		Host:           u.Hostname(),
-		Port:           port,
-		Database:       strings.TrimPrefix(u.Path, "/"),
-		User:           u.User.Username(),
-		Password:       password,
-		SSLMode:        sslMode,
-		MaxConnections: 4,
-	}, nil
 }

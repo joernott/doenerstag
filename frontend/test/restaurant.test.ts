@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { restaurantPage } from "../src/pages/restaurant";
 import { restaurantsPage } from "../src/pages/restaurants";
-import { mountApp, referenceStubs, settle, stubServer } from "./helpers";
+import { fails, mountApp, referenceStubs, settle, stubServer } from "./helpers";
 
 const restaurant = {
   id: "r1",
@@ -315,6 +315,34 @@ describe("the restaurant page", () => {
     name.value = restaurant.name;
     name.dispatchEvent(new Event("input", { bubbles: true }));
     expect(save.disabled).toBe(true);
+  });
+
+  // 20.10: a failed save leaves Save usable for a second try. The data section
+  // reported its own failure and swallowed it, and the button is re-enabled
+  // only by a failure that reaches it, so it stayed disabled until a field was
+  // edited.
+  it("lets Save be pressed again after a save failed", async () => {
+    stubServer({ ...restaurantStubs(), "PATCH /restaurants/r1": fails(503, { error: { code: 9001 } }) });
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await restaurantPage(app, "r1");
+    await settle();
+
+    const save = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent === app.t.t("action.save"),
+    );
+    const name = rendered.querySelector<HTMLInputElement>("input[name='name']");
+    if (!name || !save) {
+      throw new Error("the restaurant form is missing its name field or its save button");
+    }
+    name.value = `${name.value} am Markt`;
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+
+    save.click();
+    await settle();
+
+    expect(save.disabled).toBe(false);
   });
 
   it("offers the administrator the deletions as well", async () => {

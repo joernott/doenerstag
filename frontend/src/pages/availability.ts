@@ -8,50 +8,18 @@
 // implementing it a second time.
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
-import { el, icon, type Child } from "../dom";
+import { api } from "../api";
+import { el, type Child } from "../dom";
 import { formatWeekday } from "../format";
-import { button, field, form, input } from "../components/forms";
-import { confirmDialog, openModal } from "../components/modal";
-import { statusLine } from "./page";
-import type { AvailabilityFilter } from "../components/menuitem";
+import { button, field, input } from "../components/forms";
+import { describeFilter, filterPicker, loadFilters, saveAttachments } from "../components/availability";
+import { dialogHint, openFormDialog } from "../components/formdialog";
+import { confirmDialog } from "../components/modal";
+import type { AvailabilityFilter } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /** ISO weekdays, Monday first, which is how the schema numbers them. */
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
-
-/** Loads a restaurant's filters. */
-export function loadFilters(restaurantID: string): Promise<AvailabilityFilter[]> {
-  return getList<AvailabilityFilter>(
-    `/restaurants/${restaurantID}/availability`,
-    "availability",
-  ).catch(() => []);
-}
-
-/**
- * A filter in one line: what it is called, and what it actually says.
- *
- * The second half matters more than it looks. A list of names is a list of
- * things somebody has to remember the meaning of, and "Fri-Sun after 5" is only
- * a promise that the rule matches its name.
- */
-export function describeFilter(app: App, filter: AvailabilityFilter): string {
-  const { t } = app;
-  const parts: string[] = [];
-
-  if (filter.on_date) {
-    parts.push(filter.on_date);
-  }
-  if (filter.weekdays.length > 0) {
-    parts.push(
-      filter.weekdays.map((day) => formatWeekday(app.language, day).slice(0, 2)).join(", "),
-    );
-  }
-  if (filter.start_time && filter.end_time) {
-    parts.push(`${filter.start_time}–${filter.end_time}`);
-  }
-
-  return parts.length > 0 ? parts.join(" · ") : t.t("availability.always");
-}
 
 /**
  * The Availability tab: define the rules this restaurant's menu can refer to.
@@ -109,9 +77,7 @@ export function availabilitySection(app: App, restaurantID: string): HTMLElement
           label: t.t("action.delete"),
           variant: "danger",
           ariaLabel: `${t.t("action.delete")}: ${filter.name}`,
-          onclick: () => {
-            void remove(filter);
-          },
+          onclick: () => remove(filter),
         }),
       );
     }
@@ -143,13 +109,10 @@ export function availabilitySection(app: App, restaurantID: string): HTMLElement
       return;
     }
 
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.delete(`/restaurants/${restaurantID}/availability/${filter.id}`);
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   async function reload(): Promise<void> {
@@ -169,7 +132,6 @@ export function openFilterEditor(
   onSaved: () => void | Promise<void>,
 ): void {
   const { t } = app;
-  const editorStatus = statusLine();
 
   const name = input({ value: existing?.name ?? "", required: true });
   const onDate = input({ type: "date", value: existing?.on_date ?? "" });
@@ -190,167 +152,51 @@ export function openFilterEditor(
     );
   }
 
-  const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-  const body = form(
-    () => {
-      void store();
-    },
-    field({ label: t.t("availability.name"), control: name }),
-    el("p", { class: "field-hint", text: t.t("availability.name_hint") }),
-    field({
-      label: t.t("availability.on_date"),
-      control: onDate,
-      optionalLabel: t.t("auth.optional"),
-    }),
-    el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("availability.weekdays") }), dayRow),
-    el(
-      "div",
-      { class: "row" },
+  openFormDialog({
+    t,
+    title: existing ? t.t("availability.edit_title") : t.t("availability.new"),
+    focus: name,
+    fields: [
+      field({ label: t.t("availability.name"), control: name }),
+      dialogHint(t.t("availability.name_hint")),
       field({
-        label: t.t("availability.from"),
-        control: startTime,
+        label: t.t("availability.on_date"),
+        control: onDate,
         optionalLabel: t.t("auth.optional"),
       }),
-      field({
-        label: t.t("availability.until"),
-        control: endTime,
-        optionalLabel: t.t("auth.optional"),
-      }),
-    ),
-    el("p", { class: "field-hint", text: t.t("availability.time_hint") }),
-    editorStatus.element,
-  );
-
-  async function store(): Promise<void> {
-    editorStatus.clear();
-
-    const weekdays = [...days.entries()]
-      .filter(([, box]) => box.checked)
-      .map(([day]) => day);
-
-    const payload = {
-      name: name.value.trim(),
-      on_date: onDate.value === "" ? null : onDate.value,
-      weekdays,
-      start_time: startTime.value === "" ? null : startTime.value,
-      end_time: endTime.value === "" ? null : endTime.value,
-    };
-
-    save.disabled = true;
-    try {
+      el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("availability.weekdays") }), dayRow),
+      el(
+        "div",
+        { class: "row" },
+        field({
+          label: t.t("availability.from"),
+          control: startTime,
+          optionalLabel: t.t("auth.optional"),
+        }),
+        field({
+          label: t.t("availability.until"),
+          control: endTime,
+          optionalLabel: t.t("auth.optional"),
+        }),
+      ),
+      dialogHint(t.t("availability.time_hint")),
+    ],
+    onSubmit: async () => {
+      const payload = {
+        name: name.value.trim(),
+        on_date: onDate.value === "" ? null : onDate.value,
+        weekdays: [...days.entries()].filter(([, box]) => box.checked).map(([day]) => day),
+        start_time: startTime.value === "" ? null : startTime.value,
+        end_time: endTime.value === "" ? null : endTime.value,
+      };
       if (existing) {
         await api.patch(`/restaurants/${restaurantID}/availability/${existing.id}`, payload);
       } else {
         await api.post(`/restaurants/${restaurantID}/availability`, payload);
       }
-      modal.close();
-      await onSaved();
-    } catch (error) {
-      editorStatus.fail(errorMessage(t, error));
-    } finally {
-      save.disabled = false;
-    }
-  }
-
-  const modal = openModal({
-    title: existing ? t.t("availability.edit_title") : t.t("availability.new"),
-    body,
-    actions: [save],
-    closeLabel: t.t("action.close"),
+    },
+    after: onSaved,
   });
-
-  // The save button sits in the dialog's footer, outside the form it submits,
-  // and `form` on the button is what connects the two. Without it Save did
-  // nothing at all -- no request, no error -- which is how 0.3.0 shipped.
-  body.id = `availability-form-${existing?.id ?? "new"}`;
-  save.setAttribute("form", body.id);
-  name.focus();
-}
-
-/**
- * The control that says which filters an element has.
- *
- * A set of checkboxes rather than a search: a restaurant has a handful of these
- * and the point of the panel is to see at a glance what is ticked. It returns
- * the element and a reader, so the form that owns it decides when to save.
- */
-export function filterPicker(
-  app: App,
-  filters: readonly AvailabilityFilter[],
-  attached: readonly string[],
-): { element: HTMLElement; selected: () => string[] } {
-  const { t } = app;
-
-  if (filters.length === 0) {
-    return {
-      element: el("p", { class: "field-hint", text: t.t("availability.none_defined") }),
-      selected: () => [],
-    };
-  }
-
-  const boxes = new Map<string, HTMLInputElement>();
-  const rows = filters.map((filter) => {
-    const box = el("input", {
-      type: "checkbox",
-      class: "checkbox",
-      checked: attached.includes(filter.id),
-    });
-    boxes.set(filter.id, box);
-    return el(
-      "label",
-      { class: "checkbox-row" },
-      box,
-      el(
-        "span",
-        {},
-        el("span", { text: filter.name }),
-        el("span", { class: "muted", text: ` ${describeFilter(app, filter)}` }),
-      ),
-    );
-  });
-
-  return {
-    element: el(
-      "fieldset",
-      { class: "fieldset" },
-      el("legend", { text: t.t("availability.attached") }),
-      el("p", { class: "field-hint", text: t.t("availability.attach_hint") }),
-      ...rows,
-    ),
-    selected: () =>
-      [...boxes.entries()].filter(([, box]) => box.checked).map(([id]) => id),
-  };
-}
-
-/** Writes an element's attached filters. */
-export function saveAttachments(
-  restaurantID: string,
-  kind: "categories" | "menu-items",
-  elementID: string,
-  filterIDs: string[],
-): Promise<unknown> {
-  return api.put(`/restaurants/${restaurantID}/${kind}/${elementID}/availability`, {
-    filter_ids: filterIDs,
-  });
-}
-
-/** A short marker for a menu row: this dish is not always available. */
-export function availabilityChip(
-  app: App,
-  filters: readonly AvailabilityFilter[],
-): HTMLElement | null {
-  if (filters.length === 0) {
-    return null;
-  }
-  const { t } = app;
-  const summary = filters.map((filter) => filter.name).join(", ");
-  return el(
-    "span",
-    { class: "chip availability-chip", title: `${t.t("availability.attached")}: ${summary}` },
-    icon("clock"),
-    el("span", { text: summary }),
-  );
 }
 
 export interface AttachmentEditorOptions {
@@ -375,55 +221,23 @@ export function openAttachmentEditor(options: AttachmentEditorOptions): void {
   const { app, restaurantID, kind, elementID, title, attached, onSaved } = options;
   const { t } = app;
 
-  const editorStatus = statusLine();
   const holder = el("div", { class: "stack" }, el("p", { class: "muted", text: t.t("app.loading") }));
-  const save = button({
-    label: t.t("action.save"),
-    variant: "primary",
-    type: "submit",
-    disabled: true,
-  });
-
   let read: () => string[] = () => [];
 
-  const body = form(
-    () => {
-      void store();
-    },
-    holder,
-    editorStatus.element,
-  );
+  const dialog = openFormDialog({
+    t,
+    title: `${t.t("availability.attached")}: ${title}`,
+    fields: [holder],
+    onSubmit: () => saveAttachments(restaurantID, kind, elementID, read()),
+    after: onSaved,
+  });
 
+  // Nothing to save until the rules have arrived.
+  dialog.submit.disabled = true;
   void loadFilters(restaurantID).then((filters) => {
     const picker = filterPicker(app, filters, attached.map((filter) => filter.id));
     read = picker.selected;
     holder.replaceChildren(picker.element);
-    save.disabled = false;
+    dialog.submit.disabled = false;
   });
-
-  async function store(): Promise<void> {
-    editorStatus.clear();
-    save.disabled = true;
-    try {
-      await saveAttachments(restaurantID, kind, elementID, read());
-      modal.close();
-      await onSaved();
-    } catch (error) {
-      editorStatus.fail(errorMessage(t, error));
-    } finally {
-      save.disabled = false;
-    }
-  }
-
-  const modal = openModal({
-    title: `${t.t("availability.attached")}: ${title}`,
-    body,
-    actions: [save],
-    closeLabel: t.t("action.close"),
-  });
-
-  // As in openFilterEditor: the footer button reaches the form only through
-  // its `form` attribute.
-  body.id = `availability-attach-${kind}-${elementID}`;
-  save.setAttribute("form", body.id);
 }

@@ -191,44 +191,6 @@ func TestTouchIsThrottled(t *testing.T) {
 	}
 }
 
-// Expiry is enforced on use; this is the housekeeping that stops the table
-// growing by one abandoned row per login forever.
-func TestExpiredSessionsAreCollected(t *testing.T) {
-	pool := testdb.Migrated(t)
-	ctx := context.Background()
-	live := newUser(t, pool, "Vera")
-	stale := newUser(t, pool, "Willi")
-
-	kept, err := db.ReplaceSession(ctx, pool, db.NewSession{UserID: live.ID, Lifetime: time.Hour})
-	if err != nil {
-		t.Fatal(err)
-	}
-	dead, err := db.ReplaceSession(ctx, pool, db.NewSession{UserID: stale.ID, Lifetime: time.Hour})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Age it directly: the check constraint forbids inserting a row that has
-	// already expired, so this is the only way to get one.
-	if _, err := pool.Exec(ctx, `
-		UPDATE session SET issued_at = now() - interval '2 hours',
-		                   absolute_expires = now() - interval '1 hour'
-		WHERE id = $1`, dead.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	removed, err := db.DeleteExpiredSessions(ctx, pool, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if removed != 1 {
-		t.Errorf("collected %d sessions, want 1", removed)
-	}
-	if _, err := db.SessionByID(ctx, pool, kept.ID); err != nil {
-		t.Errorf("a live session was collected: %v", err)
-	}
-}
-
 // Deleting an account must take its session with it, or a deleted user's
 // browser would keep a token pointing at a row that outlived them.
 func TestDeletingAUserRemovesTheirSession(t *testing.T) {

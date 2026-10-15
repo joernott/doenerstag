@@ -9,7 +9,7 @@
 
 import type { App } from "../app";
 import { api } from "../api";
-import { el } from "../dom";
+import { el, keyed } from "../dom";
 
 /** The people an order has, as far as ticking a line is concerned. */
 export interface PaidRights {
@@ -71,14 +71,19 @@ export function paidCheckbox(options: PaidCheckboxOptions): HTMLElement {
   const { t } = app;
   const label = t.t("item.paid_for", { item: itemName });
 
-  const box = el("input", {
-    type: "checkbox",
-    class: "checkbox",
-    checked: paid,
-    disabled: !allowed,
-    "aria-label": label,
-    title: label,
-  });
+  // Keyed, because ticking it re-reads the order and rebuilds the list it is
+  // in; the key lets focus come back to this line's box.
+  const box = keyed(
+    el("input", {
+      type: "checkbox",
+      class: "checkbox",
+      checked: paid,
+      disabled: !allowed,
+      "aria-label": label,
+      title: label,
+    }),
+    `paid:${itemID}`,
+  );
 
   if (allowed) {
     box.addEventListener("change", () => {

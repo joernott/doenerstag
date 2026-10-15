@@ -42,25 +42,8 @@ func provisionerFor(t *testing.T) *install.Provisioner {
 		Database: "db_" + suffix,
 	}
 
-	t.Cleanup(func() { dropEverything(t, p) })
+	t.Cleanup(func() { testdb.DropProvisioned(t, p) })
 	return p
-}
-
-func dropEverything(t *testing.T, p *install.Provisioner) {
-	t.Helper()
-
-	ctx := context.Background()
-	conn, err := pgx.Connect(ctx,
-		p.Server.WithUser(p.Root.User, p.Root.Password).
-			WithDatabase(install.MaintenanceDatabase).DSN())
-	if err != nil {
-		return
-	}
-	defer func() { _ = conn.Close(ctx) }()
-
-	_, _ = conn.Exec(ctx, `DROP DATABASE IF EXISTS "`+p.Database+`" WITH (FORCE)`)
-	_, _ = conn.Exec(ctx, `DROP ROLE IF EXISTS "`+p.Runtime.User+`"`)
-	_, _ = conn.Exec(ctx, `DROP ROLE IF EXISTS "`+p.Admin.User+`"`)
 }
 
 func connectAs(t *testing.T, p *install.Provisioner, who install.Identity) *pgx.Conn {

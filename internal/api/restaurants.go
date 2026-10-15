@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/joernott/doenerstag/internal/db"
@@ -149,35 +147,13 @@ func (h *RestaurantHandlers) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RestaurantHandlers) get(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.lookup(r)
+	restaurant, err := h.lookupRestaurant(r)
 	if err != nil {
 		WriteError(w, r, err)
 		return
 	}
 
-	contacts, dbErr := db.ListContacts(r.Context(), h.Pool, restaurant.ID)
-	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
-		return
-	}
-	periods, dbErr := db.ListOpeningHours(r.Context(), h.Pool, restaurant.ID)
-	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
-		return
-	}
-
-	body := restaurantDetailBody{
-		restaurantBody: publicRestaurant(restaurant),
-		Contacts:       make([]contactBody, 0, len(contacts)),
-		OpeningHours:   make([]openingPeriodBody, 0, len(periods)),
-	}
-	for i := range contacts {
-		body.Contacts = append(body.Contacts, publicContact(contacts[i]))
-	}
-	for i := range periods {
-		body.OpeningHours = append(body.OpeningHours, publicOpeningPeriod(periods[i]))
-	}
-	_ = WriteJSON(w, http.StatusOK, body)
+	h.writeDetail(w, r, restaurant, http.StatusOK)
 }
 
 // createRestaurantRequest is the body of POST /restaurants.
@@ -264,16 +240,13 @@ func (h *RestaurantHandlers) create(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		// A logo image or contact type that does not exist.
-		WriteError(w, r, &Error{Code: CodeInvalidField, Detail: "a referenced record does not exist"})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		// An unknown logo image or contact type is a 1002 from dbError.
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
-	h.writeDetail(w, r, created)
+	h.writeDetail(w, r, created, http.StatusCreated)
 }
 
 // patchRestaurantRequest carries the fields PATCH may change.
@@ -299,7 +272,7 @@ func (p rawPatch) has(key string) bool {
 }
 
 func (h *RestaurantHandlers) patch(w http.ResponseWriter, r *http.Request) {
-	restaurant, lookupErr := h.lookup(r)
+	restaurant, lookupErr := h.lookupRestaurant(r)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -328,15 +301,12 @@ func (h *RestaurantHandlers) patch(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
-	h.writeDetail(w, r, updated)
+	h.writeDetail(w, r, updated, http.StatusOK)
 }
 
 func (h *RestaurantHandlers) validatePatch(
@@ -391,56 +361,49 @@ func (h *RestaurantHandlers) validatePatch(
 
 // remove soft-deletes a restaurant. Administrator only (F3.5).
 func (h *RestaurantHandlers) remove(w http.ResponseWriter, r *http.Request) {
+	// Looked up before the role is checked, as every resource route does: the
+	// restaurant is public, so its existence tells nobody anything (20.16).
+	restaurant, lookupErr := h.lookupRestaurant(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
 	principal, authErr := RequireAdmin(r)
 	if authErr != nil {
 		WriteError(w, r, authErr)
 		return
 	}
 
-	id, parseErr := uuid.Parse(Param(r, "id"))
-	if parseErr != nil {
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	}
-
-	err := db.SoftDeleteRestaurant(r.Context(), h.Pool, id, principal.User.ID)
+	err := db.SoftDeleteRestaurant(r.Context(), h.Pool, restaurant.ID, principal.User.ID)
 	switch {
 	case errors.Is(err, db.ErrStillReferenced):
 		// F3.5's second half: an order points at it, and deleting would make
 		// that order unreadable.
 		WriteError(w, r, &Error{Code: CodeRestaurantInUse})
 		return
-	case errors.Is(err, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case err != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// lookup resolves the :id path parameter to a living restaurant.
-func (h *RestaurantHandlers) lookup(r *http.Request) (model.Restaurant, *Error) {
-	id, err := uuid.Parse(Param(r, "id"))
+// lookupRestaurant resolves the :id path parameter to a living restaurant.
+func (h *RestaurantHandlers) lookupRestaurant(r *http.Request) (model.Restaurant, *Error) {
+	restaurant, err := loadParam(r, h.Pool, "id", db.RestaurantByID)
 	if err != nil {
-		return model.Restaurant{}, &Error{Code: CodeNotFound}
-	}
-
-	restaurant, dbErr := db.RestaurantByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Restaurant{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Restaurant{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.Restaurant{}, err
 	}
 	return restaurant, nil
 }
 
 // writeDetail answers with the full restaurant, so a create or update returns
 // the same shape a GET does.
-func (h *RestaurantHandlers) writeDetail(w http.ResponseWriter, r *http.Request, restaurant model.Restaurant) {
+func (h *RestaurantHandlers) writeDetail(
+	w http.ResponseWriter, r *http.Request, restaurant model.Restaurant, status int,
+) {
 	contacts, err := db.ListContacts(r.Context(), h.Pool, restaurant.ID)
 	if err != nil {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
@@ -464,10 +427,6 @@ func (h *RestaurantHandlers) writeDetail(w http.ResponseWriter, r *http.Request,
 		body.OpeningHours = append(body.OpeningHours, publicOpeningPeriod(periods[i]))
 	}
 
-	status := http.StatusOK
-	if r.Method == http.MethodPost {
-		status = http.StatusCreated
-	}
 	_ = WriteJSON(w, status, body)
 }
 
@@ -475,12 +434,8 @@ func validateRestaurantName(name string) *Error {
 	if name == "" {
 		return &Error{Code: CodeMissingField, Field: "name"}
 	}
-	if utf8.RuneCountInString(name) > MaxRestaurantNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the name may be at most 200 characters",
-		}
+	if longerThan(name, MaxRestaurantNameLength) {
+		return tooLong("name", "name", MaxRestaurantNameLength)
 	}
 	return nil
 }
@@ -503,32 +458,4 @@ func (h *RestaurantHandlers) validateCurrency(r *http.Request, code string) *Err
 		return &Error{Code: CodeUnknownCurrency, Field: "currency_code"}
 	}
 	return nil
-}
-
-// validateMoney refuses a negative amount, matching the CHECK constraints.
-func validateMoney(cents *int64, field string) *Error {
-	if cents != nil && *cents < 0 {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "the amount may not be negative",
-		}
-	}
-	return nil
-}
-
-// parseOptionalUUID reads a nullable id field.
-func parseOptionalUUID(value *string, field string) (*uuid.UUID, *Error) {
-	if value == nil || strings.TrimSpace(*value) == "" {
-		return nil, nil
-	}
-	id, err := uuid.Parse(strings.TrimSpace(*value))
-	if err != nil {
-		return nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  field,
-			Detail: "this is not a valid identifier",
-		}
-	}
-	return &id, nil
 }

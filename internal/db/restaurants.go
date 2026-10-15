@@ -12,10 +12,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrStillReferenced is returned when a row cannot be removed because
-// something else points at it.
-var ErrStillReferenced = errors.New("db: still referenced")
-
 // restaurantColumns is the shared projection. Every query filters
 // deleted_at IS NULL: a soft-deleted restaurant is gone as far as the API is
 // concerned, and the row survives only so that orders referring to it still
@@ -71,7 +67,7 @@ func CreateRestaurant(ctx context.Context, q Querier, in NewRestaurant, actor uu
 	}
 	if isForeignKeyViolation(err) {
 		// An unknown currency or a logo image id that does not exist.
-		return model.Restaurant{}, ErrNotFound
+		return model.Restaurant{}, ErrUnknownReference
 	}
 	return r, err
 }
@@ -168,7 +164,7 @@ func UpdateRestaurant(
 		return model.Restaurant{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.Restaurant{}, ErrNotFound
+		return model.Restaurant{}, ErrUnknownReference
 	}
 	return r, err
 }

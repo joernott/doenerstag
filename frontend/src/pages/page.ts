@@ -3,7 +3,9 @@
 // Separate from the route table so that a page module can use these without
 // importing the module that imports it.
 
+import { errorMessage } from "../api";
 import { append, el, type Child } from "../dom";
+import type { Translator } from "../i18n";
 import { logoMark } from "../logo";
 
 /** A page: a heading and whatever follows it. Also sets the document title. */
@@ -75,9 +77,9 @@ export function overviewPageWithActions(
 /**
  * Renames a page after it has been built.
  *
- * Renaming a restaurant used to change the browser tab and leave the heading
- * above the form saying the old name until the page was reloaded, which reads
- * as a save that did not take. The heading is found rather than passed back to
+ * Changing only the browser tab would leave the heading above the form saying
+ * the old name until the page was reloaded, which reads as a save that did
+ * not take. The heading is found rather than passed back to
  * the caller so that any page gains this without changing its shape.
  */
 export function setPageTitle(root: HTMLElement, title: string): void {
@@ -117,35 +119,10 @@ export function actions(...content: Child[]): HTMLElement {
 }
 
 /**
- * A line that reports what just happened.
- *
- * One element that is updated rather than a message appended each time, so a
- * form saved five times does not grow five confirmations. `role="status"`
- * announces it without stealing focus, which is right for "Saved." and right
- * for an error the person is about to see anyway in the field it belongs to.
+ * A page that could not be loaded: its title, and what went wrong, announced.
+ * Every page that fetches before it can draw anything ends this way when the
+ * fetch fails, with this one line.
  */
-export interface StatusLine {
-  element: HTMLElement;
-  say(message: string): void;
-  fail(message: string): void;
-  clear(): void;
-}
-
-export function statusLine(): StatusLine {
-  const element = el("p", { class: "status", role: "status" });
-  return {
-    element,
-    say(message: string): void {
-      element.textContent = message;
-      element.classList.remove("status-error");
-    },
-    fail(message: string): void {
-      element.textContent = message;
-      element.classList.add("status-error");
-    },
-    clear(): void {
-      element.textContent = "";
-      element.classList.remove("status-error");
-    },
-  };
+export function failedPage(title: string, t: Translator, error: unknown): HTMLElement {
+  return page(title, el("p", { class: "field-error", role: "alert", text: errorMessage(t, error) }));
 }

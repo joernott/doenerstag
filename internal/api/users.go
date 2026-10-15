@@ -3,8 +3,10 @@ package api
 import (
 	"errors"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,10 +29,7 @@ type UserHandlers struct {
 }
 
 func (h *UserHandlers) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now()
+	return nowFrom(h.Now)
 }
 
 // Register adds the account routes.
@@ -130,11 +129,11 @@ func (h *UserHandlers) get(w http.ResponseWriter, r *http.Request) {
 	_ = WriteJSON(w, http.StatusOK, publicUser(user))
 }
 
-// patchRequest is the body of PATCH /users/{id}.
+// patchUserRequest is the body of PATCH /users/{id}.
 //
 // Pointers, so that absent and empty are different: omitting display_name
 // leaves it alone, and sending "" clears it.
-type patchRequest struct {
+type patchUserRequest struct {
 	Name        *string `json:"name"`
 	DisplayName *string `json:"display_name"`
 	Email       *string `json:"email"`
@@ -162,7 +161,7 @@ func (h *UserHandlers) patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body patchRequest
+	var body patchUserRequest
 	if !decodeJSON(w, r, &body) {
 		return
 	}
@@ -202,7 +201,7 @@ func (h *UserHandlers) patch(w http.ResponseWriter, r *http.Request) {
 // validatePatch turns a request body into an update, applying the same rules
 // registration does.
 func (h *UserHandlers) validatePatch(
-	r *http.Request, user model.User, principal *Principal, body patchRequest,
+	r *http.Request, user model.User, principal *Principal, body patchUserRequest,
 ) (db.UserUpdate, *Error) {
 	var update db.UserUpdate
 
@@ -262,7 +261,7 @@ func (h *UserHandlers) validatePatch(
 // because they do not have it -- that is the recovery path for a forgotten
 // password, and requiring the old one would defeat the purpose.
 func (h *UserHandlers) newPasswordHash(
-	r *http.Request, user model.User, principal *Principal, body patchRequest,
+	r *http.Request, user model.User, principal *Principal, body patchUserRequest,
 ) (string, *Error) {
 	if principal.Is(user.ID) {
 		if body.CurrentPassword == nil || *body.CurrentPassword == "" {
@@ -392,12 +391,8 @@ func (h *UserHandlers) createToken(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeMissingField, Field: "name"})
 		return
 	}
-	if len([]rune(name)) > MaxTokenNameLength {
-		WriteError(w, r, &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the token name may be at most 64 characters",
-		})
+	if longerThan(name, MaxTokenNameLength) {
+		WriteError(w, r, tooLong("name", "token name", MaxTokenNameLength))
 		return
 	}
 
@@ -448,17 +443,9 @@ const MaxTokenNameLength = 64
 // useless: it is far more likely to be a typo in the year than a deliberate
 // request for a token that never works.
 func (h *UserHandlers) parseExpiry(value string) (*time.Time, *Error) {
-	if strings.TrimSpace(value) == "" {
-		return nil, nil
-	}
-
-	at, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return nil, &Error{
-			Code:   CodeInvalidField,
-			Field:  "expires_at",
-			Detail: "the expiry must be an RFC 3339 timestamp",
-		}
+	at, err := optionalTime(value, "expires_at")
+	if err != nil || at == nil {
+		return nil, err
 	}
 	if !at.After(h.now()) {
 		return nil, &Error{
@@ -467,7 +454,7 @@ func (h *UserHandlers) parseExpiry(value string) (*time.Time, *Error) {
 			Detail: "the expiry is in the past",
 		}
 	}
-	return &at, nil
+	return at, nil
 }
 
 // revokeToken deletes a token. Owner or administrator.
@@ -493,12 +480,8 @@ func (h *UserHandlers) revokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, dbErr := db.APITokenByID(r.Context(), h.Pool, tokenID)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+	if dbErr != nil {
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	if token.UserID != user.ID {
@@ -521,6 +504,7 @@ type deletionImpactBody struct {
 	ActiveItems         int `json:"active_items"`
 	ExpiredItems        int `json:"expired_items"`
 	CreatedActiveOrders int `json:"created_active_orders"`
+	ActiveJobs          int `json:"active_jobs"`
 }
 
 // deletionImpact reports what deleting the account would do.
@@ -550,6 +534,7 @@ func (h *UserHandlers) deletionImpact(w http.ResponseWriter, r *http.Request) {
 		ActiveItems:         impact.ActiveItems,
 		ExpiredItems:        impact.ExpiredItems,
 		CreatedActiveOrders: impact.CreatedActiveOrders,
+		ActiveJobs:          impact.ActiveJobs,
 	})
 }
 
@@ -597,4 +582,112 @@ func (h *UserHandlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 		clearSessionCookies(w, h.Secure)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- an account's fields, as every endpoint that takes or returns one sees them ---
+
+// Registration limits from docs/05_auth_and_permissions.md. Counted in code
+// points rather than bytes, so a name in a non-Latin script is not shorter than
+// it looks.
+const (
+	MinUserNameLength    = 3
+	MaxUserNameLength    = 64
+	MaxDisplayNameLength = 64
+	MaxEmailLength       = 254
+)
+
+// userBody is the public shape of an account.
+//
+// It is what every endpoint returning a user sends, and it deliberately has no
+// field for the password hash, so no future edit can add one by filling in a
+// struct literal.
+type userBody struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	IsAdmin     bool   `json:"is_admin"`
+}
+
+func publicUser(u model.User) userBody {
+	return userBody{
+		ID:          u.ID.String(),
+		Name:        u.Name,
+		DisplayName: u.Label(),
+		IsAdmin:     u.IsAdmin,
+	}
+}
+
+// validateUserName applies the length and content rules.
+//
+// Length is in code points, matching the CHECK constraint, which uses
+// char_length. A control character is rejected because a name is displayed to
+// other people and rendered into log lines.
+func validateUserName(name string) *Error {
+	if name == "" {
+		return &Error{Code: CodeMissingField, Field: "name"}
+	}
+	length := utf8.RuneCountInString(name)
+	if length < MinUserNameLength || length > MaxUserNameLength {
+		return &Error{
+			Code:   CodeInvalidField,
+			Field:  "name",
+			Detail: "the user name must be between 3 and 64 characters",
+		}
+	}
+	if strings.ContainsFunc(name, isControl) {
+		return &Error{
+			Code:   CodeInvalidField,
+			Field:  "name",
+			Detail: "the user name may not contain control characters",
+		}
+	}
+	return nil
+}
+
+func validateDisplayName(name string) *Error {
+	if name == "" {
+		// Optional: an absent display name falls back to the user name.
+		return nil
+	}
+	if longerThan(name, MaxDisplayNameLength) {
+		return tooLong("display_name", "display name", MaxDisplayNameLength)
+	}
+	if strings.ContainsFunc(name, isControl) {
+		return &Error{
+			Code:   CodeInvalidField,
+			Field:  "display_name",
+			Detail: "the display name may not contain control characters",
+		}
+	}
+	return nil
+}
+
+// validateEmail format-checks an address.
+//
+// Deliberately loose, matching the CHECK constraint. The address is optional,
+// never verified and never used to send anything, so a strict grammar would
+// reject valid addresses for no benefit.
+func validateEmail(address string) *Error {
+	if address == "" {
+		return nil
+	}
+	if len(address) > MaxEmailLength {
+		return &Error{
+			Code:   CodeInvalidField,
+			Field:  "email",
+			Detail: "the e-mail address is too long",
+		}
+	}
+	if _, err := mail.ParseAddress(address); err != nil {
+		return &Error{
+			Code:   CodeInvalidField,
+			Field:  "email",
+			Detail: "this does not look like an e-mail address",
+		}
+	}
+	return nil
+}
+
+func isControl(r rune) bool {
+	return r < 0x20 || r == 0x7f
 }

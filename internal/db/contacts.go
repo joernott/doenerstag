@@ -11,10 +11,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrLastContact is returned when removing a contact would leave a restaurant
-// with none, which F3.1 forbids.
-var ErrLastContact = errors.New("db: a restaurant needs at least one contact")
-
 // contactColumns joins the type in, so a client rendering one entry does not
 // have to fetch /contact-types to find out whether it is a phone number.
 const contactColumns = `c.id, c.restaurant_id, c.contact_type_id, t.code, t.render_as,
@@ -66,7 +62,7 @@ func CreateContact(ctx context.Context, q Querier, in NewContact, actor uuid.UUI
 	c, err := scanContact(row)
 	if isForeignKeyViolation(err) {
 		// An unknown contact type, or a restaurant that does not exist.
-		return model.Contact{}, ErrNotFound
+		return model.Contact{}, ErrUnknownReference
 	}
 	return c, err
 }
@@ -121,7 +117,7 @@ func ReplaceContact(ctx context.Context, q Querier, id uuid.UUID, in NewContact,
 
 	c, err := scanContact(row)
 	if isForeignKeyViolation(err) {
-		return model.Contact{}, ErrNotFound
+		return model.Contact{}, ErrUnknownReference
 	}
 	return c, err
 }
@@ -158,13 +154,4 @@ func DeleteContact(ctx context.Context, q Querier, id uuid.UUID) error {
 		return ErrLastContact
 	}
 	return ErrNotFound
-}
-
-// CountContacts is how many a restaurant has.
-func CountContacts(ctx context.Context, q Querier, restaurantID uuid.UUID) (int, error) {
-	var count int
-	err := q.QueryRow(ctx,
-		`SELECT count(*) FROM restaurant_contact WHERE restaurant_id = $1`,
-		restaurantID).Scan(&count)
-	return count, err
 }

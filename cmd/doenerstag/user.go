@@ -123,8 +123,9 @@ func newUserDeleteCommand(app *appContext) *cobra.Command {
 		Long: `Delete an account, named either by --id or by --username.
 
 What happens to the orders and items that account left behind is the rule in
-docs/02_features.md F2.6, which this does not repeat or override: the database
-decides, and it refuses to remove the administrator or the placeholder.`,
+docs/02_features.md F2.6, the same as deleting it in the browser: its items in
+open orders are removed, those in closed orders kept under the deleted-user
+placeholder. The administrator and the placeholder cannot be deleted.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -134,7 +135,10 @@ decides, and it refuses to remove the administrator or the placeholder.`,
 				if err != nil {
 					return err
 				}
-				if err := db.DeleteUser(ctx, pool, user.ID); err != nil {
+				// DeleteAccount and not DeleteUser: F2.6 is carried out in Go,
+				// not by the schema, and a bare DELETE left this account's
+				// items standing in open orders (20.4).
+				if err := db.DeleteAccount(ctx, pool, user.ID, time.Now()); err != nil {
 					return fmt.Errorf("deleting %s: %w", user.Name, err)
 				}
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s (%s).\n", user.Name, user.ID)
@@ -337,7 +341,7 @@ func issueResetLink(ctx context.Context, cmd *cobra.Command, cfg *config.Config,
 	}
 
 	token := signer.IssueReset(user.ID, time.Now())
-	link := base + "/reset-password/" + token
+	link := auth.ResetLink(base, token)
 	out := cmd.OutOrStdout()
 
 	_, _ = fmt.Fprintf(out, "A password reset link for %s, valid for %s:\n\n  %s\n\n",
@@ -352,11 +356,11 @@ func issueResetLink(ctx context.Context, cmd *cobra.Command, cfg *config.Config,
 		return nil
 	}
 
-	sender := mail.New(mailOptions(cfg))
-	body := resetMailBody(user.DisplayName, link)
+	sender := mail.New(mail.OptionsFromConfig(cfg.Mail))
+	body := auth.ResetMailBody(user, link)
 	if err := sender.Send(ctx, mail.Message{
 		To:      user.Email,
-		Subject: resetMailSubject,
+		Subject: auth.ResetMailSubject,
 		Body:    body,
 	}); err != nil {
 		// Not a failure of the command. The link above is valid whether or not
@@ -368,44 +372,4 @@ func issueResetLink(ctx context.Context, cmd *cobra.Command, cfg *config.Config,
 
 	_, _ = fmt.Fprintf(out, "Sent to %s.\n", user.Email)
 	return nil
-}
-
-// mailOptions turns the configuration into what the mail package wants.
-func mailOptions(cfg *config.Config) mail.Options {
-	encryption, err := mail.ParseEncryption(cfg.Mail.Encryption)
-	if err != nil {
-		// Already validated at startup; an unparseable value here means the
-		// safest of the three rather than a panic in a verb that is otherwise
-		// about to succeed.
-		encryption = mail.EncryptionSTARTTLS
-	}
-	return mail.Options{
-		Host:       cfg.Mail.Host,
-		Port:       cfg.Mail.Port,
-		Username:   cfg.Mail.Username,
-		Password:   cfg.Mail.Password,
-		From:       cfg.Mail.From,
-		Encryption: encryption,
-		Timeout:    cfg.Mail.Timeout,
-	}
-}
-
-const resetMailSubject = "Reset your doenerstag password"
-
-// resetMailBody is the one message this application sends.
-//
-// English only, and deliberately so: the server does not know which language
-// the recipient reads. The interface language is a cookie in a browser, and
-// there is no browser here. Adding a language column to app_user would make
-// this translatable and is the obvious next step if anybody asks.
-func resetMailBody(displayName, link string) string {
-	var b strings.Builder
-	_, _ = fmt.Fprintf(&b, "Hello %s,\n\n", displayName)
-	b.WriteString("somebody asked to reset your doenerstag password.\n\n")
-	b.WriteString("Open this link to choose a new one:\n\n")
-	_, _ = fmt.Fprintf(&b, "  %s\n\n", link)
-	_, _ = fmt.Fprintf(&b, "The link stops working after %s.\n\n", auth.ResetLifetime)
-	b.WriteString("If you did not ask for this, you can ignore this message.\n")
-	b.WriteString("Your password has not changed.\n")
-	return b.String()
 }

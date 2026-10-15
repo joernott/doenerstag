@@ -9,44 +9,20 @@
 // menu (F2 and docs/06_ui_ux.md).
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
-import { button, field, form, input } from "../components/forms";
-import { thumbnailURL } from "../components/images";
-import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
-import { confirmDialog, openModal } from "../components/modal";
-import { referenceName, tagName } from "../i18n";
+import { button, field, input } from "../components/forms";
+import { menuItemParts } from "../components/menurow";
+import { openMenuItemEditor } from "../components/menuitem";
+import { openFormDialog } from "../components/formdialog";
+import { confirmDialog } from "../components/modal";
 import { moneyFormatOf, type ReferenceData } from "../reference";
-import type { Restaurant } from "./restaurant";
-import { availabilityChip, openAttachmentEditor } from "./availability";
-import { actions, card, statusLine } from "./page";
-
-/** The marks an item carries: its tags, allergens and additives, as chips. */
-export function itemChips(app: App, item: MenuItem): HTMLElement[] {
-  const { t } = app;
-
-  // A dish with a rule says so, and says which rule, so that somebody reading
-  // the menu can tell "we are out of it today" from "we make it at weekends".
-  // Only on the restaurant page: the order page has already left out what its
-  // order cannot have.
-  const when = availabilityChip(app, item.availability ?? []);
-
-  return [
-    ...(when === null ? [] : [when]),
-    ...item.tags.map((tag) => chip(tagName(t, tag), "chip-tag")),
-    ...item.allergens.map((allergen) =>
-      chip(referenceName(t, "allergen", allergen.code), "chip-allergen"),
-    ),
-    ...item.additives.map((additive) =>
-      chip(referenceName(t, "additive", additive.code), "chip-additive"),
-    ),
-  ];
-}
-
-function chip(text: string, className: string): HTMLElement {
-  return el("span", { class: `chip ${className}`, text });
-}
+import { openAttachmentEditor } from "./availability";
+import { actions, card } from "./page";
+import type { Category, MenuItem, Restaurant } from "../types";
+import { runAction, statusLine } from "../components/status";
+import { availabilityChip } from "../components/availability";
 
 /**
  * The menu, as a section of the restaurant page.
@@ -74,15 +50,13 @@ export function menuSection(
   const collapsedCategories = new Set<string>();
 
   async function reload(): Promise<void> {
-    try {
+    await runAction({ status, t }, async () => {
       [categories, items] = await Promise.all([
         getList<Category>(`/restaurants/${restaurant.id}/categories`, "categories"),
         getList<MenuItem>(`/restaurants/${restaurant.id}/menu-items`, "menu_items"),
       ]);
       render();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   function edit(item: MenuItem | null, categoryID: string | null): void {
@@ -118,12 +92,12 @@ export function menuSection(
     if (loose.length > 0) {
       groups.push(
         categories.length === 0
-          ? itemList(loose, null)
+          ? itemList(loose)
           : el(
               "div",
               { class: "menu-group" },
               el("h3", { class: "menu-group-title", text: t.t("menu.category.none") }),
-              itemList(loose, null),
+              itemList(loose),
             ),
       );
     }
@@ -139,15 +113,12 @@ export function menuSection(
 
   function categoryBlock(category: Category, index: number, own: MenuItem[]): HTMLElement {
     const rename = async (next: string): Promise<void> => {
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, { name: next });
         category.name = next;
         await reload();
         status.say(t.t("state.saved"));
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     // Reordering by button, not by drag handle. docs/06_ui_ux.md requires a
@@ -159,8 +130,7 @@ export function menuSection(
       if (!other) {
         return;
       }
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await Promise.all([
           api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, {
             sort_order: other.sort_order,
@@ -170,9 +140,7 @@ export function menuSection(
           }),
         ]);
         await reload();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     const remove = async (): Promise<void> => {
@@ -185,12 +153,10 @@ export function menuSection(
       if (!agreed) {
         return;
       }
-      try {
+      await runAction({ status, t }, async () => {
         await api.delete(`/restaurants/${restaurant.id}/categories/${category.id}`);
         await reload();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     const controls = actions(
@@ -236,25 +202,19 @@ export function menuSection(
         label: t.t("menu.category.move_up"),
         variant: "quiet",
         disabled: index === 0,
-        onclick: () => {
-          void move(-1);
-        },
+        onclick: () => move(-1),
       }),
       button({
         label: t.t("menu.category.move_down"),
         variant: "quiet",
         disabled: index === categories.length - 1,
-        onclick: () => {
-          void move(1);
-        },
+        onclick: () => move(1),
       }),
       app.session.isAdmin
         ? button({
             label: t.t("menu.category.delete"),
             variant: "danger",
-            onclick: () => {
-              void remove();
-            },
+            onclick: () => remove(),
           })
         : null,
     );
@@ -263,7 +223,7 @@ export function menuSection(
     // box. A page full of input fields reads as a form to fill in; a menu is a
     // menu, and the name is only edited now and then -- which is what the Edit
     // button is for.
-    const items = itemList(own, category.id);
+    const items = itemList(own);
     const open = collapsedCategories.has(category.id) ? false : true;
     items.hidden = !open;
 
@@ -320,43 +280,15 @@ export function menuSection(
 
   // --- items -----------------------------------------------------------------
 
-  function itemList(own: MenuItem[], _categoryId: string | null): HTMLElement {
-    // No "add" button per category any more: there is one at the top of the
-    // tab, and the dialog it opens asks which category the item belongs to.
-    // One button in a known place beats one at the end of every list.
+  function itemList(own: MenuItem[]): HTMLElement {
     return el("ul", { class: "plain-list menu-items" }, ...own.map((item) => itemRow(item)));
   }
 
   function itemRow(item: MenuItem): HTMLElement {
-    const marks = itemChips(app, item);
-
     return el(
       "li",
       { class: `menu-item ${item.available ? "" : "menu-item-unavailable"}`.trim() },
-      item.image_id
-        ? el("img", {
-            class: "menu-thumb",
-            src: thumbnailURL(item.image_id),
-            alt: "",
-            loading: "lazy",
-          })
-        : el("div", { class: "menu-thumb menu-thumb-empty", "aria-hidden": "true" }),
-      el(
-        "div",
-        { class: "menu-item-text" },
-        el(
-          "div",
-          { class: "menu-item-head" },
-          item.external_id ? el("span", { class: "menu-number", text: item.external_id }) : null,
-          el("strong", { text: item.name }),
-          // Never colour or a strike-through alone: the state is also a word.
-          item.available
-            ? null
-            : el("span", { class: "badge", text: t.t("menu.item.unavailable") }),
-        ),
-        item.description ? el("p", { class: "muted", text: item.description }) : null,
-        marks.length > 0 ? el("div", { class: "chips" }, ...marks) : null,
-      ),
+      ...menuItemParts(app, item),
       el("span", {
         class: "menu-price",
         text: formatMoney(app.language, item.price_cents, restaurant.currency_code, moneyFormat),
@@ -379,25 +311,22 @@ export function menuSection(
   // --- adding a category -----------------------------------------------------
 
   const addCategory = async (name: string): Promise<void> => {
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.post(`/restaurants/${restaurant.id}/categories`, {
         name,
         sort_order: (categories[categories.length - 1]?.sort_order ?? 0) + 10,
       });
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   };
 
   void reload();
 
   // Both at the top, because both are things somebody arrives at this tab
   // meaning to do, and a control you have to scroll to the bottom of a two
-  // hundred item menu to reach is a control that is hard to find. The
-  // category form that used to live down there is a dialog now: one field and
-  // a button is a dialog's worth of interface, not a permanent row.
+  // hundred item menu to reach is a control that is hard to find. Adding a
+  // category opens a dialog rather than a form down there: one field and a
+  // button is a dialog's worth of interface, not a permanent row.
   const toolbar = el(
     "div",
     { class: "menu-toolbar" },
@@ -448,37 +377,22 @@ function openNameDialog(options: NameDialogOptions): void {
   const t = options.app.t;
   const name = input({ value: options.value, required: true });
 
-  const submit = button({
-    label: options.confirmLabel,
-    variant: "primary",
-    onclick: () => {
-      const next = name.value.trim();
-      if (next === "") {
-        name.focus();
-        return;
-      }
-      handle.close();
-      void options.onSubmit(next);
-    },
-  });
-
-  const handle = openModal({
+  // The dialog only checks the name; the page does the work once it has
+  // closed, and reports on its own status line, where the category is.
+  openFormDialog({
+    t,
     title: options.title,
-    closeLabel: t.t("action.close"),
-    body: form(
-      () => submit.click(),
-      field({ label: options.label, control: name }),
-    ),
-    actions: [
-      button({
-        label: t.t("action.cancel"),
-        variant: "quiet",
-        onclick: () => handle.close(),
-      }),
-      submit,
-    ],
+    submitLabel: options.confirmLabel,
+    focus: name,
+    fields: [field({ label: options.label, control: name })],
+    onSubmit: () => {
+      if (name.value.trim() === "") {
+        name.focus();
+        return Promise.resolve(false);
+      }
+      return Promise.resolve(true);
+    },
+    after: () => options.onSubmit(name.value.trim()),
   });
-
-  name.focus();
   name.select();
 }

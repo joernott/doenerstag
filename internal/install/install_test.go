@@ -85,7 +85,7 @@ func newInstallFixture(t *testing.T) *installFixture {
 
 func (f *installFixture) dropEverything(t *testing.T, adminUser string) {
 	t.Helper()
-	dropEverything(t, &install.Provisioner{
+	testdb.DropProvisioned(t, &install.Provisioner{
 		Server:   f.server,
 		Root:     install.Identity{User: f.server.User, Password: f.server.Password},
 		Admin:    install.Identity{User: adminUser},

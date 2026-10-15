@@ -1,10 +1,13 @@
 // Modals, the confirmation dialog and the base components.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { button, field, input, select } from "../src/components/forms";
+import { button, field, fieldError, input, select } from "../src/components/forms";
+import { impactList } from "../src/components/deleteaccount";
+import { openFormDialog } from "../src/components/formdialog";
 import { closeAllModals, confirmDialog, openModal } from "../src/components/modal";
 import { addTile, tile, tileGrid } from "../src/components/tiles";
+import { keyed, rerender } from "../src/dom";
 import { Translator } from "../src/i18n";
 
 const t = new Translator("en");
@@ -131,13 +134,29 @@ describe("form controls", () => {
     expect(control.getAttribute("aria-describedby")).toBe(`${control.id}-hint`);
   });
 
-  it("marks an invalid control and announces the reason", () => {
+  // 20.27: an error appears and goes with the value, and while it is there the
+  // control says so and is described by it, alongside any hint it already had.
+  it("marks an invalid control and announces the reason, and takes both back", () => {
     const control = input({ name: "name" });
-    const rendered = field({ label: "Name", control, error: "That name is taken." });
+    const error = fieldError(control);
+    const rendered = field({ label: "Name", control, hint: "As on the menu.", error });
+    const hint = `${control.id}-hint`;
+    const errorId = `${control.id}-error`;
 
+    expect(control.getAttribute("aria-invalid")).toBeNull();
+    expect(control.getAttribute("aria-describedby")).toBe(hint);
+
+    error.set("That name is taken.");
     expect(control.getAttribute("aria-invalid")).toBe("true");
-    expect(control.getAttribute("aria-describedby")).toBe(`${control.id}-error`);
-    expect(rendered.querySelector(".field-error")?.getAttribute("role")).toBe("alert");
+    expect(control.getAttribute("aria-describedby")).toBe(`${hint} ${errorId}`);
+    const message = rendered.querySelector<HTMLElement>(".field-error");
+    expect(message?.getAttribute("role")).toBe("alert");
+    expect(message?.textContent).toBe("That name is taken.");
+
+    error.clear();
+    expect(control.getAttribute("aria-invalid")).toBeNull();
+    expect(control.getAttribute("aria-describedby")).toBe(hint);
+    expect(message?.hidden).toBe(true);
   });
 
   it("explains a disabled control rather than leaving it a mystery", () => {
@@ -184,5 +203,143 @@ describe("tiles", () => {
     expect(expired.querySelector(".tile-faded")).not.toBeNull();
     // Opacity is not information: the state is in the text as well.
     expect(expired.textContent).toContain("Closed");
+  });
+});
+
+// 20.12: rebuilding a region keeps the keyboard where it was.
+describe("rerender", () => {
+  it("puts focus on the replacement of the control that had it", () => {
+    const region = document.createElement("div");
+    document.body.appendChild(region);
+    const build = (): HTMLElement[] => [
+      keyed(document.createElement("button"), "first"),
+      keyed(document.createElement("button"), "second"),
+    ];
+
+    rerender(region, ...build());
+    const before = region.querySelectorAll("button")[1];
+    before?.focus();
+
+    rerender(region, ...build());
+    const after = region.querySelectorAll("button")[1];
+
+    expect(after).not.toBe(before);
+    expect(document.activeElement).toBe(after);
+    region.remove();
+  });
+
+  it("keeps the caret where it was in a text field", () => {
+    const region = document.createElement("div");
+    document.body.appendChild(region);
+    const field = (): HTMLInputElement => {
+      const input = keyed(document.createElement("input"), "name");
+      input.value = "Döner Palast";
+      return input;
+    };
+
+    rerender(region, field());
+    const before = region.querySelector("input");
+    before?.focus();
+    before?.setSelectionRange(3, 3);
+
+    rerender(region, field());
+    const after = region.querySelector("input");
+    expect(document.activeElement).toBe(after);
+    expect(after?.selectionStart).toBe(3);
+    region.remove();
+  });
+
+  it("leaves focus alone when it was outside the region", () => {
+    const region = document.createElement("div");
+    const outside = document.createElement("button");
+    document.body.append(region, outside);
+    outside.focus();
+
+    rerender(region, keyed(document.createElement("button"), "inside"));
+
+    expect(document.activeElement).toBe(outside);
+    region.remove();
+    outside.remove();
+  });
+});
+
+// 20.25: one form dialog for every editor. Its footer Save submits the form it
+// sits outside of -- the wiring 18.1 found missing twice -- and so does Enter.
+describe("a form dialog", () => {
+  function footerSubmit(): HTMLButtonElement {
+    const found = dialog().querySelector<HTMLButtonElement>(".modal-actions button[type='submit']");
+    if (!found) {
+      throw new Error("no submit button in the footer");
+    }
+    return found;
+  }
+
+  it("submits from the footer button and from Enter in a field", async () => {
+    const name = input({ name: "name" });
+    const onSubmit = vi.fn(() => Promise.resolve(false));
+    openFormDialog({ t, title: "Name", fields: [field({ label: "Name", control: name })], onSubmit });
+
+    footerSubmit().click();
+    await Promise.resolve();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+
+    name.closest("form")?.requestSubmit();
+    await Promise.resolve();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it("stays open and says why when the work fails", async () => {
+    openFormDialog({
+      t,
+      title: "Name",
+      fields: [],
+      onSubmit: () => Promise.reject(new Error("the database is unavailable")),
+    });
+
+    footerSubmit().click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.querySelector(".modal")).not.toBeNull();
+    expect(dialog().querySelector(".status-error")).not.toBeNull();
+  });
+
+  it("closes, gives focus back, and only then runs what comes after", async () => {
+    const opener = button({ label: "Open" });
+    document.body.appendChild(opener);
+    opener.focus();
+
+    let focusedWhenAfterRan: Element | null = null;
+    openFormDialog({
+      t,
+      title: "Name",
+      fields: [],
+      onSubmit: () => Promise.resolve(),
+      after: () => {
+        focusedWhenAfterRan = document.activeElement;
+      },
+    });
+
+    footerSubmit().click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.querySelector(".modal")).toBeNull();
+    expect(focusedWhenAfterRan).toBe(opener);
+  });
+});
+
+// 20.7.1: deleting an account warns about the jobs it holds as well. The server
+// counted them, but the dialog listed only items and orders opened, so somebody
+// collecting the money for tomorrow's order was told nothing would change.
+describe("the deletion warning", () => {
+  it("names the open orders whose money or food the account looks after", () => {
+    const list = impactList(t, {
+      active_orders: 2,
+      active_items: 0,
+      expired_items: 0,
+      created_active_orders: 0,
+      active_jobs: 2,
+    });
+    expect(list.textContent).toContain(t.t("account.delete.impact.jobs", { count: 2 }));
+    expect(list.textContent).not.toContain(t.t("account.delete.impact.none"));
   });
 });

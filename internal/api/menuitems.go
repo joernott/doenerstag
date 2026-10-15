@@ -109,7 +109,7 @@ func (h *MenuHandlers) getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -208,14 +208,8 @@ func (h *MenuHandlers) createItem(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{
-			Code:   CodeInvalidField,
-			Detail: "a referenced record does not exist",
-		})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -254,7 +248,7 @@ func (h *MenuHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -276,11 +270,8 @@ func (h *MenuHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -373,7 +364,7 @@ func (h *MenuHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, lookupErr := h.item(r, restaurantID)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -390,19 +381,11 @@ func (h *MenuHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// item resolves :mid and checks it belongs to this restaurant.
-func (h *MenuHandlers) item(r *http.Request, restaurantID uuid.UUID) (model.MenuItem, *Error) {
-	id, err := uuid.Parse(Param(r, "mid"))
+// lookupMenuItem resolves :mid and checks it belongs to this restaurant.
+func (h *MenuHandlers) lookupMenuItem(r *http.Request, restaurantID uuid.UUID) (model.MenuItem, *Error) {
+	item, err := loadParam(r, h.Pool, "mid", db.MenuItemByID)
 	if err != nil {
-		return model.MenuItem{}, &Error{Code: CodeNotFound}
-	}
-
-	item, dbErr := db.MenuItemByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.MenuItem{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.MenuItem{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.MenuItem{}, err
 	}
 	if item.RestaurantID != restaurantID {
 		return model.MenuItem{}, &Error{Code: CodeNotFound}
@@ -423,9 +406,8 @@ func (h *MenuHandlers) writeItem(w http.ResponseWriter, r *http.Request, id uuid
 // parseCategory resolves an optional category and checks it belongs to the
 // same restaurant.
 //
-// Without that check an item could be filed under another restaurant's
-// category, which would put it in the wrong menu and is not something the
-// foreign key can prevent.
+// The schema refuses another restaurant's category too, since migration 000014
+// (20.14); checking here first is what lets the answer name the field.
 func (h *MenuHandlers) parseCategory(
 	r *http.Request, restaurantID uuid.UUID, value *string,
 ) (*uuid.UUID, *Error) {

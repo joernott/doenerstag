@@ -10,13 +10,22 @@ import { api, ApiError, errorMessage } from "../api";
 import { currentPath, loginHref } from "../returnto";
 import { contactTarget } from "../contacts";
 import { mayTickPaid, paidCheckbox } from "../components/paid";
-import { append, el, type Child } from "../dom";
-import { formatDateTime, formatMoney, formatRelativeTime, orderTitle } from "../format";
+import { el, type Child } from "../dom";
+import { definitionList } from "../components/definitions";
+import {
+  formatDateTime,
+  formatMoney,
+  formatRelativeTime,
+  fulfilmentLabel,
+  orderTitle,
+} from "../format";
 import { button } from "../components/forms";
+import { copyText } from "../components/clipboard";
 import { moneyFormatOf, referenceData } from "../reference";
-import { isActive, type OrderHeader } from "./orders";
-import { actions, page, section, statusLine } from "./page";
-import type { Contact, Restaurant } from "./restaurant";
+import { isActive } from "./orders";
+import { actions, page, section } from "./page";
+import type { OrderHeader, RestaurantDetail } from "../types";
+import { statusLine } from "../components/status";
 
 interface AggregatedLine {
   item_name: string;
@@ -68,10 +77,6 @@ interface Summary {
   plain_text: string;
 }
 
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-}
-
 /**
  * The people an order has, as the authenticated order shape carries them.
  *
@@ -112,8 +117,7 @@ export async function summaryPage(app: App, id: string): Promise<HTMLElement> {
   // Ticking a line changes what each person owes and what the order has
   // outstanding, so both sections are rebuilt from the server rather than
   // patched in place: the arithmetic belongs to the API and there is no version
-  // of it here to keep in step. The totals used to be rendered once and left
-  // alone, which was right while nothing on this page could change them.
+  // of it here to keep in step.
   const people = el("div", { class: "person-groups" });
   const totals = el("div", { class: "totals-holder" });
   const render = (): void => {
@@ -187,7 +191,7 @@ function headerCard(
   if (order) {
     rows.push([
       t.t("order.fulfilment.type"),
-      t.t(order.fulfilment === "delivery" ? "order.fulfilment.delivery" : "order.fulfilment.pickup"),
+      fulfilmentLabel(t, order.fulfilment),
     ]);
     rows.push([t.t("order.fulfilment.label"), formatDateTime(app.language, order.fulfilment_at)]);
     rows.push([
@@ -237,13 +241,7 @@ function headerCard(
     rows.push([t.t("contact_type.address"), block]);
   }
 
-  const list = el("dl", { class: "definitions" });
-  for (const [label, value] of rows) {
-    list.appendChild(el("dt", { text: label }));
-    const dd = el("dd");
-    append(dd, value);
-    list.appendChild(dd);
-  }
+  const list = definitionList(rows);
 
   return section(orderTitle(app.language, summary), list);
 }
@@ -317,8 +315,8 @@ function perPersonCard(
         // is what the API sends; the page does not invent a label for it.
         person.display_name,
         // The owed amount last, so that it ends at the same edge as every line
-        // price below it. It used to come before the "paid" note, which a
-        // space-between heading then pushed into the middle of the line.
+        // price below it. Before the "paid" note, a space-between heading
+        // would push that note into the middle of the line.
         el(
           "span",
           { class: "person-amounts" },
@@ -443,21 +441,13 @@ function toolbar(app: App, summary: Summary): HTMLElement {
   const copy = button({
     label: t.t("summary.copy"),
     onclick: () => {
-      // The clipboard API is absent outside a secure context -- and a
-      // development server with a self-signed certificate is one such place, so
-      // this is not a hypothetical branch. Without the check the button did
-      // nothing at all: no copy, no message, no fallback.
-      if (!navigator.clipboard) {
-        offerTheText();
-        return;
-      }
-
-      void navigator.clipboard
-        .writeText(summary.plain_text)
-        .then(() => {
+      void copyText(summary.plain_text).then((copied) => {
+        if (copied) {
           status.say(t.t("action.copied"));
-        })
-        .catch(offerTheText);
+        } else {
+          offerTheText();
+        }
+      });
     },
   });
 

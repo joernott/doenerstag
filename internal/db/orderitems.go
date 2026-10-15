@@ -12,19 +12,6 @@ import (
 	"github.com/joernott/doenerstag/internal/model"
 )
 
-// ErrWrongRestaurant is returned when a menu item does not belong to the
-// order's restaurant.
-var ErrWrongRestaurant = errors.New("db: menu item belongs to another restaurant")
-
-// ErrItemUnavailable is returned when a menu item is marked sold out.
-var ErrItemUnavailable = errors.New("db: menu item is unavailable")
-
-// ErrItemNotServedThen is returned when a menu item exists and is not sold out,
-// but its availability filters say the kitchen does not make it at the order's
-// fulfilment time. A different problem with a different fix: come back on
-// Friday, rather than ask whether they have any left.
-var ErrItemNotServedThen = errors.New("db: menu item is not served at that time")
-
 const orderItemColumns = `i.id, i.order_id, i.user_id, coalesce(u.display_name, u.name),
 	i.menu_item_id, i.quantity, i.item_name, i.unit_price_cents,
 	coalesce(i.note, ''), i.paid, i.created_at, i.updated_at`
@@ -209,10 +196,6 @@ func insertModifications(
 	}
 	return nil
 }
-
-// ErrModificationWrongItem is returned when a selected modification does not
-// belong to the menu item being ordered.
-var ErrModificationWrongItem = errors.New("db: modification does not belong to this menu item")
 
 // OrderItemByID reads one item with its modifications.
 func OrderItemByID(ctx context.Context, q Querier, id uuid.UUID) (model.OrderItem, error) {

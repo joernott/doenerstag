@@ -347,8 +347,9 @@ Global Flags:
 Delete an account, named either by --id or by --username.
 
 What happens to the orders and items that account left behind is the rule in
-docs/02_features.md F2.6, which this does not repeat or override: the database
-decides, and it refuses to remove the administrator or the placeholder.
+docs/02_features.md F2.6, the same as deleting it in the browser: its items in
+open orders are removed, those in closed orders kept under the deleted-user
+placeholder. The administrator and the placeholder cannot be deleted.
 
 Usage:
   doenerstag user delete [flags]

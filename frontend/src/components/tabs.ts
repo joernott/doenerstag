@@ -1,9 +1,7 @@
-// Tabs.
-//
-// The restaurant page was four cards stacked in a column, which meant scrolling
-// past the contacts and the opening hours to reach the menu -- the part
-// somebody is nearly always there for. The same four sections as tabs put every
-// one of them a single click away and make the menu the landing place.
+// Tabs, for a page whose sections are each worth a click of their own: the
+// restaurant page, where the menu -- the part somebody is nearly always there
+// for -- would otherwise sit below the contacts and the opening hours, and the
+// account page.
 //
 // The pattern is the ARIA tabs one: a `tablist` of `tab` buttons, each
 // controlling a `tabpanel`. Roving tabindex, so the whole strip is one stop in
@@ -30,10 +28,8 @@ export interface TabsOptions {
 
 /** Builds a tab strip and its panels. */
 export function tabs(specs: TabSpec[], options: TabsOptions): HTMLElement {
-  // The classes are the ones the account page already uses for its own two
-  // tabs, so there is one tab look in the application rather than two that
-  // drift apart. That page still builds its strip by hand; folding it into this
-  // component is worth doing and is not this change.
+  // Every tab strip in the application is built here, so there is one tab look
+  // rather than two that drift apart.
   const strip = el("div", { class: "tabs", role: "tablist", "aria-label": options.label });
   const panels = el("div", { class: "tab-panels" });
 

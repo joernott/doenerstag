@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -68,7 +67,7 @@ func clockString(minutes int) *string {
 	return &value
 }
 
-// Register adds the availability routes to the menu handlers.
+// registerAvailability adds the availability routes to the menu handlers.
 func (h *MenuHandlers) registerAvailability(r *Router) {
 	r.HandleFunc(http.MethodGet, "/restaurants/:id/availability", h.listAvailability)
 	r.HandleFunc(http.MethodPost, "/restaurants/:id/availability", h.createAvailability)
@@ -82,9 +81,12 @@ func (h *MenuHandlers) registerAvailability(r *Router) {
 // listAvailability returns a restaurant's filters. Public, like the menu: when
 // a dish is served is part of what a menu says.
 func (h *MenuHandlers) listAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, err := requiredUUID(Param(r, "id"), "id")
+	// Through restaurantID, as every other menu route: it parsed the id itself
+	// and never asked whether the restaurant exists, so an unknown one listed
+	// as an empty set rather than 404 (20.9).
+	restaurantID, err := h.restaurantID(r)
 	if err != nil {
-		WriteError(w, r, &Error{Code: CodeNotFound})
+		WriteError(w, r, err)
 		return
 	}
 
@@ -111,8 +113,8 @@ type availabilityRequest struct {
 	raw       rawPatch `json:"-"`
 }
 
-// validated is what a request means once it has been checked: nil pointers for
-// absent fields, and values that the schema will accept.
+// validatedAvailability is what a request means once it has been checked: nil
+// pointers for absent fields, and values that the schema will accept.
 type validatedAvailability struct {
 	name      string
 	onDate    *time.Time
@@ -123,9 +125,9 @@ type validatedAvailability struct {
 }
 
 func (h *MenuHandlers) createAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurant, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurant, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 
@@ -169,9 +171,9 @@ func (h *MenuHandlers) createAvailability(w http.ResponseWriter, r *http.Request
 }
 
 func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request) {
-	filter, authErr := h.editableFilter(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	filter, lookupErr := h.lookupFilter(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 
@@ -218,12 +220,8 @@ func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request)
 
 	updated, dbErr := db.UpdateAvailabilityFilter(r.Context(), h.Pool, filter.ID,
 		principal.User.ID, update)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+	if dbErr != nil {
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -234,51 +232,39 @@ func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request)
 // delete of menu structure: what it removes is shared by everything it was
 // attached to, and the attachments go with it.
 func (h *MenuHandlers) deleteAvailability(w http.ResponseWriter, r *http.Request) {
+	// Looked up first, as every resource route does (20.16).
+	filter, lookupErr := h.lookupFilter(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
 	if _, err := RequireAdmin(r); err != nil {
 		WriteError(w, r, err)
 		return
 	}
 
-	filter, authErr := h.editableFilter(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
-		return
-	}
-
 	if err := db.DeleteAvailabilityFilter(r.Context(), h.Pool, filter.ID); err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			WriteError(w, r, &Error{Code: CodeNotFound})
-			return
-		}
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// editableFilter resolves the filter in the path and checks it belongs to the
+// lookupFilter resolves the filter in the path and checks it belongs to the
 // restaurant in the path, so that a filter id from one restaurant cannot be
 // edited through another's URL.
-func (h *MenuHandlers) editableFilter(r *http.Request) (model.AvailabilityFilter, *Error) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		return model.AvailabilityFilter{}, authErr
+func (h *MenuHandlers) lookupFilter(r *http.Request) (model.AvailabilityFilter, *Error) {
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		return model.AvailabilityFilter{}, lookupErr
 	}
 
-	filterID, err := requiredUUID(Param(r, "fid"), "fid")
+	filter, err := loadParam(r, h.Pool, "fid", db.AvailabilityFilterByID)
 	if err != nil {
-		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
+		return model.AvailabilityFilter{}, err
 	}
-
-	filter, dbErr := db.AvailabilityFilterByID(r.Context(), h.Pool, filterID)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.AvailabilityFilter{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
-	}
-
 	if filter.RestaurantID != restaurantID {
 		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
 	}
@@ -409,18 +395,7 @@ func validateClock(value *string, field string) (*string, *Error) {
 // what matters is whether the kitchen will make the dish when the food is
 // fetched, not whether it would make it now.
 func availabilityAt(r *http.Request) (*time.Time, *Error) {
-	raw := r.URL.Query().Get("at")
-	if raw == "" {
-		return nil, nil
-	}
-	at, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
-		return nil, &Error{
-			Code: CodeInvalidField, Field: "at",
-			Detail: "expected an RFC 3339 timestamp",
-		}
-	}
-	return &at, nil
+	return optionalTime(r.URL.Query().Get("at"), "at")
 }
 
 // availableAt applies the rule, or reports true when no moment was asked about.
@@ -489,14 +464,14 @@ func (h *MenuHandlers) decorateItems(
 // client that has to work out the difference, which is work the server can do
 // in one statement.
 func (h *MenuHandlers) setCategoryAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
-	category, authErr := h.category(r, restaurantID)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 	h.setAttachments(w, r, restaurantID, func(actor uuid.UUID, ids []uuid.UUID) error {
@@ -506,14 +481,14 @@ func (h *MenuHandlers) setCategoryAvailability(w http.ResponseWriter, r *http.Re
 
 // setItemAvailability is the same for a menu item.
 func (h *MenuHandlers) setItemAvailability(w http.ResponseWriter, r *http.Request) {
-	restaurantID, authErr := h.restaurantID(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	restaurantID, lookupErr := h.restaurantID(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
-	item, authErr := h.item(r, restaurantID)
-	if authErr != nil {
-		WriteError(w, r, authErr)
+	item, lookupErr := h.lookupMenuItem(r, restaurantID)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
 		return
 	}
 	h.setAttachments(w, r, restaurantID, func(actor uuid.UUID, ids []uuid.UUID) error {
@@ -579,11 +554,7 @@ func (h *MenuHandlers) setAttachments(
 	}
 
 	if err := write(principal.User.ID, ids); err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			WriteError(w, r, &Error{Code: CodeNotFound})
-			return
-		}
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 

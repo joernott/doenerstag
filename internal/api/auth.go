@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/mail"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -16,18 +15,7 @@ import (
 
 	"github.com/joernott/doenerstag/internal/auth"
 	"github.com/joernott/doenerstag/internal/db"
-	"github.com/joernott/doenerstag/internal/logging"
 	"github.com/joernott/doenerstag/internal/model"
-)
-
-// Registration limits from docs/05_auth_and_permissions.md. Counted in code
-// points rather than bytes, so a name in a non-Latin script is not shorter than
-// it looks.
-const (
-	MinUserNameLength    = 3
-	MaxUserNameLength    = 64
-	MaxDisplayNameLength = 64
-	MaxEmailLength       = 254
 )
 
 // UserAgentLogLimit bounds what is stored from a User-Agent header.
@@ -63,23 +51,13 @@ type AuthHandlers struct {
 }
 
 func (h *AuthHandlers) now() time.Time {
-	if h.Now != nil {
-		return h.Now()
-	}
-	return time.Now()
+	return nowFrom(h.Now)
 }
 
 // log returns a logger already carrying the request's correlation ID, so that a
 // line written here can be joined to the request line the middleware writes.
 func (h *AuthHandlers) log(r *http.Request) *zerolog.Logger {
-	if h.Logger == nil {
-		discard := zerolog.Nop()
-		return &discard
-	}
-	logger := h.Logger.With().
-		Str(logging.FieldRequestID, RequestIDFrom(r.Context())).
-		Logger()
-	return &logger
+	return requestLogger(h.Logger, r)
 }
 
 // Register adds the authentication routes.
@@ -96,27 +74,6 @@ type registerRequest struct {
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
 	Password    string `json:"password"`
-}
-
-// userBody is the public shape of an account.
-//
-// It is what every endpoint returning a user sends, and it deliberately has no
-// field for the password hash, so no future edit can add one by filling in a
-// struct literal.
-type userBody struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	IsAdmin     bool   `json:"is_admin"`
-}
-
-func publicUser(u model.User) userBody {
-	return userBody{
-		ID:          u.ID.String(),
-		Name:        u.Name,
-		DisplayName: u.Label(),
-		IsAdmin:     u.IsAdmin,
-	}
 }
 
 // endedBody says why a session stopped working.
@@ -273,85 +230,6 @@ func (h *AuthHandlers) startSession(r *http.Request, w http.ResponseWriter, user
 // returning an error would leave the caller logged in but told otherwise.
 func (h *AuthHandlers) recordLogin(ctx context.Context, user model.User) error {
 	return db.RecordLogin(ctx, h.Pool, user.ID, h.now())
-}
-
-// validateUserName applies the length and content rules.
-//
-// Length is in code points, matching the CHECK constraint, which uses
-// char_length. A control character is rejected because a name is displayed to
-// other people and rendered into log lines.
-func validateUserName(name string) *Error {
-	if name == "" {
-		return &Error{Code: CodeMissingField, Field: "name"}
-	}
-	length := utf8.RuneCountInString(name)
-	if length < MinUserNameLength || length > MaxUserNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the user name must be between 3 and 64 characters",
-		}
-	}
-	if strings.ContainsFunc(name, isControl) {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the user name may not contain control characters",
-		}
-	}
-	return nil
-}
-
-func validateDisplayName(name string) *Error {
-	if name == "" {
-		// Optional: an absent display name falls back to the user name.
-		return nil
-	}
-	if utf8.RuneCountInString(name) > MaxDisplayNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "display_name",
-			Detail: "the display name may be at most 64 characters",
-		}
-	}
-	if strings.ContainsFunc(name, isControl) {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "display_name",
-			Detail: "the display name may not contain control characters",
-		}
-	}
-	return nil
-}
-
-// validateEmail format-checks an address.
-//
-// Deliberately loose, matching the CHECK constraint. The address is optional,
-// never verified and never used to send anything, so a strict grammar would
-// reject valid addresses for no benefit.
-func validateEmail(address string) *Error {
-	if address == "" {
-		return nil
-	}
-	if len(address) > MaxEmailLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "email",
-			Detail: "the e-mail address is too long",
-		}
-	}
-	if _, err := mail.ParseAddress(address); err != nil {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "email",
-			Detail: "this does not look like an e-mail address",
-		}
-	}
-	return nil
-}
-
-func isControl(r rune) bool {
-	return r < 0x20 || r == 0x7f
 }
 
 // truncate cuts a string to at most n bytes without splitting a rune.

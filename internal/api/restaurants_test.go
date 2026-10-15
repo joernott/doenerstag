@@ -368,6 +368,23 @@ func TestUnknownRestaurantIsNotFound(t *testing.T) {
 	}
 }
 
+// Every list under a restaurant answers 404 for one that does not exist, rather
+// than an empty list that reads as "this restaurant has none". The
+// availability list answered 200 [] (20.9): it parsed the id itself instead of
+// asking whether the restaurant exists, as the others do.
+func TestEveryListUnderAnUnknownRestaurantIsNotFound(t *testing.T) {
+	f := newAPIFixture(t)
+	const unknown = "/restaurants/018f0000-0000-7000-8000-00000000dead"
+
+	for _, list := range []string{
+		"/availability", "/categories", "/menu-items", "/contacts", "/opening-hours",
+	} {
+		if rec := f.get(unknown + list); rec.Code != http.StatusNotFound {
+			t.Errorf("%s answered %d, want 404", list, rec.Code)
+		}
+	}
+}
+
 // The seeded reference tables carry codes, not display names: they are named by
 // the frontend's i18n catalog, so adding a language is not a migration.
 func TestReferenceEndpointsCarryCodesNotNames(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -281,7 +280,7 @@ func (h *MenuHandlers) createCategory(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -305,7 +304,7 @@ func (h *MenuHandlers) patchCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, lookupErr := h.category(r, restaurantID)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -333,11 +332,8 @@ func (h *MenuHandlers) patchCategory(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -357,7 +353,7 @@ func (h *MenuHandlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, lookupErr := h.category(r, restaurantID)
+	category, lookupErr := h.lookupCategory(r, restaurantID)
 	if lookupErr != nil {
 		WriteError(w, r, lookupErr)
 		return
@@ -374,19 +370,11 @@ func (h *MenuHandlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// category resolves :cid and checks it belongs to this restaurant.
-func (h *MenuHandlers) category(r *http.Request, restaurantID uuid.UUID) (model.MenuCategory, *Error) {
-	id, err := uuid.Parse(Param(r, "cid"))
+// lookupCategory resolves :cid and checks it belongs to this restaurant.
+func (h *MenuHandlers) lookupCategory(r *http.Request, restaurantID uuid.UUID) (model.MenuCategory, *Error) {
+	category, err := loadParam(r, h.Pool, "cid", db.CategoryByID)
 	if err != nil {
-		return model.MenuCategory{}, &Error{Code: CodeNotFound}
-	}
-
-	category, dbErr := db.CategoryByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.MenuCategory{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.MenuCategory{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.MenuCategory{}, err
 	}
 	if category.RestaurantID != restaurantID {
 		return model.MenuCategory{}, &Error{Code: CodeNotFound}
@@ -398,12 +386,8 @@ func validateMenuName(name string) *Error {
 	if name == "" {
 		return &Error{Code: CodeMissingField, Field: "name"}
 	}
-	if utf8.RuneCountInString(name) > MaxMenuNameLength {
-		return &Error{
-			Code:   CodeInvalidField,
-			Field:  "name",
-			Detail: "the name may be at most 200 characters",
-		}
+	if longerThan(name, MaxMenuNameLength) {
+		return tooLong("name", "name", MaxMenuNameLength)
 	}
 	return nil
 }

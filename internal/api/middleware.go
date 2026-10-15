@@ -23,17 +23,14 @@ const RequestIDHeader = "X-Request-Id"
 type contextKey int
 
 const (
-	requestIDKey contextKey = iota
-	userNameKey
+	userNameKey contextKey = iota
 )
 
 // RequestIDFrom returns the correlation ID for a request, or "-" if there is
-// none, which only happens outside the middleware chain.
+// none, which only happens outside the middleware chain. The key itself is in
+// the logging package, which the db layer can reach as well.
 func RequestIDFrom(ctx context.Context) string {
-	if id, ok := ctx.Value(requestIDKey).(string); ok {
-		return id
-	}
-	return "-"
+	return logging.RequestIDFrom(ctx)
 }
 
 // actingUser is a box for the acting user's name.
@@ -104,7 +101,7 @@ func RequestID() Middleware {
 			}
 
 			w.Header().Set(RequestIDHeader, id)
-			ctx := context.WithValue(r.Context(), requestIDKey, id)
+			ctx := logging.WithRequestID(r.Context(), id)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

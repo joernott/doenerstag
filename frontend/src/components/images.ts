@@ -45,11 +45,6 @@ export function thumbnailURL(imageId: string): string {
   return `/api/v1/images/${encodeURIComponent(imageId)}/thumbnail`;
 }
 
-/** The URL of an image at full size. */
-export function imageURL(imageId: string): string {
-  return `/api/v1/images/${encodeURIComponent(imageId)}`;
-}
-
 /** Builds the control. */
 export function imageField(options: ImageFieldOptions): ImageField {
   const { t } = options;

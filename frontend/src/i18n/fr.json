@@ -312,6 +312,9 @@
   "account.delete.impact.orders.one": "{count} commande que vous avez ouverte sera transmise à l'utilisateur supprimé.",
   "account.delete.impact.orders.many": "{count} de commandes que vous avez ouvertes seront transmises à l'utilisateur supprimé.",
   "account.delete.impact.orders.other": "{count} commandes que vous avez ouvertes seront transmises à l'utilisateur supprimé.",
+  "account.delete.impact.jobs.one": "{count} commande ouverte pour laquelle vous récupérez l'argent ou allez chercher le repas n'aura plus personne pour le faire.",
+  "account.delete.impact.jobs.many": "{count} de commandes ouvertes pour lesquelles vous récupérez l'argent ou allez chercher le repas n'auront plus personne pour le faire.",
+  "account.delete.impact.jobs.other": "{count} commandes ouvertes pour lesquelles vous récupérez l'argent ou allez chercher le repas n'auront plus personne pour le faire.",
   "account.delete.impact.none": "Rien d'autre n'est concerné.",
 
   "restaurant.data": "Restaurant",

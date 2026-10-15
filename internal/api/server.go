@@ -75,6 +75,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 
 	routerOptions := Options{
 		CORSOrigins: ParseCORSOrigins(cfg.Server.CORSAllowedOrigins),
+		Logger:      opts.Logger,
 	}
 	if opts.Assets != nil {
 		routerOptions.Assets = opts.Assets.Handler()
@@ -142,7 +143,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	resetHandlers := &ResetHandlers{
 		Pool:    opts.Pool,
 		Signer:  resetSigner,
-		Sender:  mail.New(mailOptionsFrom(cfg)),
+		Sender:  mail.New(mail.OptionsFromConfig(cfg.Mail)),
 		BaseURL: cfg.Server.BaseURL,
 		Used:    NewUsedResets(),
 		Logger:  opts.Logger,
@@ -213,10 +214,6 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	return s, nil
 }
 
-// Handler exposes the fully wrapped handler, so a test can drive the whole
-// chain through httptest without binding a port.
-func (s *Server) Handler() http.Handler { return s.http.Handler }
-
 // Routes lists the API routes this server serves.
 //
 // Exported so the OpenAPI test can compare the document against the routes the
@@ -224,9 +221,6 @@ func (s *Server) Handler() http.Handler { return s.http.Handler }
 // keeps up to date by hand -- which is what it did, and which is how the
 // document came to describe four endpoints out of sixty.
 func (s *Server) Routes() []RouteInfo { return s.routes }
-
-// Addr is the address the server listens on.
-func (s *Server) Addr() string { return s.http.Addr }
 
 // StartupChecks are the five things that must hold before the server begins
 // listening, per docs/09_configuration.md.
@@ -427,24 +421,4 @@ func (s *Server) Shutdown() error {
 
 	s.logger.Info().Msg("stopped")
 	return nil
-}
-
-// mailOptionsFrom turns the configuration into what the mail package wants.
-func mailOptionsFrom(cfg *config.Config) mail.Options {
-	// An unparseable encryption is caught at startup by the configuration
-	// check; falling back to the safest of the three here means a typo cannot
-	// silently downgrade the connection to plaintext.
-	encryption, err := mail.ParseEncryption(cfg.Mail.Encryption)
-	if err != nil {
-		encryption = mail.EncryptionSTARTTLS
-	}
-	return mail.Options{
-		Host:       cfg.Mail.Host,
-		Port:       cfg.Mail.Port,
-		Username:   cfg.Mail.Username,
-		Password:   cfg.Mail.Password,
-		From:       cfg.Mail.From,
-		Encryption: encryption,
-		Timeout:    cfg.Mail.Timeout,
-	}
 }
