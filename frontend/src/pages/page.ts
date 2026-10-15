@@ -3,7 +3,9 @@
 // Separate from the route table so that a page module can use these without
 // importing the module that imports it.
 
+import { errorMessage } from "../api";
 import { append, el, type Child } from "../dom";
+import type { Translator } from "../i18n";
 import { logoMark } from "../logo";
 
 /** A page: a heading and whatever follows it. Also sets the document title. */
@@ -129,6 +131,46 @@ export interface StatusLine {
   say(message: string): void;
   fail(message: string): void;
   clear(): void;
+}
+
+/** What runAction reports through, and what it holds still while it works. */
+export interface ActionContext {
+  status: StatusLine;
+  t: Translator;
+  /** Disabled while the action runs, so a second press cannot send it twice. */
+  busy?: HTMLButtonElement | null;
+}
+
+/**
+ * Runs something a person asked for and reports how it went.
+ *
+ * The status line is cleared first, the busy control disabled for the
+ * duration, and a failure reported on the status line in the person's
+ * language. The same dozen lines were written out by hand some thirty times
+ * (20.24), with the clearing, the disabling and the reporting each forgotten
+ * somewhere. Resolves to whether it worked, for a caller that does something
+ * more on success -- closes a dialog, say.
+ */
+export async function runAction(
+  context: ActionContext,
+  action: () => Promise<unknown>,
+): Promise<boolean> {
+  const { status, t, busy } = context;
+  status.clear();
+  if (busy) {
+    busy.disabled = true;
+  }
+  try {
+    await action();
+    return true;
+  } catch (error) {
+    status.fail(errorMessage(t, error));
+    return false;
+  } finally {
+    if (busy) {
+      busy.disabled = false;
+    }
+  }
 }
 
 export function statusLine(): StatusLine {

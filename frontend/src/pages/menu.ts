@@ -9,7 +9,7 @@
 // menu (F2 and docs/06_ui_ux.md).
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
 import { button, field, form, input } from "../components/forms";
@@ -20,7 +20,7 @@ import { referenceName, tagName } from "../i18n";
 import { moneyFormatOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
 import { availabilityChip, openAttachmentEditor } from "./availability";
-import { actions, card, statusLine } from "./page";
+import { actions, card, runAction, statusLine } from "./page";
 
 /** The marks an item carries: its tags, allergens and additives, as chips. */
 export function itemChips(app: App, item: MenuItem): HTMLElement[] {
@@ -74,15 +74,13 @@ export function menuSection(
   const collapsedCategories = new Set<string>();
 
   async function reload(): Promise<void> {
-    try {
+    await runAction({ status, t }, async () => {
       [categories, items] = await Promise.all([
         getList<Category>(`/restaurants/${restaurant.id}/categories`, "categories"),
         getList<MenuItem>(`/restaurants/${restaurant.id}/menu-items`, "menu_items"),
       ]);
       render();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   function edit(item: MenuItem | null, categoryID: string | null): void {
@@ -139,15 +137,12 @@ export function menuSection(
 
   function categoryBlock(category: Category, index: number, own: MenuItem[]): HTMLElement {
     const rename = async (next: string): Promise<void> => {
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, { name: next });
         category.name = next;
         await reload();
         status.say(t.t("state.saved"));
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     // Reordering by button, not by drag handle. docs/06_ui_ux.md requires a
@@ -159,8 +154,7 @@ export function menuSection(
       if (!other) {
         return;
       }
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await Promise.all([
           api.patch(`/restaurants/${restaurant.id}/categories/${category.id}`, {
             sort_order: other.sort_order,
@@ -170,9 +164,7 @@ export function menuSection(
           }),
         ]);
         await reload();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     const remove = async (): Promise<void> => {
@@ -185,12 +177,10 @@ export function menuSection(
       if (!agreed) {
         return;
       }
-      try {
+      await runAction({ status, t }, async () => {
         await api.delete(`/restaurants/${restaurant.id}/categories/${category.id}`);
         await reload();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     const controls = actions(
@@ -236,25 +226,19 @@ export function menuSection(
         label: t.t("menu.category.move_up"),
         variant: "quiet",
         disabled: index === 0,
-        onclick: () => {
-          void move(-1);
-        },
+        onclick: () => move(-1),
       }),
       button({
         label: t.t("menu.category.move_down"),
         variant: "quiet",
         disabled: index === categories.length - 1,
-        onclick: () => {
-          void move(1);
-        },
+        onclick: () => move(1),
       }),
       app.session.isAdmin
         ? button({
             label: t.t("menu.category.delete"),
             variant: "danger",
-            onclick: () => {
-              void remove();
-            },
+            onclick: () => remove(),
           })
         : null,
     );
@@ -379,16 +363,13 @@ export function menuSection(
   // --- adding a category -----------------------------------------------------
 
   const addCategory = async (name: string): Promise<void> => {
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.post(`/restaurants/${restaurant.id}/categories`, {
         name,
         sort_order: (categories[categories.length - 1]?.sort_order ?? 0) + 10,
       });
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   };
 
   void reload();

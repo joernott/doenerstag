@@ -40,6 +40,10 @@ async function tabUntil(page: Page, matches: (description: string) => boolean): 
 test.describe("the keyboard alone", () => {
   test("reaches the content past the chrome with one key", async ({ page }) => {
     await page.goto("/");
+    // The application draws its own chrome; until it has, the page is the
+    // "needs JavaScript" notice and Tab has nowhere to go. Pressing it any
+    // earlier made this test fail on a cold server.
+    await expect(page.getByRole("link", { name: "Skip to the content" })).toBeAttached();
 
     await page.keyboard.press("Tab");
     expect(await focused(page)).toContain("Skip to the content");

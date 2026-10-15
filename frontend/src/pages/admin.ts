@@ -12,7 +12,7 @@ import { formatDateTime } from "../format";
 import { button, field, form, input, textarea } from "../components/forms";
 import { passwordField } from "../components/password";
 import { openModal } from "../components/modal";
-import { actions, page, section, statusLine } from "./page";
+import { actions, page, runAction, section, statusLine } from "./page";
 
 interface AdminUser {
   id: string;
@@ -57,12 +57,10 @@ export async function usersPage(app: App): Promise<HTMLElement> {
   const list = el("div", { class: "rows" });
 
   async function reload(): Promise<void> {
-    try {
+    await runAction({ status, t }, async () => {
       const users = await getList<AdminUser>("/users", "users");
       render(users);
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   function render(users: AdminUser[]): void {
@@ -120,9 +118,7 @@ export async function usersPage(app: App): Promise<HTMLElement> {
           : button({
               label: t.t("action.delete"),
               variant: "danger",
-              onclick: () => {
-                void remove(user);
-              },
+              onclick: () => remove(user),
             }),
       ),
     );
@@ -144,9 +140,7 @@ export async function usersPage(app: App): Promise<HTMLElement> {
     const save = button({
       label: t.t("action.save"),
       variant: "primary",
-      onclick: () => {
-        void perform();
-      },
+      onclick: () => perform(),
     });
     const cancel = button({ label: t.t("action.cancel"), onclick: () => modal.close() });
 
@@ -215,9 +209,7 @@ export async function usersPage(app: App): Promise<HTMLElement> {
       disabled: !user.email,
       // Never a mystery: a greyed-out button says why it is greyed out.
       ...(user.email ? {} : { title: t.t("admin.reset_password_no_email", { name: user.name }) }),
-      onclick: () => {
-        void sendLink();
-      },
+      onclick: () => sendLink(),
     });
     const set = button({ label: t.t("admin.set_password"), variant: "primary", type: "submit" });
 

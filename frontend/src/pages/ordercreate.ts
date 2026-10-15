@@ -15,7 +15,7 @@ import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
 import { button, field, form, input, select } from "../components/forms";
 import { isOpen } from "../openinghours";
-import { actions, page, section, statusLine } from "./page";
+import { actions, page, runAction, section, statusLine } from "./page";
 import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
 
 interface RestaurantDetail extends Restaurant {
@@ -162,8 +162,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
       return;
     }
 
-    submit.disabled = true;
-    try {
+    await runAction({ status, t, busy: submit }, async () => {
       const created = await api.post<{ id: string }>("/orders", {
         restaurant_id: restaurant.value,
         fulfilment: fulfilment.value,
@@ -174,11 +173,7 @@ export async function createOrderPage(app: App): Promise<HTMLElement> {
         pickup_person_id: pickupPerson.value,
       });
       app.navigate(`/orders/${created.id}`);
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
-    }
+    });
   }
 
   return page(

@@ -185,7 +185,12 @@ export interface ButtonOptions {
    * voice.
    */
   ariaLabel?: string;
-  onclick?: (event: Event) => void;
+  /**
+   * What pressing it does. May be async: the button takes care of the promise,
+   * so a call site is `onclick: () => save()` rather than a block wrapping it
+   * in `void` (20.24). An action that can fail reports through runAction.
+   */
+  onclick?: (event: Event) => void | Promise<unknown>;
 }
 
 /** A button. */
@@ -198,7 +203,13 @@ export function button(options: ButtonOptions): HTMLButtonElement {
     disabled: options.disabled === true,
     ...(options.title ? { title: options.title } : {}),
     ...(options.ariaLabel ? { "aria-label": options.ariaLabel } : {}),
-    ...(options.onclick ? { onclick: options.onclick } : {}),
+    ...(options.onclick
+      ? {
+          onclick: (event: Event) => {
+            void options.onclick?.(event);
+          },
+        }
+      : {}),
   });
 }
 

@@ -45,7 +45,7 @@ import {
   type OrderHeader,
   type OrderItem,
 } from "./orders";
-import { actions, page, pageWithActions, section, statusLine } from "./page";
+import { actions, page, pageWithActions, runAction, section, statusLine } from "./page";
 import type { Contact, Restaurant } from "./restaurant";
 
 interface RestaurantDetail extends Restaurant {
@@ -131,13 +131,11 @@ export async function orderPage(
   };
 
   async function refresh(): Promise<void> {
-    try {
+    await runAction({ status, t }, async () => {
       order = await api.get<OrderHeader | OrderDetail>(`/orders/${id}`);
       renderLeft();
       renderMenu();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   async function reloadMenu(): Promise<void> {
@@ -256,9 +254,7 @@ export async function orderPage(
         keyed(
           button({
             label: t.t("order.edit"),
-            onclick: () => {
-              void openOrderEditor();
-            },
+            onclick: () => openOrderEditor(),
           }),
           "edit-order",
         ),
@@ -270,9 +266,7 @@ export async function orderPage(
           button({
             label: t.t("order.delete"),
             variant: "danger",
-            onclick: () => {
-              void remove();
-            },
+            onclick: () => remove(),
           }),
           "delete-order",
         ),
@@ -343,9 +337,7 @@ export async function orderPage(
           label: t.t("order.volunteer"),
           // Two buttons both called "Me!" cannot be told apart by ear.
           ariaLabel: `${t.t("order.volunteer")}: ${jobName}`,
-          onclick: () => {
-            void volunteer(job);
-          },
+          onclick: () => volunteer(job),
         }),
         `job:${job}`,
       ),
@@ -361,24 +353,18 @@ export async function orderPage(
    * inside the general edit path would be a rule nobody could find later.
    */
   async function volunteer(job: "pickup-person" | "money-collector"): Promise<void> {
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.post(`/orders/${id}/${job}`, {});
       await refresh();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   /** Leaves one of the two jobs vacant again. */
   async function release(job: "pickup-person" | "money-collector"): Promise<void> {
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.delete(`/orders/${id}/${job}`);
       await refresh();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   function restaurantLine(): HTMLElement {
@@ -677,8 +663,7 @@ export async function orderPage(
         return;
       }
 
-      save.disabled = true;
-      try {
+      await runAction({ status: editorStatus, t, busy: save }, async () => {
         await api.patch(`/orders/${id}`, {
           fulfilment: fulfilment.value,
           fulfilment_at: fulfils.toISOString(),
@@ -688,11 +673,7 @@ export async function orderPage(
         });
         modal.close();
         await refresh();
-      } catch (error) {
-        editorStatus.fail(errorMessage(t, error));
-      } finally {
-        save.disabled = false;
-      }
+      });
     }
 
     const modal = openModal({
@@ -728,12 +709,10 @@ export async function orderPage(
       return;
     }
 
-    try {
+    await runAction({ status, t }, async () => {
       await api.delete(`/orders/${id}`);
       app.navigate("/");
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   // --- the menu column -----------------------------------------------------
@@ -1043,9 +1022,7 @@ export async function orderPage(
                       variant: "primary",
                       // Named for the dish: the menu column has one of these per item.
                       ariaLabel: `${t.t("item.add")}: ${item.name}`,
-                      onclick: () => {
-                        void openItemEditor(null, item);
-                      },
+                      onclick: () => openItemEditor(null, item),
                     }),
                     `add:${item.id}`,
                   )
@@ -1180,8 +1157,7 @@ export async function orderPage(
         modification_ids: boxes.filter((entry) => entry.box.checked).map((entry) => entry.id),
       };
 
-      save.disabled = true;
-      try {
+      await runAction({ status: editorStatus, t, busy: save }, async () => {
         if (existing) {
           await api.patch(`/orders/${id}/items/${existing.id}`, {
             quantity: payload.quantity,
@@ -1193,11 +1169,7 @@ export async function orderPage(
         }
         modal.close();
         await refresh();
-      } catch (error) {
-        editorStatus.fail(errorMessage(t, error));
-      } finally {
-        save.disabled = false;
-      }
+      });
     }
 
     const body = form(

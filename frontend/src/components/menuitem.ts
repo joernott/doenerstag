@@ -16,7 +16,7 @@ import { button, checkbox, field, form, input, select, textarea } from "./forms"
 import { imageField } from "./images";
 import { confirmDialog, openModal } from "./modal";
 import { filterPicker, loadFilters, saveAttachments } from "../pages/availability";
-import { statusLine } from "../pages/page";
+import { runAction, statusLine } from "../pages/page";
 
 /**
  * A named rule about when food can be had.
@@ -199,8 +199,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
       additive_ids: additives.selected(),
     };
 
-    save.disabled = true;
-    try {
+    await runAction({ status, t, busy: save }, async () => {
       // The filters are a second request, because they are a different
       // resource: a set of links rather than fields of the item. A new item
       // has no id until the first request answers, which is the other reason
@@ -220,11 +219,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
       }
       modal.close();
       await options.onSaved();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      save.disabled = false;
-    }
+    });
   }
 
   async function remove(): Promise<void> {
@@ -288,9 +283,7 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
         ? button({
             label: t.t("action.delete"),
             variant: "danger",
-            onclick: () => {
-              void remove();
-            },
+            onclick: () => remove(),
           })
         : null,
       save,
@@ -334,8 +327,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
     });
 
     const save = async (): Promise<void> => {
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await api.patch(
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications/${modification.id}`,
           {
@@ -344,22 +336,17 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           },
         );
         status.say(t.t("state.saved"));
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     const remove = async (): Promise<void> => {
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await api.delete(
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications/${modification.id}`,
         );
         modifications = modifications.filter((entry) => entry.id !== modification.id);
         render();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     return el(
@@ -370,17 +357,13 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
       actionsRow(
         button({
           label: t.t("action.save"),
-          onclick: () => {
-            void save();
-          },
+          onclick: () => save(),
         }),
         app.session.isAdmin
           ? button({
               label: t.t("action.remove"),
               variant: "danger",
-              onclick: () => {
-                void remove();
-              },
+              onclick: () => remove(),
             })
           : null,
       ),
@@ -397,7 +380,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
         name.focus();
         return;
       }
-      try {
+      await runAction({ status, t }, async () => {
         const created = await api.post<Modification>(
           `/restaurants/${restaurantID}/menu-items/${item.id}/modifications`,
           {
@@ -408,9 +391,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
         );
         modifications = [...modifications, created];
         render();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     };
 
     return el(
@@ -421,9 +402,7 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
       actionsRow(
         button({
           label: t.t("menu.modification.add"),
-          onclick: () => {
-            void add();
-          },
+          onclick: () => add(),
         }),
       ),
     );

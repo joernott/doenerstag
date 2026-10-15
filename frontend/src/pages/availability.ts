@@ -8,12 +8,12 @@
 // implementing it a second time.
 
 import type { App } from "../app";
-import { api, errorMessage, getList } from "../api";
+import { api, getList } from "../api";
 import { el, icon, type Child } from "../dom";
 import { formatWeekday } from "../format";
 import { button, field, form, input } from "../components/forms";
 import { confirmDialog, openModal } from "../components/modal";
-import { statusLine } from "./page";
+import { runAction, statusLine } from "./page";
 import type { AvailabilityFilter } from "../components/menuitem";
 
 /** ISO weekdays, Monday first, which is how the schema numbers them. */
@@ -109,9 +109,7 @@ export function availabilitySection(app: App, restaurantID: string): HTMLElement
           label: t.t("action.delete"),
           variant: "danger",
           ariaLabel: `${t.t("action.delete")}: ${filter.name}`,
-          onclick: () => {
-            void remove(filter);
-          },
+          onclick: () => remove(filter),
         }),
       );
     }
@@ -143,13 +141,10 @@ export function availabilitySection(app: App, restaurantID: string): HTMLElement
       return;
     }
 
-    status.clear();
-    try {
+    await runAction({ status, t }, async () => {
       await api.delete(`/restaurants/${restaurantID}/availability/${filter.id}`);
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   async function reload(): Promise<void> {
@@ -237,8 +232,7 @@ export function openFilterEditor(
       end_time: endTime.value === "" ? null : endTime.value,
     };
 
-    save.disabled = true;
-    try {
+    await runAction({ status: editorStatus, t, busy: save }, async () => {
       if (existing) {
         await api.patch(`/restaurants/${restaurantID}/availability/${existing.id}`, payload);
       } else {
@@ -246,11 +240,7 @@ export function openFilterEditor(
       }
       modal.close();
       await onSaved();
-    } catch (error) {
-      editorStatus.fail(errorMessage(t, error));
-    } finally {
-      save.disabled = false;
-    }
+    });
   }
 
   const modal = openModal({
@@ -402,17 +392,11 @@ export function openAttachmentEditor(options: AttachmentEditorOptions): void {
   });
 
   async function store(): Promise<void> {
-    editorStatus.clear();
-    save.disabled = true;
-    try {
+    await runAction({ status: editorStatus, t, busy: save }, async () => {
       await saveAttachments(restaurantID, kind, elementID, read());
       modal.close();
       await onSaved();
-    } catch (error) {
-      editorStatus.fail(errorMessage(t, error));
-    } finally {
-      save.disabled = false;
-    }
+    });
   }
 
   const modal = openModal({

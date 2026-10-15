@@ -17,7 +17,7 @@ import { moneyFormatOf, referenceData, type ReferenceData } from "../reference";
 import { availabilitySection } from "./availability";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, card, page, pageWithActions, section, setPageTitle, statusLine } from "./page";
+import { actions, card, page, pageWithActions, runAction, section, setPageTitle, statusLine } from "./page";
 
 /** A restaurant as the API sends it. */
 export interface Restaurant {
@@ -193,9 +193,7 @@ function restaurantControls(
     label: t.t("restaurant.delete"),
     variant: "danger",
     ...(why ? { title: why } : {}),
-    onclick: () => {
-      void data.remove();
-    },
+    onclick: () => data.remove(),
   });
   remove.disabled = why !== "";
 
@@ -223,9 +221,7 @@ function createPage(app: App, reference: ReferenceData): HTMLElement {
   const submit = button({ label: t.t("action.create"), variant: "primary", type: "submit" });
 
   async function create(): Promise<void> {
-    status.clear();
-    submit.disabled = true;
-    try {
+    await runAction({ status, t, busy: submit }, async () => {
       const created = await api.post<Restaurant>("/restaurants", {
         name: name.value.trim(),
         currency_code: currency.value,
@@ -239,11 +235,7 @@ function createPage(app: App, reference: ReferenceData): HTMLElement {
         ],
       });
       app.navigate(`/restaurants/${created.id}`);
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
-    }
+    });
   }
 
   return page(
@@ -594,18 +586,14 @@ function contactsSection(
     const save = button({
       label: t.t("action.save"),
       variant: "primary",
-      onclick: () => {
-        void store();
-      },
+      onclick: () => store(),
     });
     const remove = button({
       label: t.t("action.remove"),
       variant: "danger",
       disabled: contacts.length < 2,
       ...(contacts.length < 2 ? { title: t.t("restaurant.contact.last") } : {}),
-      onclick: () => {
-        void drop();
-      },
+      onclick: () => drop(),
     });
 
     async function store(): Promise<void> {
@@ -624,14 +612,11 @@ function contactsSection(
     }
 
     async function drop(): Promise<void> {
-      status.clear();
-      try {
+      await runAction({ status, t }, async () => {
         await api.delete(`/restaurants/${restaurant.id}/contacts/${contact.id}`);
         contacts = contacts.filter((entry) => entry.id !== contact.id);
         render();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     }
 
     // The button behind the value: what this contact opens. It follows the
@@ -668,9 +653,7 @@ function contactsSection(
     const add = button({
       label: t.t("restaurant.contact.add"),
       variant: "primary",
-      onclick: () => {
-        void create();
-      },
+      onclick: () => create(),
     });
 
     async function create(): Promise<void> {
@@ -679,7 +662,7 @@ function contactsSection(
         value.focus();
         return;
       }
-      try {
+      await runAction({ status, t }, async () => {
         const created = await api.post<Contact>(`/restaurants/${restaurant.id}/contacts`, {
           contact_type_id: type.value,
           value: value.value.trim(),
@@ -688,9 +671,7 @@ function contactsSection(
         });
         contacts.push(created);
         render();
-      } catch (error) {
-        status.fail(errorMessage(t, error));
-      }
+      });
     }
 
     // The same grid as an existing row, including the column the open button

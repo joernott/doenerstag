@@ -12,7 +12,7 @@ import { button, field, form, input } from "../components/forms";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
 import { tabs } from "../components/tabs";
-import { actions, card, page, pageWithActions, section, statusLine } from "./page";
+import { actions, card, page, pageWithActions, runAction, section, statusLine } from "./page";
 
 /** The account page, in whichever of its two shapes applies. */
 export function accountPage(app: App, returnTo: string | null = null): HTMLElement {
@@ -497,9 +497,7 @@ function tokensSection(app: App, user: SessionUser): HTMLElement {
         button({
           label: t.t("account.token.revoke"),
           variant: "danger",
-          onclick: () => {
-            void revoke(token);
-          },
+          onclick: () => revoke(token),
         }),
       ),
     );
@@ -524,18 +522,14 @@ function tokensSection(app: App, user: SessionUser): HTMLElement {
     if (!agreed) {
       return;
     }
-    try {
+    await runAction({ status, t }, async () => {
       await api.delete(`/users/${user.id}/tokens/${token.id}`);
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
+    });
   }
 
   async function create(): Promise<void> {
-    status.clear();
-    submit.disabled = true;
-    try {
+    await runAction({ status, t, busy: submit }, async () => {
       const created = await api.post<TokenBody & { token: string }>(
         `/users/${user.id}/tokens`,
         {
@@ -550,11 +544,7 @@ function tokensSection(app: App, user: SessionUser): HTMLElement {
       expires.value = "";
       showToken(app, created.token);
       await reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
-    }
+    });
   }
 
   void reload();
@@ -645,9 +635,7 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
   const start = button({
     label: t.t("account.delete"),
     variant: "danger",
-    onclick: () => {
-      void begin();
-    },
+    onclick: () => begin(),
   });
 
   async function begin(): Promise<void> {
@@ -802,9 +790,7 @@ function forgottenPasswordDialog(app: App, prefill: string): void {
       return;
     }
 
-    status.clear();
-    submit.disabled = true;
-    try {
+    await runAction({ status, t, busy: submit }, async () => {
       await api.post("/auth/password-reset", { name: value });
       handle.close();
       openModal({
@@ -813,11 +799,7 @@ function forgottenPasswordDialog(app: App, prefill: string): void {
         actions: [],
         closeLabel: t.t("action.close"),
       });
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      submit.disabled = false;
-    }
+    });
   }
 }
 

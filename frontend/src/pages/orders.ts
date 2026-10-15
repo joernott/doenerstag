@@ -14,7 +14,7 @@ import { button } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { confirmDialog } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
-import { overviewPage, overviewPageWithActions, page, statusLine, type StatusLine } from "./page";
+import { overviewPage, overviewPageWithActions, page, runAction, statusLine, type StatusLine } from "./page";
 
 /** The order header, which every caller receives. */
 export interface OrderHeader {
@@ -381,9 +381,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
 
   const control = button({
     label: t.t("admin.cleanup"),
-    onclick: () => {
-      void run();
-    },
+    onclick: () => run(),
   });
 
   async function run(): Promise<void> {
@@ -397,9 +395,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
       return;
     }
 
-    status.clear();
-    control.disabled = true;
-    try {
+    await runAction({ status, t, busy: control }, async () => {
       const report = await api.post<{ total: number }>("/cleanup", {});
       status.say(
         report.total > 0
@@ -407,11 +403,7 @@ function cleanupButton(app: App, status: StatusLine, reload: () => void): HTMLEl
           : t.t("admin.cleanup_nothing"),
       );
       reload();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    } finally {
-      control.disabled = false;
-    }
+    });
   }
 
   return control;
