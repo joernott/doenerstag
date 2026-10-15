@@ -15,13 +15,9 @@ import { accountChoices, listAccounts } from "../accounts";
 import { el } from "../dom";
 import { button, field, fieldError, form, input, select } from "../components/forms";
 import { isOpen } from "../openinghours";
-import { actions, page, runAction, section, statusLine } from "./page";
-import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-  opening_hours: OpeningPeriod[];
-}
+import { actions, page, section } from "./page";
+import type { OpeningPeriod, Restaurant, RestaurantDetail } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /** A `datetime-local` value for a Date, in the viewer's own time zone. */
 export function localInputValue(date: Date): string {

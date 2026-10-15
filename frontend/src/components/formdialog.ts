@@ -11,9 +11,9 @@
 
 import { el, type Child } from "../dom";
 import type { Translator } from "../i18n";
-import { runAction, statusLine, type StatusLine } from "../pages/page";
 import { button, form } from "./forms";
 import { openModal, type ModalHandle } from "./modal";
+import { runAction, statusLine, type StatusLine } from "./status";
 
 export interface FormDialogOptions {
   t: Translator;

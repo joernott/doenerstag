@@ -14,14 +14,15 @@ import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
 import { button, field, input } from "../components/forms";
 import { thumbnailURL } from "../components/images";
-import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
+import { openMenuItemEditor } from "../components/menuitem";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
 import { moneyFormatOf, type ReferenceData } from "../reference";
-import type { Restaurant } from "./restaurant";
 import { availabilityChip, openAttachmentEditor } from "./availability";
-import { actions, card, runAction, statusLine } from "./page";
+import { actions, card } from "./page";
+import type { Category, MenuItem, Restaurant } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /** The marks an item carries: its tags, allergens and additives, as chips. */
 export function itemChips(app: App, item: MenuItem): HTMLElement[] {

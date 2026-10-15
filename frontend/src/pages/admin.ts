@@ -12,7 +12,9 @@ import { formatDateTime } from "../format";
 import { button, field, fieldError, input, textarea } from "../components/forms";
 import { passwordField } from "../components/password";
 import { dialogHint, openFormDialog } from "../components/formdialog";
-import { actions, page, runAction, section, statusLine } from "./page";
+import { actions, page, section } from "./page";
+import type { DeletionImpact } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 interface AdminUser {
   id: string;
@@ -22,13 +24,6 @@ interface AdminUser {
   is_admin: boolean;
   created_at: string;
   last_login_at?: string;
-}
-
-interface DeletionImpact {
-  active_orders: number;
-  active_items: number;
-  expired_items: number;
-  created_active_orders: number;
 }
 
 /** The page a non-administrator gets for an administration URL. */

@@ -11,76 +11,14 @@ import { api, errorMessage } from "../api";
 import { el } from "../dom";
 import { moneyInputValue, parseMoney, type MoneyFormat } from "../format";
 import { referenceName, tagName } from "../i18n";
-import type { Classification, ReferenceData, Tag } from "../reference";
+import type { ReferenceData } from "../reference";
 import { openFormDialog } from "./formdialog";
 import { button, checkbox, field, input, select, textarea } from "./forms";
 import { imageField } from "./images";
 import { confirmDialog } from "./modal";
-import { filterPicker, loadFilters, saveAttachments } from "../pages/availability";
-import { runAction, statusLine } from "../pages/page";
-
-/**
- * A named rule about when food can be had.
- *
- * Its own parts are ANDed: weekdays plus a time means those days and only
- * during those hours. A part left null has no opinion. Several filters on one
- * element are alternatives; a category's and an item's must both hold. The
- * server decides all of that -- this type is what the page shows and edits.
- */
-export interface AvailabilityFilter {
-  id: string;
-  restaurant_id: string;
-  name: string;
-  /** "YYYY-MM-DD", or null for any date. */
-  on_date: string | null;
-  /** ISO days, 1 = Monday. Empty means every day. */
-  weekdays: number[];
-  /** "HH:MM", or null for any time. Both or neither. */
-  start_time: string | null;
-  end_time: string | null;
-  sort_order: number;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  sort_order: number;
-  /** The filters attached to this category. Empty means always available. */
-  availability?: AvailabilityFilter[];
-}
-
-export interface Modification {
-  id: string;
-  name: string;
-  price_delta_cents: number;
-  sort_order: number;
-}
-
-export interface MenuItem {
-  id: string;
-  category_id: string | null;
-  external_id: string;
-  name: string;
-  description: string;
-  image_id: string | null;
-  price_cents: number;
-  available: boolean;
-  tags: Tag[];
-  allergens: Classification[];
-  additives: Classification[];
-  modifications?: Modification[];
-
-  /** The filters attached to this item. Empty means always available. */
-  availability?: AvailabilityFilter[];
-
-  /**
-   * Whether it can be had at the moment the menu was asked about: this item's
-   * filters and its category's taken together, decided by the server. Null when
-   * no moment was named, which is how the restaurant page asks -- it shows the
-   * menu, because it is the menu.
-   */
-  available_at?: boolean | null;
-}
+import type { Category, MenuItem, Modification } from "../types";
+import { runAction, statusLine } from "./status";
+import { filterPicker, loadFilters, saveAttachments } from "./availability";
 
 export interface MenuItemEditorOptions {
   app: App;

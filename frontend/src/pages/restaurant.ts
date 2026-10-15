@@ -18,41 +18,9 @@ import { moneyFormatOf, referenceData, type ReferenceData } from "../reference";
 import { availabilitySection } from "./availability";
 import { tabs } from "../components/tabs";
 import { menuSection } from "./menu";
-import { actions, card, page, pageWithActions, runAction, section, setPageTitle, statusLine } from "./page";
-
-/** A restaurant as the API sends it. */
-export interface Restaurant {
-  id: string;
-  name: string;
-  logo_image_id: string | null;
-  currency_code: string;
-  min_order_value_cents: number | null;
-  delivery_fee_cents: number | null;
-  notes: string;
-}
-
-export interface Contact {
-  id: string;
-  contact_type_id: string;
-  contact_type_code: string;
-  render_as: string;
-  value: string;
-  label: string;
-  sort_order: number;
-}
-
-export interface OpeningPeriod {
-  id: string;
-  day_of_week: number;
-  start: string;
-  end: string;
-  crosses_midnight: boolean;
-}
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-  opening_hours: OpeningPeriod[];
-}
+import { actions, card, page, pageWithActions, section, setPageTitle } from "./page";
+import type { Contact, OpeningPeriod, Restaurant, RestaurantDetail } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /** The page for one restaurant, or the form that creates one. */
 export async function restaurantPage(app: App, id: string): Promise<HTMLElement> {

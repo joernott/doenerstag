@@ -31,27 +31,25 @@ import {
 } from "../format";
 import { button, checkbox, field, fieldError, input, select, textarea } from "../components/forms";
 import { thumbnailURL } from "../components/images";
-import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
+import { openMenuItemEditor } from "../components/menuitem";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog } from "../components/modal";
 import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
-import {
-  iconButton,
-  isActive,
-  participates,
-  summaryLink,
-  type OrderDetail,
-  type OrderHeader,
-  type OrderItem,
-} from "./orders";
-import { actions, page, pageWithActions, runAction, section, statusLine } from "./page";
-import type { Contact, Restaurant } from "./restaurant";
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-}
+import { isActive, participates, summaryLink } from "./orders";
+import { actions, page, pageWithActions, section } from "./page";
+import type {
+  Category,
+  Contact,
+  MenuItem,
+  OrderDetail,
+  OrderHeader,
+  OrderItem,
+  RestaurantDetail,
+} from "../types";
+import { runAction, statusLine } from "../components/status";
+import { iconButton } from "../components/forms";
 
 /** What the page needs from whoever is rendering it. */
 export interface OrderPageOptions {

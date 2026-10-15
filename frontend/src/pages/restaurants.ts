@@ -9,12 +9,7 @@ import { thumbnailURL } from "../components/images";
 import { addTile, tile, tileGrid } from "../components/tiles";
 import { isOpen } from "../openinghours";
 import { overviewPage, page } from "./page";
-import type { Contact, OpeningPeriod, Restaurant } from "./restaurant";
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
-  opening_hours: OpeningPeriod[];
-}
+import type { Contact, Restaurant, RestaurantDetail } from "../types";
 
 /** What one tile shows, gathered from the three endpoints that hold it. */
 interface TileData {

@@ -5,7 +5,7 @@
 // aria-describedby, which is what docs/06_ui_ux.md asks for and what makes the
 // forms usable without a mouse or without sight.
 
-import { append, el, type Child } from "../dom";
+import { append, el, icon, type Child } from "../dom";
 
 let sequence = 0;
 
@@ -280,3 +280,24 @@ export function fieldError(control: HTMLElement): FieldError {
     },
   };
 }
+
+/**
+ * A square icon control that does something: a pencil, a bin, a cross.
+ *
+ * For a narrow column with no room for a word beside a price -- the order
+ * overview's tiles, the order page's item rows. The label is the accessible
+ * name and the tooltip, so it should name what it acts on: "Edit: Lahmacun".
+ */
+export function iconButton(
+  name: string,
+  label: string,
+  variant: string,
+  onclick: () => void,
+): HTMLElement {
+  return el(
+    "button",
+    { type: "button", class: `button button-icon ${variant}`, "aria-label": label, title: label, onclick },
+    icon(name),
+  );
+}
+

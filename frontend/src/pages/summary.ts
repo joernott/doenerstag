@@ -14,9 +14,10 @@ import { append, el, type Child } from "../dom";
 import { formatDateTime, formatMoney, formatRelativeTime, orderTitle } from "../format";
 import { button } from "../components/forms";
 import { moneyFormatOf, referenceData } from "../reference";
-import { isActive, type OrderHeader } from "./orders";
-import { actions, page, section, statusLine } from "./page";
-import type { Contact, Restaurant } from "./restaurant";
+import { isActive } from "./orders";
+import { actions, page, section } from "./page";
+import type { OrderHeader, RestaurantDetail } from "../types";
+import { statusLine } from "../components/status";
 
 interface AggregatedLine {
   item_name: string;
@@ -66,10 +67,6 @@ interface Summary {
   min_order_value_cents: number | null;
   below_minimum: boolean;
   plain_text: string;
-}
-
-interface RestaurantDetail extends Restaurant {
-  contacts: Contact[];
 }
 
 /**

@@ -14,7 +14,9 @@ import { openFormDialog } from "../components/formdialog";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
 import { tabs } from "../components/tabs";
-import { actions, card, page, pageWithActions, runAction, section, statusLine } from "./page";
+import { actions, card, page, pageWithActions, section } from "./page";
+import type { DeletionImpact } from "../types";
+import { runAction, statusLine } from "../components/status";
 
 /** The account page, in whichever of its two shapes applies. */
 export function accountPage(app: App, returnTo: string | null = null): HTMLElement {
@@ -548,13 +550,6 @@ function showToken(app: App, value: string): void {
     actions: [button({ label: t.t("action.close"), onclick: () => modal.close() })],
   });
   valueInput.select();
-}
-
-interface DeletionImpact {
-  active_orders: number;
-  active_items: number;
-  expired_items: number;
-  created_active_orders: number;
 }
 
 /**

@@ -10,77 +10,13 @@ import { currentPath, loginHref } from "../returnto";
 import { el, icon, type Child } from "../dom";
 import { formatDateTime, formatRelativeTime, orderTitle } from "../format";
 import { logoMark } from "../logo";
-import { button } from "../components/forms";
+import { button, iconButton } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { confirmDialog } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
-import { overviewPage, overviewPageWithActions, page, runAction, statusLine, type StatusLine } from "./page";
-
-/** The order header, which every caller receives. */
-export interface OrderHeader {
-  id: string;
-  title: string;
-  restaurant_id: string;
-  restaurant_name: string;
-  restaurant_logo_image_id: string | null;
-  fulfilment: string;
-  fulfilment_at: string;
-  deadline_at: string;
-  status: string;
-  currency_code: string;
-  min_order_value_cents: number | null;
-  delivery_fee_cents: number | null;
-  item_count: number;
-}
-
-/**
- * The list entry a logged-in caller receives: the header plus the people.
- *
- * Who opened the order, who collects the money and who fetches the food are all
- * here rather than on OrderHeader, because OrderHeader is what an anonymous
- * caller is served and it names nobody (ADR-0011).
- */
-export interface OrderListEntry extends OrderHeader {
-  creator_id?: string;
-  creator_name?: string;
-  money_collector_id?: string | null;
-  money_collector_name?: string;
-  pickup_person_id?: string | null;
-  pickup_person_name?: string;
-}
-
-/** One order item, which only an authenticated caller ever sees. */
-export interface OrderItem {
-  id: string;
-  user_id: string;
-  user_name: string;
-  menu_item_id: string;
-  quantity: number;
-  item_name: string;
-  unit_price_cents: number;
-  note: string;
-  modifications: { id: string; modification_id: string | null; name: string; price_delta_cents: number }[];
-  line_total_cents: number;
-  /** Ticked as settled. Not a payment: the application takes none. */
-  paid: boolean;
-}
-
-/** The authenticated order shape: the header, the creator and the items. */
-export interface OrderDetail extends OrderHeader {
-  creator_id: string;
-  creator_name: string;
-  money_collector_id: string | null;
-  money_collector_name: string;
-  pickup_person_id: string | null;
-  pickup_person_name: string;
-  items: OrderItem[];
-  item_total_cents: number;
-  /** The item total split by the paid tick; the two always add up to it. */
-  unpaid_total_cents: number;
-  paid_total_cents: number;
-  grand_total_cents: number;
-  below_minimum: boolean;
-}
+import { overviewPage, overviewPageWithActions, page } from "./page";
+import type { OrderDetail, OrderHeader, OrderListEntry } from "../types";
+import { runAction, statusLine, type StatusLine } from "../components/status";
 
 /** Whether an order is still open, judged on the viewer's clock. */
 export function isActive(order: OrderHeader, now: Date = new Date()): boolean {
@@ -276,25 +212,6 @@ export function summaryLink(app: App, orderID: string, allowed: boolean): HTMLEl
 /** A square icon control that leads somewhere. */
 function iconLink(href: string, name: string, label: string): HTMLElement {
   return el("a", { class: "button button-icon", href, "aria-label": label, title: label }, icon(name));
-}
-
-/**
- * A square icon control that does something.
- *
- * Exported for the order page's item rows, which have the same problem the
- * tiles do: a narrow column with no room for two words beside a price.
- */
-export function iconButton(
-  name: string,
-  label: string,
-  variant: string,
-  onclick: () => void,
-): HTMLElement {
-  return el(
-    "button",
-    { type: "button", class: `button button-icon ${variant}`, "aria-label": label, title: label, onclick },
-    icon(name),
-  );
 }
 
 /**
