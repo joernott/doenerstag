@@ -187,6 +187,43 @@ func TestDeletionImpactCountsWhatWouldChange(t *testing.T) {
 	}
 }
 
+// 20.7: collecting the money and fetching the food are taking part (19.2), and
+// both orders lose their person when the account goes. The warning counted
+// only the orders a user created or ordered in, so this user was told about
+// none.
+func TestDeletionImpactCountsTheJobsAUserHas(t *testing.T) {
+	f := newAPIFixture(t)
+	cookies := f.register("kassierer")
+	f.register("gastgeber")
+
+	collecting := f.seedOrder("gastgeber", f.now.Add(2*time.Hour))
+	fetching := f.seedOrder("gastgeber", f.now.Add(3*time.Hour))
+	closed := f.seedOrder("gastgeber", f.now.Add(-2*time.Hour))
+	for order, column := range map[uuid.UUID]string{
+		collecting: "money_collector_id",
+		fetching:   "pickup_person_id",
+		closed:     "money_collector_id",
+	} {
+		if _, err := f.pool.Exec(context.Background(),
+			`UPDATE food_order SET `+column+` = $2 WHERE id = $1`,
+			order, f.userID("kassierer")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rec := f.get("/users/"+f.userID("kassierer")+"/deletion-impact", cookies...)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var impact impactResponse
+	decode(t, rec, &impact)
+
+	// The two open orders, not the closed one.
+	if impact.ActiveOrders != 2 {
+		t.Errorf("active orders %d, want the two they collect or fetch for", impact.ActiveOrders)
+	}
+}
+
 // The three F2.6 rules, together, on one deletion.
 func TestDeletingAnAccountAppliesTheF26Rules(t *testing.T) {
 	f := newAPIFixture(t)

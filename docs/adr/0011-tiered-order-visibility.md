@@ -47,8 +47,10 @@ no user name anywhere. That is testable as a property of the whole response
 body, which is exactly how [12_testing.md](../12_testing.md) tests it.
 
 A participant is the order's creator, anyone holding at least one item in the
-order, or the administrator. Participation is derived from the data on every
-request, never stored.
+order, the person collecting the money, the person fetching the food, or the
+administrator. Participation is derived from the data on every request, never
+stored. (The two named people were added in sprint 19, when a collector who had
+ordered nothing turned out unable to open the summary they tick lines off on.)
 
 The creator counts as a participant with no items of their own, because the
 creator is usually the person who phones the restaurant and the summary is what
