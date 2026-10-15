@@ -1203,3 +1203,10 @@ recorded on the branch of the sprint it belongs to.
 > 3: I agreeto do the helper work instead
 > 4: Please wire it in
 > 5: I'll follow your suggestion there
+
+---
+
+### Prompt 80
+
+> As we are still in the development phase, we will release 0.5.0 after sprint
+> completion. This makes a separate 0.4.1 obsolete
