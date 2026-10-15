@@ -208,14 +208,8 @@ func (h *MenuHandlers) createItem(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{
-			Code:   CodeInvalidField,
-			Detail: "a referenced record does not exist",
-		})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -276,11 +270,8 @@ func (h *MenuHandlers) patchItem(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 

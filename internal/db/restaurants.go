@@ -71,7 +71,7 @@ func CreateRestaurant(ctx context.Context, q Querier, in NewRestaurant, actor uu
 	}
 	if isForeignKeyViolation(err) {
 		// An unknown currency or a logo image id that does not exist.
-		return model.Restaurant{}, ErrNotFound
+		return model.Restaurant{}, ErrUnknownReference
 	}
 	return r, err
 }
@@ -168,7 +168,7 @@ func UpdateRestaurant(
 		return model.Restaurant{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.Restaurant{}, ErrNotFound
+		return model.Restaurant{}, ErrUnknownReference
 	}
 	return r, err
 }

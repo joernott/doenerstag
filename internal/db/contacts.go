@@ -66,7 +66,7 @@ func CreateContact(ctx context.Context, q Querier, in NewContact, actor uuid.UUI
 	c, err := scanContact(row)
 	if isForeignKeyViolation(err) {
 		// An unknown contact type, or a restaurant that does not exist.
-		return model.Contact{}, ErrNotFound
+		return model.Contact{}, ErrUnknownReference
 	}
 	return c, err
 }
@@ -121,7 +121,7 @@ func ReplaceContact(ctx context.Context, q Querier, id uuid.UUID, in NewContact,
 
 	c, err := scanContact(row)
 	if isForeignKeyViolation(err) {
-		return model.Contact{}, ErrNotFound
+		return model.Contact{}, ErrUnknownReference
 	}
 	return c, err
 }

@@ -127,7 +127,7 @@ func (h *RestaurantHandlers) createContact(w http.ResponseWriter, r *http.Reques
 
 	created, dbErr := db.CreateContact(r.Context(), h.Pool, contact, principal.User.ID)
 	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	_ = WriteJSON(w, http.StatusCreated, publicContact(created))
@@ -165,7 +165,7 @@ func (h *RestaurantHandlers) replaceContact(w http.ResponseWriter, r *http.Reque
 
 	updated, dbErr := db.ReplaceContact(r.Context(), h.Pool, existing.ID, contact, principal.User.ID)
 	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	_ = WriteJSON(w, http.StatusOK, publicContact(updated))

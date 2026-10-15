@@ -22,6 +22,14 @@ import (
 // anonymous caller which identifiers are real.
 var ErrNotFound = errors.New("db: not found")
 
+// ErrUnknownReference is returned when a write names a row that does not
+// exist: a logo image, a currency, a category, a contact type, an account.
+//
+// Not ErrNotFound, which means the row being read or changed is missing. The
+// two were one sentinel until 20.8, and a PATCH naming an unknown image was
+// answered "404 restaurant not found" about a restaurant that was right there.
+var ErrUnknownReference = errors.New("db: a referenced row does not exist")
+
 // ErrNameTaken is returned when a unique name constraint rejects a write.
 var ErrNameTaken = errors.New("db: name already taken")
 
@@ -268,12 +276,6 @@ func isForeignKeyViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
-
-// IsForeignKeyViolation reports whether err is PostgreSQL's 23503.
-//
-// Exported for the api package, which turns a reference to a row that does not
-// exist into a 1002 naming the field rather than a server error.
-func IsForeignKeyViolation(err error) bool { return isForeignKeyViolation(err) }
 
 // UsersByEmail reads every account with this e-mail address, by name.
 //

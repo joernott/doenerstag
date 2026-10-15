@@ -204,7 +204,7 @@ func UpdateOrder(ctx context.Context, q Querier, id, actor uuid.UUID, in OrderUp
 			fmt.Sprintf(" WHERE id = $%d", len(args)), args...)
 	if err != nil {
 		if isForeignKeyViolation(err) {
-			return model.Order{}, ErrNotFound
+			return model.Order{}, ErrUnknownReference
 		}
 		return model.Order{}, err
 	}

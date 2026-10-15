@@ -511,11 +511,8 @@ func (h *OrderHandlers) patch(w http.ResponseWriter, r *http.Request) {
 
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, principal.User.ID, update)
 	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -847,11 +844,8 @@ func (h *OrderHandlers) claimJob(w http.ResponseWriter, r *http.Request, job ord
 	job.assign(&update, &ref)
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
 	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -917,11 +911,8 @@ func (h *OrderHandlers) releaseJob(w http.ResponseWriter, r *http.Request, job o
 	job.assign(&update, &nobody)
 	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
 	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 

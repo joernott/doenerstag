@@ -354,7 +354,7 @@ func replaceAttachments(ctx context.Context, pool txQuerier, in attachment) erro
 			`INSERT INTO `+in.table+` (`+in.column+`, filter_id, created_by, updated_by)
 			 VALUES ($1, $2, $3, $3)`, in.owner, filterID, in.actor); err != nil {
 			if isForeignKeyViolation(err) {
-				return ErrNotFound
+				return ErrUnknownReference
 			}
 			return err
 		}

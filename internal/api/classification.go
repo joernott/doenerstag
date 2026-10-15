@@ -84,11 +84,11 @@ func (h *MenuHandlers) applySelectedClassification(
 
 // classificationError turns a failed link write into a response.
 //
-// A foreign key violation here means a tag or allergen id that does not exist,
+// An unknown reference here means a tag or allergen id that does not exist,
 // which is the caller's mistake and names its field rather than surfacing as a
 // server error.
 func classificationError(err error, field string) *Error {
-	if db.IsForeignKeyViolation(err) {
+	if errors.Is(err, db.ErrUnknownReference) {
 		return &Error{
 			Code:   CodeInvalidField,
 			Field:  field,
@@ -187,7 +187,7 @@ func (h *MenuHandlers) createModification(w http.ResponseWriter, r *http.Request
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 

@@ -281,7 +281,7 @@ func (h *MenuHandlers) createCategory(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 

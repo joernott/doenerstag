@@ -579,11 +579,7 @@ func (h *MenuHandlers) setAttachments(
 	}
 
 	if err := write(principal.User.ID, ids); err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			WriteError(w, r, &Error{Code: CodeNotFound})
-			return
-		}
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 

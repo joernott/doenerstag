@@ -51,7 +51,7 @@ func CreateModification(ctx context.Context, q Querier, in NewModification, acto
 		return model.Modification{}, ErrNameTaken
 	}
 	if isForeignKeyViolation(err) {
-		return model.Modification{}, ErrNotFound
+		return model.Modification{}, ErrUnknownReference
 	}
 	return m, err
 }
@@ -320,6 +320,10 @@ func replaceLinks(ctx context.Context, q Querier, in replacement) error {
 		SELECT $1, unnest($2::uuid[]), $3, $3
 		ON CONFLICT DO NOTHING`,
 		in.itemID, in.linked, in.actor); err != nil {
+		if isForeignKeyViolation(err) {
+			// A tag, allergen or additive id that does not exist.
+			return fmt.Errorf("setting %s: %w", in.table, ErrUnknownReference)
+		}
 		return fmt.Errorf("setting %s: %w", in.table, err)
 	}
 	return nil
