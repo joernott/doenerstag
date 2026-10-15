@@ -246,12 +246,8 @@ func (h *ImageHandlers) serve(
 	}
 
 	meta, dbErr := db.ImageByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+	if dbErr != nil {
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 

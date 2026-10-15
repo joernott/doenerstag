@@ -493,12 +493,8 @@ func (h *UserHandlers) revokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, dbErr := db.APITokenByID(r.Context(), h.Pool, tokenID)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+	if dbErr != nil {
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 	if token.UserID != user.ID {

@@ -385,30 +385,29 @@ func (h *RestaurantHandlers) validatePatch(
 
 // remove soft-deletes a restaurant. Administrator only (F3.5).
 func (h *RestaurantHandlers) remove(w http.ResponseWriter, r *http.Request) {
+	// Looked up before the role is checked, as every resource route does: the
+	// restaurant is public, so its existence tells nobody anything (20.16).
+	restaurant, lookupErr := h.lookup(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
 	principal, authErr := RequireAdmin(r)
 	if authErr != nil {
 		WriteError(w, r, authErr)
 		return
 	}
 
-	id, parseErr := uuid.Parse(Param(r, "id"))
-	if parseErr != nil {
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	}
-
-	err := db.SoftDeleteRestaurant(r.Context(), h.Pool, id, principal.User.ID)
+	err := db.SoftDeleteRestaurant(r.Context(), h.Pool, restaurant.ID, principal.User.ID)
 	switch {
 	case errors.Is(err, db.ErrStillReferenced):
 		// F3.5's second half: an order points at it, and deleting would make
 		// that order unreadable.
 		WriteError(w, r, &Error{Code: CodeRestaurantInUse})
 		return
-	case errors.Is(err, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case err != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
@@ -417,17 +416,9 @@ func (h *RestaurantHandlers) remove(w http.ResponseWriter, r *http.Request) {
 
 // lookup resolves the :id path parameter to a living restaurant.
 func (h *RestaurantHandlers) lookup(r *http.Request) (model.Restaurant, *Error) {
-	id, err := uuid.Parse(Param(r, "id"))
+	restaurant, err := loadParam(r, h.Pool, "id", db.RestaurantByID)
 	if err != nil {
-		return model.Restaurant{}, &Error{Code: CodeNotFound}
-	}
-
-	restaurant, dbErr := db.RestaurantByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Restaurant{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Restaurant{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.Restaurant{}, err
 	}
 	return restaurant, nil
 }

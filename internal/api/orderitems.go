@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/joernott/doenerstag/internal/db"
 	"github.com/joernott/doenerstag/internal/model"
 	"github.com/joernott/doenerstag/internal/sse"
@@ -232,17 +230,9 @@ func (h *OrderHandlers) lookupItem(r *http.Request) (model.Order, model.OrderIte
 		return model.Order{}, model.OrderItem{}, err
 	}
 
-	id, parseErr := uuid.Parse(Param(r, "iid"))
-	if parseErr != nil {
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeNotFound}
-	}
-
-	item, dbErr := db.OrderItemByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Order{}, model.OrderItem{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+	item, err := loadParam(r, h.Pool, "iid", db.OrderItemByID)
+	if err != nil {
+		return model.Order{}, model.OrderItem{}, err
 	}
 	if item.OrderID != order.ID {
 		// One order's item must not be reachable through another's URL.

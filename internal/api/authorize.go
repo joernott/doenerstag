@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -99,10 +98,8 @@ func RequireParticipant(
 
 	participant, dbErr := db.IsParticipant(ctx, q, orderID, principal.User.ID)
 	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return nil, &Error{Code: CodeNotFound}
 	case dbErr != nil:
-		return nil, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return nil, dbError(dbErr)
 	case !participant:
 		return nil, &Error{Code: CodeNotParticipant}
 	}
@@ -129,17 +126,9 @@ func RequireNotPlaceholder(id uuid.UUID) *Error {
 // apart would say which identifiers are well-formed, which is a small hint
 // worth not giving.
 func LookupUser(r *http.Request, pool *pgxpool.Pool, param string) (model.User, *Error) {
-	id, err := uuid.Parse(Param(r, param))
+	user, err := loadParam(r, pool, param, db.UserByID)
 	if err != nil {
-		return model.User{}, &Error{Code: CodeNotFound}
-	}
-
-	user, dbErr := db.UserByID(r.Context(), pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.User{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.User{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.User{}, err
 	}
 	return user, nil
 }

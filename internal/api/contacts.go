@@ -199,11 +199,8 @@ func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Reques
 			Detail: "this is the restaurant's only contact; add another before removing it",
 		})
 		return
-	case errors.Is(err, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case err != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
@@ -217,17 +214,9 @@ func (h *RestaurantHandlers) deleteContact(w http.ResponseWriter, r *http.Reques
 // removed through another's URL. It answers 404 rather than something more
 // specific: from the caller's side there is no such contact at this path.
 func (h *RestaurantHandlers) lookupContact(r *http.Request, restaurantID uuid.UUID) (contactRef, *Error) {
-	id, err := uuid.Parse(Param(r, "cid"))
+	contact, err := loadParam(r, h.Pool, "cid", db.ContactByID)
 	if err != nil {
-		return contactRef{}, &Error{Code: CodeNotFound}
-	}
-
-	contact, dbErr := db.ContactByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return contactRef{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return contactRef{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return contactRef{}, err
 	}
 	if contact.RestaurantID != restaurantID {
 		return contactRef{}, &Error{Code: CodeNotFound}

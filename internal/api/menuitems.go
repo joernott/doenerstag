@@ -383,17 +383,9 @@ func (h *MenuHandlers) deleteItem(w http.ResponseWriter, r *http.Request) {
 
 // item resolves :mid and checks it belongs to this restaurant.
 func (h *MenuHandlers) item(r *http.Request, restaurantID uuid.UUID) (model.MenuItem, *Error) {
-	id, err := uuid.Parse(Param(r, "mid"))
+	item, err := loadParam(r, h.Pool, "mid", db.MenuItemByID)
 	if err != nil {
-		return model.MenuItem{}, &Error{Code: CodeNotFound}
-	}
-
-	item, dbErr := db.MenuItemByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.MenuItem{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.MenuItem{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.MenuItem{}, err
 	}
 	if item.RestaurantID != restaurantID {
 		return model.MenuItem{}, &Error{Code: CodeNotFound}

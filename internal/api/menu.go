@@ -333,11 +333,8 @@ func (h *MenuHandlers) patchCategory(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -376,17 +373,9 @@ func (h *MenuHandlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 
 // category resolves :cid and checks it belongs to this restaurant.
 func (h *MenuHandlers) category(r *http.Request, restaurantID uuid.UUID) (model.MenuCategory, *Error) {
-	id, err := uuid.Parse(Param(r, "cid"))
+	category, err := loadParam(r, h.Pool, "cid", db.CategoryByID)
 	if err != nil {
-		return model.MenuCategory{}, &Error{Code: CodeNotFound}
-	}
-
-	category, dbErr := db.CategoryByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.MenuCategory{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.MenuCategory{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.MenuCategory{}, err
 	}
 	if category.RestaurantID != restaurantID {
 		return model.MenuCategory{}, &Error{Code: CodeNotFound}

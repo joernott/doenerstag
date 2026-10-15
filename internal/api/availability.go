@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -221,12 +220,8 @@ func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request)
 
 	updated, dbErr := db.UpdateAvailabilityFilter(r.Context(), h.Pool, filter.ID,
 		principal.User.ID, update)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
-	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+	if dbErr != nil {
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -237,23 +232,20 @@ func (h *MenuHandlers) patchAvailability(w http.ResponseWriter, r *http.Request)
 // delete of menu structure: what it removes is shared by everything it was
 // attached to, and the attachments go with it.
 func (h *MenuHandlers) deleteAvailability(w http.ResponseWriter, r *http.Request) {
+	// Looked up first, as every resource route does (20.16).
+	filter, lookupErr := h.editableFilter(r)
+	if lookupErr != nil {
+		WriteError(w, r, lookupErr)
+		return
+	}
+
 	if _, err := RequireAdmin(r); err != nil {
 		WriteError(w, r, err)
 		return
 	}
 
-	filter, authErr := h.editableFilter(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
-		return
-	}
-
 	if err := db.DeleteAvailabilityFilter(r.Context(), h.Pool, filter.ID); err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			WriteError(w, r, &Error{Code: CodeNotFound})
-			return
-		}
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		WriteError(w, r, dbError(err))
 		return
 	}
 
@@ -269,19 +261,10 @@ func (h *MenuHandlers) editableFilter(r *http.Request) (model.AvailabilityFilter
 		return model.AvailabilityFilter{}, authErr
 	}
 
-	filterID, err := requiredUUID(Param(r, "fid"), "fid")
+	filter, err := loadParam(r, h.Pool, "fid", db.AvailabilityFilterByID)
 	if err != nil {
-		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
+		return model.AvailabilityFilter{}, err
 	}
-
-	filter, dbErr := db.AvailabilityFilterByID(r.Context(), h.Pool, filterID)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.AvailabilityFilter{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
-	}
-
 	if filter.RestaurantID != restaurantID {
 		return model.AvailabilityFilter{}, &Error{Code: CodeNotFound}
 	}

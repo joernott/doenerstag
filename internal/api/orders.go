@@ -643,17 +643,9 @@ func (h *OrderHandlers) remove(w http.ResponseWriter, r *http.Request) {
 
 // lookup resolves the :id parameter to an order.
 func (h *OrderHandlers) lookup(r *http.Request) (model.Order, *Error) {
-	id, err := uuid.Parse(Param(r, "id"))
+	order, err := loadParam(r, h.Pool, "id", db.OrderByID)
 	if err != nil {
-		return model.Order{}, &Error{Code: CodeNotFound}
-	}
-
-	order, dbErr := db.OrderByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Order{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Order{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.Order{}, err
 	}
 	return order, nil
 }

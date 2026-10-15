@@ -245,11 +245,8 @@ func (h *MenuHandlers) patchModification(w http.ResponseWriter, r *http.Request)
 	case errors.Is(dbErr, db.ErrNameTaken):
 		WriteError(w, r, &Error{Code: CodeNameExistsHere, Field: "name"})
 		return
-	case errors.Is(dbErr, db.ErrNotFound):
-		WriteError(w, r, &Error{Code: CodeNotFound})
-		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
@@ -294,17 +291,9 @@ func (h *MenuHandlers) deleteModification(w http.ResponseWriter, r *http.Request
 
 // modification resolves :k and checks it belongs to this item.
 func (h *MenuHandlers) modification(r *http.Request, itemID uuid.UUID) (model.Modification, *Error) {
-	id, err := uuid.Parse(Param(r, "k"))
+	modification, err := loadParam(r, h.Pool, "k", db.ModificationByID)
 	if err != nil {
-		return model.Modification{}, &Error{Code: CodeNotFound}
-	}
-
-	modification, dbErr := db.ModificationByID(r.Context(), h.Pool, id)
-	switch {
-	case errors.Is(dbErr, db.ErrNotFound):
-		return model.Modification{}, &Error{Code: CodeNotFound}
-	case dbErr != nil:
-		return model.Modification{}, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
+		return model.Modification{}, err
 	}
 	if modification.MenuItemID != itemID {
 		return model.Modification{}, &Error{Code: CodeNotFound}
