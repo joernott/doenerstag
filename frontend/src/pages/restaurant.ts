@@ -400,6 +400,10 @@ function dataSection(
       touched();
     } catch (error) {
       status.fail(errorMessage(t, error));
+      // Rethrown, as the hours section does: the heading's Save is re-enabled
+      // by a failure that reaches it, and one swallowed here left it disabled
+      // until a field was edited (20.10).
+      throw error;
     }
   }
 
@@ -429,7 +433,10 @@ function dataSection(
     // with.
     form(
       () => {
-        void save();
+        save().catch(() => {
+          // Reported in the status line already; save rethrows only for the
+          // heading's button, which has to know to re-enable itself.
+        });
       },
       field({ label: t.t("restaurant.name"), control: name }),
       field({ label: t.t("restaurant.currency"), control: currency }),
