@@ -1175,3 +1175,18 @@ recorded on the branch of the sprint it belongs to.
 ### Prompt 77
 
 > please sqash merge sprint-19 into main and release it as v0.4.0
+
+---
+
+### Prompt 78
+
+> Please start sprint 20. This sprint focuses on refacturing, structuring and
+> making things readable. Add the following tasks:
+> - Review the data model and look for possible optimizations there. Point out
+>   possible improvements, so we can discuss their implementation and add tsks
+>   for them, if needed.
+> - Review the go code and look for possibilities to refactor it to enhance
+>   redability.
+> -Review the UI code and enhance readability. Think about using a framework
+>   like vue.js to determine if that can minimize the amount of own code. Then
+>   discuss your findings with me.

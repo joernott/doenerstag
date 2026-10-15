@@ -688,6 +688,24 @@ be corrected without leaving the order.
 
 ---
 
+## Sprint 20 — Refactoring and readability
+
+**Goal:** after nineteen sprints of features and fixes, make the code easier to
+read and to change. This sprint starts with three reviews; what they find is
+discussed before anything is built, and the work that comes of it is added here
+as tasks of its own.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| 20.1 | Review the data model for possible optimizations, and list the improvements worth discussing. Nothing changes until they have been discussed; those agreed become tasks | M | [03](03_data_model.md) |
+| 20.2 | Review the Go code for refactorings that make it easier to read, and list them for discussion | M | — |
+| 20.3 | Review the frontend code for readability, and whether a framework such as Vue.js would reduce the amount of code of our own. Findings discussed before anything changes | M | [06](06_ui_ux.md) |
+
+**Exit criteria:** the three reviews are written up and discussed, and every
+improvement agreed on is a task in this sprint or a later one.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
