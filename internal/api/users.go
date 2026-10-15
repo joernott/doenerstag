@@ -504,6 +504,7 @@ type deletionImpactBody struct {
 	ActiveItems         int `json:"active_items"`
 	ExpiredItems        int `json:"expired_items"`
 	CreatedActiveOrders int `json:"created_active_orders"`
+	ActiveJobs          int `json:"active_jobs"`
 }
 
 // deletionImpact reports what deleting the account would do.
@@ -533,6 +534,7 @@ func (h *UserHandlers) deletionImpact(w http.ResponseWriter, r *http.Request) {
 		ActiveItems:         impact.ActiveItems,
 		ExpiredItems:        impact.ExpiredItems,
 		CreatedActiveOrders: impact.CreatedActiveOrders,
+		ActiveJobs:          impact.ActiveJobs,
 	})
 }
 

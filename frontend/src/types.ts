@@ -175,5 +175,7 @@ export interface DeletionImpact {
   active_items: number;
   expired_items: number;
   created_active_orders: number;
+  /** Open orders they collect the money for or fetch the food for (20.7.1). */
+  active_jobs: number;
 }
 

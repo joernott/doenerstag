@@ -306,6 +306,8 @@
   "account.delete.impact.expired_items.other": "{count} items in closed orders will be kept, credited to the deleted user.",
   "account.delete.impact.orders.one": "{count} order you opened will be handed to the deleted user.",
   "account.delete.impact.orders.other": "{count} orders you opened will be handed to the deleted user.",
+  "account.delete.impact.jobs.one": "{count} open order you are collecting the money for or fetching will be left with nobody doing that.",
+  "account.delete.impact.jobs.other": "{count} open orders you are collecting the money for or fetching will be left with nobody doing that.",
   "account.delete.impact.none": "Nothing else is affected.",
 
   "restaurant.data": "Restaurant",

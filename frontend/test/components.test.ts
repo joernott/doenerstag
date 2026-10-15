@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { button, field, fieldError, input, select } from "../src/components/forms";
+import { impactList } from "../src/components/deleteaccount";
 import { openFormDialog } from "../src/components/formdialog";
 import { closeAllModals, confirmDialog, openModal } from "../src/components/modal";
 import { addTile, tile, tileGrid } from "../src/components/tiles";
@@ -323,5 +324,22 @@ describe("a form dialog", () => {
 
     expect(document.querySelector(".modal")).toBeNull();
     expect(focusedWhenAfterRan).toBe(opener);
+  });
+});
+
+// 20.7.1: deleting an account warns about the jobs it holds as well. The server
+// counted them, but the dialog listed only items and orders opened, so somebody
+// collecting the money for tomorrow's order was told nothing would change.
+describe("the deletion warning", () => {
+  it("names the open orders whose money or food the account looks after", () => {
+    const list = impactList(t, {
+      active_orders: 2,
+      active_items: 0,
+      expired_items: 0,
+      created_active_orders: 0,
+      active_jobs: 2,
+    });
+    expect(list.textContent).toContain(t.t("account.delete.impact.jobs", { count: 2 }));
+    expect(list.textContent).not.toContain(t.t("account.delete.impact.none"));
   });
 });

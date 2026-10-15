@@ -29,6 +29,9 @@ type DeletionImpact struct {
 	// CreatedActiveOrders is how many open orders they created, which pass to
 	// the placeholder rather than being removed.
 	CreatedActiveOrders int
+	// ActiveJobs is how many open orders they collect the money for or fetch
+	// the food for, which are left with nobody doing it (20.7.1).
+	ActiveJobs int
 }
 
 // ImpactOfDeleting counts what would change, without changing anything.
@@ -57,10 +60,14 @@ func ImpactOfDeleting(ctx context.Context, q Querier, userID uuid.UUID, now time
 			  WHERE i.user_id = $1 AND o.deadline_at <= $2),
 			(SELECT count(*)
 			   FROM food_order o
-			  WHERE o.creator_id = $1 AND o.deadline_at > $2)`,
+			  WHERE o.creator_id = $1 AND o.deadline_at > $2),
+			(SELECT count(*)
+			   FROM food_order o
+			  WHERE o.deadline_at > $2
+			    AND (o.money_collector_id = $1 OR o.pickup_person_id = $1))`,
 		userID, at(now)).
 		Scan(&impact.ActiveOrders, &impact.ActiveItems,
-			&impact.ExpiredItems, &impact.CreatedActiveOrders)
+			&impact.ExpiredItems, &impact.CreatedActiveOrders, &impact.ActiveJobs)
 	if err != nil {
 		return DeletionImpact{}, err
 	}

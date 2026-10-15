@@ -24,6 +24,9 @@ export function impactList(t: Translator, impact: DeletionImpact): HTMLElement {
   if (impact.created_active_orders > 0) {
     lines.push(t.t("account.delete.impact.orders", { count: impact.created_active_orders }));
   }
+  if (impact.active_jobs > 0) {
+    lines.push(t.t("account.delete.impact.jobs", { count: impact.active_jobs }));
+  }
   if (lines.length === 0) {
     return el("p", { class: "muted", text: t.t("account.delete.impact.none") });
   }

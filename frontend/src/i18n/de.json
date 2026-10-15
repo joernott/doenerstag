@@ -306,6 +306,8 @@
   "account.delete.impact.expired_items.other": "{count} Positionen in geschlossenen Bestellungen bleiben erhalten und gehören dann dem gelöschten Benutzer.",
   "account.delete.impact.orders.one": "{count} von Ihnen eröffnete Bestellung geht an den gelöschten Benutzer über.",
   "account.delete.impact.orders.other": "{count} von Ihnen eröffnete Bestellungen gehen an den gelöschten Benutzer über.",
+  "account.delete.impact.jobs.one": "{count} offene Bestellung, für die Sie das Geld einsammeln oder das Essen holen, hat dann niemanden mehr dafür.",
+  "account.delete.impact.jobs.other": "{count} offene Bestellungen, für die Sie das Geld einsammeln oder das Essen holen, haben dann niemanden mehr dafür.",
   "account.delete.impact.none": "Sonst ist nichts betroffen.",
 
   "restaurant.data": "Restaurant",

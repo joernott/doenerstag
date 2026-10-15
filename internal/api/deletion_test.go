@@ -18,6 +18,7 @@ type impactResponse struct {
 	ActiveItems         int `json:"active_items"`
 	ExpiredItems        int `json:"expired_items"`
 	CreatedActiveOrders int `json:"created_active_orders"`
+	ActiveJobs          int `json:"active_jobs"`
 }
 
 // F2.6 is about orders, and Sprint 8 is what gives orders an API. These tests
@@ -221,6 +222,10 @@ func TestDeletionImpactCountsTheJobsAUserHas(t *testing.T) {
 	// The two open orders, not the closed one.
 	if impact.ActiveOrders != 2 {
 		t.Errorf("active orders %d, want the two they collect or fetch for", impact.ActiveOrders)
+	}
+	// 20.7.1: and said as what they are, so the warning can name them.
+	if impact.ActiveJobs != 2 {
+		t.Errorf("active jobs %d, want the two open orders they collect or fetch for", impact.ActiveJobs)
 	}
 }
 
