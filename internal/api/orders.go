@@ -124,22 +124,14 @@ type orderHeaderBody struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
-// orderDetailBody is the authenticated shape: the header, the creator and the
-// items.
+// orderDetailBody is the authenticated shape: the list entry -- the header and
+// the three people -- and the items with their totals.
+//
+// The list entry is embedded rather than its six fields repeated: they are the
+// same fields in the same order, so the JSON is unchanged, and an addition to
+// one shape cannot miss the other (20.22).
 type orderDetailBody struct {
-	orderHeaderBody
-
-	// The creator is here rather than in the header, because naming the person
-	// who opened an order is still naming a person.
-	CreatorID   string `json:"creator_id"`
-	CreatorName string `json:"creator_name"`
-
-	// Null when nobody is doing the job, which is a thing an order says rather
-	// than a thing it fails to say: 17.8 offers a "Me!" button on exactly that.
-	MoneyCollectorID   *string `json:"money_collector_id"`
-	MoneyCollectorName string  `json:"money_collector_name"`
-	PickupPersonID     *string `json:"pickup_person_id"`
-	PickupPersonName   string  `json:"pickup_person_name"`
+	orderListEntry
 
 	Items           []orderItemBody `json:"items"`
 	ItemTotalCents  int64           `json:"item_total_cents"`
@@ -245,7 +237,9 @@ type orderListEntry struct {
 
 	// The other two people an order has. Here for the same reason the creator
 	// is: the tile and the live event both want them, and neither may reach an
-	// anonymous subscriber.
+	// anonymous subscriber. Null when nobody is doing the job, which is a thing
+	// an order says rather than a thing it fails to say: the "Me!" buttons are
+	// offered on exactly that.
 	MoneyCollectorID   *string `json:"money_collector_id"`
 	MoneyCollectorName string  `json:"money_collector_name"`
 	PickupPersonID     *string `json:"pickup_person_id"`
@@ -323,14 +317,8 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 	}
 
 	body := orderDetailBody{
-		orderHeaderBody:    h.publicHeader(order),
-		CreatorID:          order.CreatorID.String(),
-		CreatorName:        order.CreatorName,
-		MoneyCollectorID:   idString(order.MoneyCollectorID),
-		MoneyCollectorName: order.MoneyCollectorName,
-		PickupPersonID:     idString(order.PickupPersonID),
-		PickupPersonName:   order.PickupPersonName,
-		Items:              make([]orderItemBody, 0, len(items)),
+		orderListEntry: h.listEntry(order),
+		Items:          make([]orderItemBody, 0, len(items)),
 	}
 	for i := range items {
 		rendered := publicOrderItem(items[i])
@@ -382,73 +370,17 @@ func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	restaurantID, err := requiredUUID(body.RestaurantID, "restaurant_id")
+	order, err := h.validateNewOrder(r, body, principal.User.ID)
 	if err != nil {
 		WriteError(w, r, err)
 		return
 	}
 
-	fulfilment, err := validateFulfilment(body.Fulfilment)
-	if err != nil {
-		WriteError(w, r, err)
-		return
-	}
-
-	fulfilmentAt, err := requiredTime(body.FulfilmentAt, "fulfilment_at")
-	if err != nil {
-		WriteError(w, r, err)
-		return
-	}
-	deadlineAt, err := requiredTime(body.DeadlineAt, "deadline_at")
-	if err != nil {
-		WriteError(w, r, err)
-		return
-	}
-
-	// F5.3: the deadline must lie strictly before the fulfilment time. Enforced
-	// here as well as in the frontend, because the API is documented for
-	// third-party use and cannot rely on the frontend having checked.
-	if !deadlineAt.Before(fulfilmentAt) {
-		WriteError(w, r, &Error{Code: CodeDeadlineAfterFulfil, Field: "deadline_at"})
-		return
-	}
-
-	// And it must not already have passed. An order created with a deadline in
-	// the past is born closed: F6.6 makes an expired order read-only, so nobody
-	// can add an item to it, its creator cannot edit it back into life, and the
-	// only thing left to do with it is delete it. Refusing is the only useful
-	// answer.
-	//
-	// Only on creation. Moving an existing order's deadline into the past is a
-	// different thing -- it is how a creator closes one early -- and it stays
-	// allowed.
-	if !deadlineAt.After(h.now()) {
-		WriteError(w, r, &Error{Code: CodeDeadlineInThePast, Field: "deadline_at"})
-		return
-	}
-
-	moneyCollector, refErr := h.optionalUserRef(r.Context(), body.MoneyCollectorID, "money_collector_id")
-	if refErr != nil {
-		WriteError(w, r, refErr)
-		return
-	}
-	pickupPerson, refErr := h.optionalUserRef(r.Context(), body.PickupPersonID, "pickup_person_id")
-	if refErr != nil {
-		WriteError(w, r, refErr)
-		return
-	}
-
-	created, dbErr := db.CreateOrder(r.Context(), h.Pool, db.NewOrder{
-		CreatorID:        principal.User.ID,
-		RestaurantID:     restaurantID,
-		Fulfilment:       fulfilment,
-		FulfilmentAt:     fulfilmentAt,
-		DeadlineAt:       deadlineAt,
-		MoneyCollectorID: moneyCollector,
-		PickupPersonID:   pickupPerson,
-	})
+	created, dbErr := db.CreateOrder(r.Context(), h.Pool, order)
 	switch {
 	case errors.Is(dbErr, db.ErrNotFound):
+		// CreateOrder copies the money terms from the restaurant in the same
+		// statement, so a restaurant that does not exist inserts nothing.
 		WriteError(w, r, &Error{
 			Code:   CodeInvalidField,
 			Field:  "restaurant_id",
@@ -456,11 +388,81 @@ func (h *OrderHandlers) create(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	case dbErr != nil:
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
+		WriteError(w, r, dbError(dbErr))
 		return
 	}
 
 	h.writeDetail(w, r, created, http.StatusCreated)
+}
+
+// validateNewOrder turns a creation request into a new order, or says what is
+// wrong with it. The counterpart of validateOrderPatch, which does the same
+// for a change to an existing one.
+func (h *OrderHandlers) validateNewOrder(
+	r *http.Request, body createOrderRequest, creator uuid.UUID,
+) (db.NewOrder, *Error) {
+	restaurantID, err := requiredUUID(body.RestaurantID, "restaurant_id")
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+	fulfilment, err := validateFulfilment(body.Fulfilment)
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+	fulfilmentAt, err := requiredTime(body.FulfilmentAt, "fulfilment_at")
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+	deadlineAt, err := requiredTime(body.DeadlineAt, "deadline_at")
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+	if err := checkDeadline(deadlineAt, fulfilmentAt); err != nil {
+		return db.NewOrder{}, err
+	}
+
+	// And the deadline must not already have passed. An order created with a
+	// deadline in the past is born closed: F6.6 makes an expired order
+	// read-only, so nobody can add an item to it, its creator cannot edit it
+	// back into life, and the only thing left to do with it is delete it.
+	// Refusing is the only useful answer.
+	//
+	// Only on creation. Moving an existing order's deadline into the past is a
+	// different thing -- it is how a creator closes one early -- and it stays
+	// allowed.
+	if !deadlineAt.After(h.now()) {
+		return db.NewOrder{}, &Error{Code: CodeDeadlineInThePast, Field: "deadline_at"}
+	}
+
+	moneyCollector, err := h.optionalUserRef(r.Context(), body.MoneyCollectorID, "money_collector_id")
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+	pickupPerson, err := h.optionalUserRef(r.Context(), body.PickupPersonID, "pickup_person_id")
+	if err != nil {
+		return db.NewOrder{}, err
+	}
+
+	return db.NewOrder{
+		CreatorID:        creator,
+		RestaurantID:     restaurantID,
+		Fulfilment:       fulfilment,
+		FulfilmentAt:     fulfilmentAt,
+		DeadlineAt:       deadlineAt,
+		MoneyCollectorID: moneyCollector,
+		PickupPersonID:   pickupPerson,
+	}, nil
+}
+
+// checkDeadline is F5.3: the deadline lies strictly before the fulfilment
+// time. Enforced here as well as in the frontend, because the API is
+// documented for third-party use and cannot rely on the frontend having
+// checked; creating and changing an order both ask.
+func checkDeadline(deadlineAt, fulfilmentAt time.Time) *Error {
+	if !deadlineAt.Before(fulfilmentAt) {
+		return &Error{Code: CodeDeadlineAfterFulfil, Field: "deadline_at"}
+	}
+	return nil
 }
 
 type patchOrderRequest struct {
@@ -582,8 +584,8 @@ func (h *OrderHandlers) validateOrderPatch(
 		deadlineAt = parsed
 		update.DeadlineAt = &parsed
 	}
-	if !deadlineAt.Before(fulfilmentAt) {
-		return update, &Error{Code: CodeDeadlineAfterFulfil, Field: "deadline_at"}
+	if err := checkDeadline(deadlineAt, fulfilmentAt); err != nil {
+		return update, err
 	}
 
 	// Present-and-empty clears the field; absent leaves it alone. The double
@@ -695,150 +697,4 @@ func (h *OrderHandlers) optionalUserRef(
 		return nil, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr}
 	}
 	return &id, nil
-}
-
-// orderJob is one of the two jobs an order has, which anybody signed in may
-// take on while nobody has.
-type orderJob struct {
-	field  string
-	holder func(model.Order) *uuid.UUID
-	assign func(*db.OrderUpdate, **uuid.UUID)
-}
-
-var (
-	fetchingTheFood = orderJob{
-		field:  "pickup_person_id",
-		holder: func(o model.Order) *uuid.UUID { return o.PickupPersonID },
-		assign: func(u *db.OrderUpdate, ref **uuid.UUID) { u.PickupPersonID = ref },
-	}
-	collectingTheMoney = orderJob{
-		field:  "money_collector_id",
-		holder: func(o model.Order) *uuid.UUID { return o.MoneyCollectorID },
-		assign: func(u *db.OrderUpdate, ref **uuid.UUID) { u.MoneyCollectorID = ref },
-	}
-)
-
-// claimPickup puts the caller down as the person fetching the food (17.8).
-func (h *OrderHandlers) claimPickup(w http.ResponseWriter, r *http.Request) {
-	h.claimJob(w, r, fetchingTheFood)
-}
-
-// claimMoneyCollection puts the caller down as the person collecting the money
-// (19.3), on the same terms as fetching the food.
-func (h *OrderHandlers) claimMoneyCollection(w http.ResponseWriter, r *http.Request) {
-	h.claimJob(w, r, collectingTheMoney)
-}
-
-// claimJob puts the caller down for one of the order's two jobs.
-//
-// Deliberately not part of PATCH. PATCH belongs to the creator (F5.7), and the
-// point of this is that it does not: whoever is willing to walk to the
-// restaurant, or to hold the money, should be able to say so without going
-// through whoever opened the order. Making it a route of its own means the rule
-// is one sentence at one place rather than an exception threaded through the
-// general edit path.
-//
-// It only fills a vacancy. Taking the job off somebody who already has it is a
-// different act with a different social meaning, and the creator can do it from
-// the editor.
-func (h *OrderHandlers) claimJob(w http.ResponseWriter, r *http.Request, job orderJob) {
-	order, lookupErr := h.lookup(r)
-	if lookupErr != nil {
-		WriteError(w, r, lookupErr)
-		return
-	}
-
-	principal, authErr := RequireAuthenticated(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
-		return
-	}
-
-	if !order.Active(h.now()) {
-		WriteError(w, r, &Error{Code: CodeOrderClosed})
-		return
-	}
-	if job.holder(order) != nil {
-		WriteError(w, r, &Error{Code: CodeJobTaken, Field: job.field})
-		return
-	}
-
-	me := principal.User.ID
-	ref := &me
-	var update db.OrderUpdate
-	job.assign(&update, &ref)
-	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
-	if dbErr != nil {
-		WriteError(w, r, dbError(dbErr))
-		return
-	}
-
-	h.publishOrderChange(updated)
-	h.writeDetail(w, r, updated, http.StatusOK)
-}
-
-// releasePickup takes the person fetching the food off the order (19.5).
-func (h *OrderHandlers) releasePickup(w http.ResponseWriter, r *http.Request) {
-	h.releaseJob(w, r, fetchingTheFood)
-}
-
-// releaseMoneyCollection takes the person collecting the money off the order
-// (19.5).
-func (h *OrderHandlers) releaseMoneyCollection(w http.ResponseWriter, r *http.Request) {
-	h.releaseJob(w, r, collectingTheMoney)
-}
-
-// releaseJob leaves one of the order's two jobs vacant.
-//
-// The person doing it may give it up, which is the case the button is for:
-// somebody who said "Me!" and then cannot go should not have to find the
-// creator to undo it. The creator and the administrator may clear it too, as
-// the creator already could from the editor. Nobody else: taking somebody off
-// a job is not a stranger's to do, and is 3006 rather than the creator-only
-// 3001, which would tell the person doing the job something untrue.
-//
-// While the order is open, like taking the job: after the deadline the order
-// is read-only (F6.6). Clearing a job nobody has is not an error; the result
-// is what was asked for.
-func (h *OrderHandlers) releaseJob(w http.ResponseWriter, r *http.Request, job orderJob) {
-	order, lookupErr := h.lookup(r)
-	if lookupErr != nil {
-		WriteError(w, r, lookupErr)
-		return
-	}
-
-	principal, authErr := RequireAuthenticated(r)
-	if authErr != nil {
-		WriteError(w, r, authErr)
-		return
-	}
-
-	me := principal.User.ID
-	holder := job.holder(order)
-	allowed := principal.User.IsAdmin || order.CreatorID == me || (holder != nil && *holder == me)
-	if !allowed {
-		WriteError(w, r, &Error{Code: CodeNotJobHolder, Field: job.field})
-		return
-	}
-
-	if !order.Active(h.now()) {
-		WriteError(w, r, &Error{Code: CodeOrderClosed})
-		return
-	}
-	if holder == nil {
-		h.writeDetail(w, r, order, http.StatusOK)
-		return
-	}
-
-	var nobody *uuid.UUID
-	var update db.OrderUpdate
-	job.assign(&update, &nobody)
-	updated, dbErr := db.UpdateOrder(r.Context(), h.Pool, order.ID, me, update)
-	if dbErr != nil {
-		WriteError(w, r, dbError(dbErr))
-		return
-	}
-
-	h.publishOrderChange(updated)
-	h.writeDetail(w, r, updated, http.StatusOK)
 }

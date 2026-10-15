@@ -153,29 +153,7 @@ func (h *RestaurantHandlers) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contacts, dbErr := db.ListContacts(r.Context(), h.Pool, restaurant.ID)
-	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
-		return
-	}
-	periods, dbErr := db.ListOpeningHours(r.Context(), h.Pool, restaurant.ID)
-	if dbErr != nil {
-		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: dbErr})
-		return
-	}
-
-	body := restaurantDetailBody{
-		restaurantBody: publicRestaurant(restaurant),
-		Contacts:       make([]contactBody, 0, len(contacts)),
-		OpeningHours:   make([]openingPeriodBody, 0, len(periods)),
-	}
-	for i := range contacts {
-		body.Contacts = append(body.Contacts, publicContact(contacts[i]))
-	}
-	for i := range periods {
-		body.OpeningHours = append(body.OpeningHours, publicOpeningPeriod(periods[i]))
-	}
-	_ = WriteJSON(w, http.StatusOK, body)
+	h.writeDetail(w, r, restaurant, http.StatusOK)
 }
 
 // createRestaurantRequest is the body of POST /restaurants.
@@ -268,7 +246,7 @@ func (h *RestaurantHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeDetail(w, r, created)
+	h.writeDetail(w, r, created, http.StatusCreated)
 }
 
 // patchRestaurantRequest carries the fields PATCH may change.
@@ -328,7 +306,7 @@ func (h *RestaurantHandlers) patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeDetail(w, r, updated)
+	h.writeDetail(w, r, updated, http.StatusOK)
 }
 
 func (h *RestaurantHandlers) validatePatch(
@@ -423,7 +401,9 @@ func (h *RestaurantHandlers) lookup(r *http.Request) (model.Restaurant, *Error) 
 
 // writeDetail answers with the full restaurant, so a create or update returns
 // the same shape a GET does.
-func (h *RestaurantHandlers) writeDetail(w http.ResponseWriter, r *http.Request, restaurant model.Restaurant) {
+func (h *RestaurantHandlers) writeDetail(
+	w http.ResponseWriter, r *http.Request, restaurant model.Restaurant, status int,
+) {
 	contacts, err := db.ListContacts(r.Context(), h.Pool, restaurant.ID)
 	if err != nil {
 		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
@@ -447,10 +427,6 @@ func (h *RestaurantHandlers) writeDetail(w http.ResponseWriter, r *http.Request,
 		body.OpeningHours = append(body.OpeningHours, publicOpeningPeriod(periods[i]))
 	}
 
-	status := http.StatusOK
-	if r.Method == http.MethodPost {
-		status = http.StatusCreated
-	}
 	_ = WriteJSON(w, status, body)
 }
 
