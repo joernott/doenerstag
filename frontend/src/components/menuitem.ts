@@ -12,9 +12,10 @@ import { el } from "../dom";
 import { moneyInputValue, parseMoney, type MoneyFormat } from "../format";
 import { referenceName, tagName } from "../i18n";
 import type { Classification, ReferenceData, Tag } from "../reference";
-import { button, checkbox, field, form, input, select, textarea } from "./forms";
+import { openFormDialog } from "./formdialog";
+import { button, checkbox, field, input, select, textarea } from "./forms";
 import { imageField } from "./images";
-import { confirmDialog, openModal } from "./modal";
+import { confirmDialog } from "./modal";
 import { filterPicker, loadFilters, saveAttachments } from "../pages/availability";
 import { runAction, statusLine } from "../pages/page";
 
@@ -103,7 +104,6 @@ export interface MenuItemEditorOptions {
 export function openMenuItemEditor(options: MenuItemEditorOptions): void {
   const { app, reference, restaurantID, categories, money, item } = options;
   const { t } = app;
-  const status = statusLine();
 
   const name = input({ value: item?.name ?? "", required: true });
   const externalId = input({ value: item?.external_id ?? "" });
@@ -176,30 +176,78 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
     availabilityHolder.replaceChildren(picker.element);
   });
 
-  const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-  async function store(): Promise<void> {
-    status.clear();
-    const cents = parseMoney(price.value, money);
-    if (cents === null) {
-      price.focus();
+  async function remove(): Promise<void> {
+    if (!item) {
       return;
     }
+    const agreed = await confirmDialog({
+      t,
+      message: t.t("menu.item.delete.confirm"),
+      detail: item.name,
+      confirmLabel: t.t("action.delete"),
+    });
+    if (!agreed) {
+      return;
+    }
+    const removed = await runAction({ status: dialog.status, t }, () =>
+      api.delete(`/restaurants/${restaurantID}/menu-items/${item.id}`),
+    );
+    if (removed) {
+      dialog.modal.close();
+      await options.onSaved();
+    }
+  }
 
-    const payload = {
-      category_id: category.value === "" ? null : category.value,
-      external_id: externalId.value.trim(),
-      name: name.value.trim(),
-      description: description.value.trim(),
-      image_id: imageId,
-      price_cents: cents,
-      available: availableBox?.checked ?? true,
-      tag_ids: tags.selected(),
-      allergen_ids: allergens.selected(),
-      additive_ids: additives.selected(),
-    };
+  const dialog = openFormDialog({
+    t,
+    title: item ? t.t("menu.item.edit") : t.t("menu.item.new"),
+    focus: name,
+    extraActions:
+      item && app.session.isAdmin
+        ? [button({ label: t.t("action.delete"), variant: "danger", onclick: () => remove() })]
+        : [],
+    fields: [
+      field({
+        label: t.t("menu.item.number"),
+        control: externalId,
+        optionalLabel: t.t("auth.optional"),
+      }),
+      field({ label: t.t("restaurant.name"), control: name }),
+      field({ label: t.t("menu.item.price"), control: price }),
+      field({
+        label: t.t("menu.item.description"),
+        control: description,
+        optionalLabel: t.t("auth.optional"),
+      }),
+      field({ label: t.t("menu.item.category"), control: category }),
+      picture.element,
+      available,
+      tags.element,
+      allergens.element,
+      additives.element,
+      availabilityHolder,
+      item && options.withModifications !== false ? modificationsBlock(options, item) : null,
+    ],
+    onSubmit: async () => {
+      const cents = parseMoney(price.value, money);
+      if (cents === null) {
+        price.focus();
+        return false;
+      }
 
-    await runAction({ status, t, busy: save }, async () => {
+      const payload = {
+        category_id: category.value === "" ? null : category.value,
+        external_id: externalId.value.trim(),
+        name: name.value.trim(),
+        description: description.value.trim(),
+        image_id: imageId,
+        price_cents: cents,
+        available: availableBox?.checked ?? true,
+        tag_ids: tags.selected(),
+        allergen_ids: allergens.selected(),
+        additive_ids: additives.selected(),
+      };
+
       // The filters are a second request, because they are a different
       // resource: a set of links rather than fields of the item. A new item
       // has no id until the first request answers, which is the other reason
@@ -217,84 +265,10 @@ export function openMenuItemEditor(options: MenuItemEditorOptions): void {
       if (availability !== null) {
         await saveAttachments(restaurantID, "menu-items", id, availability.selected());
       }
-      modal.close();
-      await options.onSaved();
-    });
-  }
-
-  async function remove(): Promise<void> {
-    if (!item) {
-      return;
-    }
-    const agreed = await confirmDialog({
-      t,
-      message: t.t("menu.item.delete.confirm"),
-      detail: item.name,
-      confirmLabel: t.t("action.delete"),
-    });
-    if (!agreed) {
-      return;
-    }
-    try {
-      await api.delete(`/restaurants/${restaurantID}/menu-items/${item.id}`);
-      modal.close();
-      await options.onSaved();
-    } catch (error) {
-      status.fail(errorMessage(t, error));
-    }
-  }
-
-  const body = form(
-    () => {
-      void store();
+      return true;
     },
-    field({
-      label: t.t("menu.item.number"),
-      control: externalId,
-      optionalLabel: t.t("auth.optional"),
-    }),
-    field({ label: t.t("restaurant.name"), control: name }),
-    field({ label: t.t("menu.item.price"), control: price }),
-    field({
-      label: t.t("menu.item.description"),
-      control: description,
-      optionalLabel: t.t("auth.optional"),
-    }),
-    field({ label: t.t("menu.item.category"), control: category }),
-    picture.element,
-    available,
-    tags.element,
-    allergens.element,
-    additives.element,
-    availabilityHolder,
-    item && options.withModifications !== false
-      ? modificationsBlock(options, item)
-      : null,
-    status.element,
-  );
-
-  const modal = openModal({
-    title: item ? t.t("menu.item.edit") : t.t("menu.item.new"),
-    closeLabel: t.t("action.close"),
-    body,
-    actions: [
-      button({ label: t.t("action.cancel"), onclick: () => modal.close() }),
-      item && app.session.isAdmin
-        ? button({
-            label: t.t("action.delete"),
-            variant: "danger",
-            onclick: () => remove(),
-          })
-        : null,
-      save,
-    ].filter((control): control is HTMLButtonElement => control !== null),
+    after: options.onSaved,
   });
-
-  // The save button sits in the dialog's footer, outside the form it submits.
-  // `form` on the button is what connects the two.
-  body.id = `menu-item-form-${item?.id ?? "new"}`;
-  save.setAttribute("form", body.id);
-  name.focus();
 }
 
 /**

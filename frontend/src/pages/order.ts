@@ -29,10 +29,11 @@ import {
   moneyInputValue,
   orderTitle,
 } from "../format";
-import { button, checkbox, field, form, input, select, textarea } from "../components/forms";
+import { button, checkbox, field, input, select, textarea } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
-import { confirmDialog, openModal } from "../components/modal";
+import { openFormDialog } from "../components/formdialog";
+import { confirmDialog } from "../components/modal";
 import { moneyFormatOf, referenceData } from "../reference";
 import { tagName } from "../i18n";
 import { itemChips } from "./menu";
@@ -600,7 +601,6 @@ export async function orderPage(
     if (!own) {
       return;
     }
-    const editorStatus = statusLine();
 
     // The accounts to choose between, fetched when the dialog is opened rather
     // than with the page: only the creator ever opens it, and an anonymous
@@ -631,39 +631,33 @@ export async function orderPage(
         ? el("p", { class: "field-hint", text: t.t("order.restaurant_locked") })
         : null;
 
-    const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-    const body = form(
-      () => {
-        void store();
-      },
-      field({ label: t.t("order.fulfilment.type"), control: fulfilment }),
-      field({ label: t.t("order.fulfilment.label"), control: fulfilmentAt }),
-      field({ label: t.t("order.deadline.label"), control: deadlineAt }),
-      restaurantNote,
-      field({
-        label: t.t("order.money_collector"),
-        control: moneyCollector,
-        optionalLabel: t.t("auth.optional"),
-      }),
-      field({
-        label: t.t("order.pickup_person"),
-        control: pickupPerson,
-        optionalLabel: t.t("auth.optional"),
-      }),
-      editorStatus.element,
-    );
-
-    async function store(): Promise<void> {
-      editorStatus.clear();
-      const fulfils = new Date(fulfilmentAt.value);
-      const closes = new Date(deadlineAt.value);
-      if (Number.isNaN(fulfils.getTime()) || closes.getTime() >= fulfils.getTime()) {
-        editorStatus.fail(t.t("order.deadline_before_fulfilment"));
-        return;
-      }
-
-      await runAction({ status: editorStatus, t, busy: save }, async () => {
+    openFormDialog({
+      t,
+      title: t.t("order.edit"),
+      className: "modal-narrow",
+      fields: [
+        field({ label: t.t("order.fulfilment.type"), control: fulfilment }),
+        field({ label: t.t("order.fulfilment.label"), control: fulfilmentAt }),
+        field({ label: t.t("order.deadline.label"), control: deadlineAt }),
+        restaurantNote,
+        field({
+          label: t.t("order.money_collector"),
+          control: moneyCollector,
+          optionalLabel: t.t("auth.optional"),
+        }),
+        field({
+          label: t.t("order.pickup_person"),
+          control: pickupPerson,
+          optionalLabel: t.t("auth.optional"),
+        }),
+      ],
+      onSubmit: async (dialog) => {
+        const fulfils = new Date(fulfilmentAt.value);
+        const closes = new Date(deadlineAt.value);
+        if (Number.isNaN(fulfils.getTime()) || closes.getTime() >= fulfils.getTime()) {
+          dialog.status.fail(t.t("order.deadline_before_fulfilment"));
+          return false;
+        }
         await api.patch(`/orders/${id}`, {
           fulfilment: fulfilment.value,
           fulfilment_at: fulfils.toISOString(),
@@ -671,20 +665,10 @@ export async function orderPage(
           money_collector_id: moneyCollector.value,
           pickup_person_id: pickupPerson.value,
         });
-        modal.close();
-        await refresh();
-      });
-    }
-
-    const modal = openModal({
-      title: t.t("order.edit"),
-      closeLabel: t.t("action.close"),
-      className: "modal-narrow",
-      body,
-      actions: [button({ label: t.t("action.cancel"), onclick: () => modal.close() }), save],
+        return true;
+      },
+      after: refresh,
     });
-    body.id = `order-form-${id}`;
-    save.setAttribute("form", body.id);
   }
 
   async function remove(): Promise<void> {
@@ -1081,7 +1065,6 @@ export async function orderPage(
       source = listed;
     }
 
-    const editorStatus = statusLine();
 
     const quantity = input({
       type: "number",
@@ -1140,59 +1123,43 @@ export async function orderPage(
     quantity.addEventListener("input", updateTotal);
     updateTotal();
 
-    const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-    async function store(): Promise<void> {
-      editorStatus.clear();
-      const count = Number.parseInt(quantity.value, 10);
-      if (!Number.isFinite(count) || count < 1) {
-        quantity.focus();
-        return;
-      }
-
-      const payload = {
-        menu_item_id: source.id,
-        quantity: count,
-        note: note.value.trim(),
-        modification_ids: boxes.filter((entry) => entry.box.checked).map((entry) => entry.id),
-      };
-
-      await runAction({ status: editorStatus, t, busy: save }, async () => {
+    openFormDialog({
+      t,
+      title: source.name,
+      focus: quantity,
+      fields: [
+        el("p", { class: "muted", text: source.description }),
+        field({ label: t.t("item.quantity"), control: quantity }),
+        el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("item.modifications") }), options),
+        field({ label: t.t("item.note"), control: note, optionalLabel: t.t("auth.optional") }),
+        total,
+      ],
+      onSubmit: async () => {
+        const count = Number.parseInt(quantity.value, 10);
+        if (!Number.isFinite(count) || count < 1) {
+          quantity.focus();
+          return false;
+        }
+        const modificationIDs = boxes.filter((entry) => entry.box.checked).map((entry) => entry.id);
+        const noteText = note.value.trim();
         if (existing) {
           await api.patch(`/orders/${id}/items/${existing.id}`, {
-            quantity: payload.quantity,
-            note: payload.note,
-            modification_ids: payload.modification_ids,
+            quantity: count,
+            note: noteText,
+            modification_ids: modificationIDs,
           });
         } else {
-          await api.post(`/orders/${id}/items`, payload);
+          await api.post(`/orders/${id}/items`, {
+            menu_item_id: source.id,
+            quantity: count,
+            note: noteText,
+            modification_ids: modificationIDs,
+          });
         }
-        modal.close();
-        await refresh();
-      });
-    }
-
-    const body = form(
-      () => {
-        void store();
+        return true;
       },
-      el("p", { class: "muted", text: source.description }),
-      field({ label: t.t("item.quantity"), control: quantity }),
-      el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("item.modifications") }), options),
-      field({ label: t.t("item.note"), control: note, optionalLabel: t.t("auth.optional") }),
-      total,
-      editorStatus.element,
-    );
-
-    const modal = openModal({
-      title: source.name,
-      closeLabel: t.t("action.close"),
-      body,
-      actions: [button({ label: t.t("action.cancel"), onclick: () => modal.close() }), save],
+      after: refresh,
     });
-    body.id = `order-item-form-${existing?.id ?? "new"}`;
-    save.setAttribute("form", body.id);
-    quantity.focus();
   }
 
   async function removeItem(item: OrderItem): Promise<void> {

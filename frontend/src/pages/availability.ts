@@ -11,8 +11,9 @@ import type { App } from "../app";
 import { api, getList } from "../api";
 import { el, icon, type Child } from "../dom";
 import { formatWeekday } from "../format";
-import { button, field, form, input } from "../components/forms";
-import { confirmDialog, openModal } from "../components/modal";
+import { button, field, input } from "../components/forms";
+import { dialogHint, openFormDialog } from "../components/formdialog";
+import { confirmDialog } from "../components/modal";
 import { runAction, statusLine } from "./page";
 import type { AvailabilityFilter } from "../components/menuitem";
 
@@ -164,7 +165,6 @@ export function openFilterEditor(
   onSaved: () => void | Promise<void>,
 ): void {
   const { t } = app;
-  const editorStatus = statusLine();
 
   const name = input({ value: existing?.name ?? "", required: true });
   const onDate = input({ type: "date", value: existing?.on_date ?? "" });
@@ -185,77 +185,51 @@ export function openFilterEditor(
     );
   }
 
-  const save = button({ label: t.t("action.save"), variant: "primary", type: "submit" });
-
-  const body = form(
-    () => {
-      void store();
-    },
-    field({ label: t.t("availability.name"), control: name }),
-    el("p", { class: "field-hint", text: t.t("availability.name_hint") }),
-    field({
-      label: t.t("availability.on_date"),
-      control: onDate,
-      optionalLabel: t.t("auth.optional"),
-    }),
-    el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("availability.weekdays") }), dayRow),
-    el(
-      "div",
-      { class: "row" },
+  openFormDialog({
+    t,
+    title: existing ? t.t("availability.edit_title") : t.t("availability.new"),
+    focus: name,
+    fields: [
+      field({ label: t.t("availability.name"), control: name }),
+      dialogHint(t.t("availability.name_hint")),
       field({
-        label: t.t("availability.from"),
-        control: startTime,
+        label: t.t("availability.on_date"),
+        control: onDate,
         optionalLabel: t.t("auth.optional"),
       }),
-      field({
-        label: t.t("availability.until"),
-        control: endTime,
-        optionalLabel: t.t("auth.optional"),
-      }),
-    ),
-    el("p", { class: "field-hint", text: t.t("availability.time_hint") }),
-    editorStatus.element,
-  );
-
-  async function store(): Promise<void> {
-    editorStatus.clear();
-
-    const weekdays = [...days.entries()]
-      .filter(([, box]) => box.checked)
-      .map(([day]) => day);
-
-    const payload = {
-      name: name.value.trim(),
-      on_date: onDate.value === "" ? null : onDate.value,
-      weekdays,
-      start_time: startTime.value === "" ? null : startTime.value,
-      end_time: endTime.value === "" ? null : endTime.value,
-    };
-
-    await runAction({ status: editorStatus, t, busy: save }, async () => {
+      el("fieldset", { class: "fieldset" }, el("legend", { text: t.t("availability.weekdays") }), dayRow),
+      el(
+        "div",
+        { class: "row" },
+        field({
+          label: t.t("availability.from"),
+          control: startTime,
+          optionalLabel: t.t("auth.optional"),
+        }),
+        field({
+          label: t.t("availability.until"),
+          control: endTime,
+          optionalLabel: t.t("auth.optional"),
+        }),
+      ),
+      dialogHint(t.t("availability.time_hint")),
+    ],
+    onSubmit: async () => {
+      const payload = {
+        name: name.value.trim(),
+        on_date: onDate.value === "" ? null : onDate.value,
+        weekdays: [...days.entries()].filter(([, box]) => box.checked).map(([day]) => day),
+        start_time: startTime.value === "" ? null : startTime.value,
+        end_time: endTime.value === "" ? null : endTime.value,
+      };
       if (existing) {
         await api.patch(`/restaurants/${restaurantID}/availability/${existing.id}`, payload);
       } else {
         await api.post(`/restaurants/${restaurantID}/availability`, payload);
       }
-      modal.close();
-      await onSaved();
-    });
-  }
-
-  const modal = openModal({
-    title: existing ? t.t("availability.edit_title") : t.t("availability.new"),
-    body,
-    actions: [save],
-    closeLabel: t.t("action.close"),
+    },
+    after: onSaved,
   });
-
-  // The save button sits in the dialog's footer, outside the form it submits,
-  // and `form` on the button is what connects the two. Without it Save did
-  // nothing at all -- no request, no error -- which is how 0.3.0 shipped.
-  body.id = `availability-form-${existing?.id ?? "new"}`;
-  save.setAttribute("form", body.id);
-  name.focus();
 }
 
 /**
@@ -365,49 +339,23 @@ export function openAttachmentEditor(options: AttachmentEditorOptions): void {
   const { app, restaurantID, kind, elementID, title, attached, onSaved } = options;
   const { t } = app;
 
-  const editorStatus = statusLine();
   const holder = el("div", { class: "stack" }, el("p", { class: "muted", text: t.t("app.loading") }));
-  const save = button({
-    label: t.t("action.save"),
-    variant: "primary",
-    type: "submit",
-    disabled: true,
-  });
-
   let read: () => string[] = () => [];
 
-  const body = form(
-    () => {
-      void store();
-    },
-    holder,
-    editorStatus.element,
-  );
+  const dialog = openFormDialog({
+    t,
+    title: `${t.t("availability.attached")}: ${title}`,
+    fields: [holder],
+    onSubmit: () => saveAttachments(restaurantID, kind, elementID, read()),
+    after: onSaved,
+  });
 
+  // Nothing to save until the rules have arrived.
+  dialog.submit.disabled = true;
   void loadFilters(restaurantID).then((filters) => {
     const picker = filterPicker(app, filters, attached.map((filter) => filter.id));
     read = picker.selected;
     holder.replaceChildren(picker.element);
-    save.disabled = false;
+    dialog.submit.disabled = false;
   });
-
-  async function store(): Promise<void> {
-    await runAction({ status: editorStatus, t, busy: save }, async () => {
-      await saveAttachments(restaurantID, kind, elementID, read());
-      modal.close();
-      await onSaved();
-    });
-  }
-
-  const modal = openModal({
-    title: `${t.t("availability.attached")}: ${title}`,
-    body,
-    actions: [save],
-    closeLabel: t.t("action.close"),
-  });
-
-  // As in openFilterEditor: the footer button reaches the form only through
-  // its `form` attribute.
-  body.id = `availability-attach-${kind}-${elementID}`;
-  save.setAttribute("form", body.id);
 }

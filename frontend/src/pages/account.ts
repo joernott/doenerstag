@@ -9,6 +9,7 @@ import { NAME_COOKIE, readCookie, writeCookie } from "../cookies";
 import { el, type Child } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, form, input } from "../components/forms";
+import { openFormDialog } from "../components/formdialog";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
 import { tabs } from "../components/tabs";
@@ -658,54 +659,37 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
 
   function openDeleteModal(impact: DeletionImpact): void {
     const typed = input({ name: "confirm_name", autocomplete: "off" });
-    const problem = el("p", { class: "field-error", role: "alert" });
 
-    const confirm = button({
-      label: t.t("account.delete"),
-      variant: "danger",
-      onclick: () => {
-        if (typed.value.trim() !== user.name) {
-          problem.textContent = t.t("account.delete.name_mismatch");
-          typed.focus();
-          return;
-        }
-        void remove();
-      },
-    });
-
-    const cancel = button({
-      label: t.t("action.cancel"),
-      onclick: () => modal.close(),
-    });
-
-    const modal = openModal({
+    openFormDialog({
+      t,
       title: t.t("account.delete"),
-      closeLabel: t.t("action.close"),
       className: "modal-narrow",
-      body: [
+      submitLabel: t.t("account.delete"),
+      danger: true,
+      focus: "cancel",
+      fields: [
         el("p", { text: t.t("account.delete.intro") }),
         impactList(impact),
         field({ label: t.t("account.delete.confirm_name"), control: typed }),
-        problem,
       ],
-      actions: [cancel, confirm],
-    });
-    cancel.focus();
-
-    async function remove(): Promise<void> {
-      try {
+      onSubmit: async (dialog) => {
+        if (typed.value.trim() !== user.name) {
+          dialog.status.fail(t.t("account.delete.name_mismatch"));
+          typed.focus();
+          return false;
+        }
         await api.delete(`/users/${user.id}`);
-        modal.close();
+        return true;
+      },
+      after: () => {
         // The server has already cleared the session cookies; this makes the
         // page agree with that rather than waiting for a 2002 to discover it.
         app.session.set(null);
         app.render();
         app.navigate("/");
         app.router.refresh();
-      } catch (error) {
-        problem.textContent = errorMessage(t, error);
-      }
-    }
+      },
+    });
   }
 
   function impactList(impact: DeletionImpact): HTMLElement {
@@ -752,55 +736,36 @@ function deleteControl(app: App, user: SessionUser): HTMLElement {
  */
 function forgottenPasswordDialog(app: App, prefill: string): void {
   const { t } = app;
-  const status = statusLine();
-
   const who = input({ name: "name", autocomplete: "username", required: true, value: prefill });
-  const submit = button({ label: t.t("auth.send_reset_link"), variant: "primary", type: "submit" });
-  const cancel = button({ label: t.t("action.cancel"), type: "button" });
 
-  const body = form(
-    () => {
-      void send();
-    },
-    el("p", { text: t.t("auth.forgot_password_explain") }),
-    field({ label: t.t("auth.name_or_email"), control: who }),
-    status.element,
-  );
-
-  const handle = openModal({
+  openFormDialog({
+    t,
     title: t.t("auth.forgot_password"),
-    body,
-    actions: [submit, cancel],
-    closeLabel: t.t("action.close"),
-  });
-
-  // The buttons live in the modal footer rather than inside the form, so the
-  // submit one has to be wired to it by hand.
-  submit.addEventListener("click", () => {
-    void send();
-  });
-  cancel.addEventListener("click", () => handle.close());
-  who.focus();
-
-  async function send(): Promise<void> {
-    const value = who.value.trim();
-    if (!value) {
-      status.fail(t.t("auth.name_or_email_required"));
-      who.focus();
-      return;
-    }
-
-    await runAction({ status, t, busy: submit }, async () => {
+    submitLabel: t.t("auth.send_reset_link"),
+    focus: who,
+    fields: [
+      el("p", { text: t.t("auth.forgot_password_explain") }),
+      field({ label: t.t("auth.name_or_email"), control: who }),
+    ],
+    onSubmit: async (dialog) => {
+      const value = who.value.trim();
+      if (!value) {
+        dialog.status.fail(t.t("auth.name_or_email_required"));
+        who.focus();
+        return false;
+      }
       await api.post("/auth/password-reset", { name: value });
-      handle.close();
+      return true;
+    },
+    after: () => {
       openModal({
         title: t.t("auth.reset_link_sent"),
         body: el("p", { text: t.t("auth.reset_link_sent_explain") }),
         actions: [],
         closeLabel: t.t("action.close"),
       });
-    });
-  }
+    },
+  });
 }
 
 /**

@@ -1,8 +1,9 @@
 // Modals, the confirmation dialog and the base components.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { button, field, input, select } from "../src/components/forms";
+import { openFormDialog } from "../src/components/formdialog";
 import { closeAllModals, confirmDialog, openModal } from "../src/components/modal";
 import { addTile, tile, tileGrid } from "../src/components/tiles";
 import { keyed, rerender } from "../src/dom";
@@ -242,5 +243,69 @@ describe("rerender", () => {
     expect(document.activeElement).toBe(outside);
     region.remove();
     outside.remove();
+  });
+});
+
+// 20.25: one form dialog for every editor. Its footer Save submits the form it
+// sits outside of -- the wiring 18.1 found missing twice -- and so does Enter.
+describe("a form dialog", () => {
+  function footerSubmit(): HTMLButtonElement {
+    const found = dialog().querySelector<HTMLButtonElement>(".modal-actions button[type='submit']");
+    if (!found) {
+      throw new Error("no submit button in the footer");
+    }
+    return found;
+  }
+
+  it("submits from the footer button and from Enter in a field", async () => {
+    const name = input({ name: "name" });
+    const onSubmit = vi.fn(() => Promise.resolve(false));
+    openFormDialog({ t, title: "Name", fields: [field({ label: "Name", control: name })], onSubmit });
+
+    footerSubmit().click();
+    await Promise.resolve();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+
+    name.closest("form")?.requestSubmit();
+    await Promise.resolve();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it("stays open and says why when the work fails", async () => {
+    openFormDialog({
+      t,
+      title: "Name",
+      fields: [],
+      onSubmit: () => Promise.reject(new Error("the database is unavailable")),
+    });
+
+    footerSubmit().click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.querySelector(".modal")).not.toBeNull();
+    expect(dialog().querySelector(".status-error")).not.toBeNull();
+  });
+
+  it("closes, gives focus back, and only then runs what comes after", async () => {
+    const opener = button({ label: "Open" });
+    document.body.appendChild(opener);
+    opener.focus();
+
+    let focusedWhenAfterRan: Element | null = null;
+    openFormDialog({
+      t,
+      title: "Name",
+      fields: [],
+      onSubmit: () => Promise.resolve(),
+      after: () => {
+        focusedWhenAfterRan = document.activeElement;
+      },
+    });
+
+    footerSubmit().click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.querySelector(".modal")).toBeNull();
+    expect(focusedWhenAfterRan).toBe(opener);
   });
 });

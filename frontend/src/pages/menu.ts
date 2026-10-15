@@ -12,10 +12,11 @@ import type { App } from "../app";
 import { api, getList } from "../api";
 import { el, icon, replace, type Child } from "../dom";
 import { formatMoney } from "../format";
-import { button, field, form, input } from "../components/forms";
+import { button, field, input } from "../components/forms";
 import { thumbnailURL } from "../components/images";
 import { openMenuItemEditor, type Category, type MenuItem } from "../components/menuitem";
-import { confirmDialog, openModal } from "../components/modal";
+import { openFormDialog } from "../components/formdialog";
+import { confirmDialog } from "../components/modal";
 import { referenceName, tagName } from "../i18n";
 import { moneyFormatOf, type ReferenceData } from "../reference";
 import type { Restaurant } from "./restaurant";
@@ -429,37 +430,22 @@ function openNameDialog(options: NameDialogOptions): void {
   const t = options.app.t;
   const name = input({ value: options.value, required: true });
 
-  const submit = button({
-    label: options.confirmLabel,
-    variant: "primary",
-    onclick: () => {
-      const next = name.value.trim();
-      if (next === "") {
-        name.focus();
-        return;
-      }
-      handle.close();
-      void options.onSubmit(next);
-    },
-  });
-
-  const handle = openModal({
+  // The dialog only checks the name; the page does the work once it has
+  // closed, and reports on its own status line, where the category is.
+  openFormDialog({
+    t,
     title: options.title,
-    closeLabel: t.t("action.close"),
-    body: form(
-      () => submit.click(),
-      field({ label: options.label, control: name }),
-    ),
-    actions: [
-      button({
-        label: t.t("action.cancel"),
-        variant: "quiet",
-        onclick: () => handle.close(),
-      }),
-      submit,
-    ],
+    submitLabel: options.confirmLabel,
+    focus: name,
+    fields: [field({ label: options.label, control: name })],
+    onSubmit: () => {
+      if (name.value.trim() === "") {
+        name.focus();
+        return Promise.resolve(false);
+      }
+      return Promise.resolve(true);
+    },
+    after: () => options.onSubmit(name.value.trim()),
   });
-
-  name.focus();
   name.select();
 }
