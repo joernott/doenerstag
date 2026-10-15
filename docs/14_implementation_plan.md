@@ -722,7 +722,7 @@ as tasks of its own.
 | ✅ 20.23 | Moves and renames: `classification.go` split into modifications and tags, `db/orderqueries.go` named for what it holds, the db sentinels in one file, lookups named `lookupX`; duplicated `now()`, `log()` and test helpers shared | S | — |
 | ✅ 20.24 | Frontend: one `runAction` helper for busy, try, catch and status, replacing about thirty copies, with the status line the only way an error is reported | M | [06](06_ui_ux.md) |
 | ✅ 20.25 | Frontend: one `openFormDialog` owning the form, the footer, Cancel and closing on success, replacing seven hand-wired dialogs -- the kind of wiring 18.1's dead Save button came from | M | [06](06_ui_ux.md) |
-| 20.26 | Frontend: one dirty-tracking helper and one heading Save for the restaurant and account pages | S | [06](06_ui_ux.md) |
+| ✅ 20.26 | Frontend: one dirty-tracking helper and one heading Save for the restaurant and account pages | S | [06](06_ui_ux.md) |
 | 20.27 | Frontend: errors tied to their field with `aria-describedby`, as docs/06 requires and no form does yet | S | [06](06_ui_ux.md) |
 | 20.28 | Frontend: shared types in one module, shared pieces (menu item row, delete-account dialog, definition list, load-failed page, clipboard copy) in `components/`, so no component imports a page | M | — |
 | 20.29 | Frontend: `order.ts`, `account.ts` and `restaurant.ts` split into modules along their sections | L | — |

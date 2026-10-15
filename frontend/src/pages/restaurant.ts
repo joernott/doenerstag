@@ -9,6 +9,7 @@ import { api, errorMessage, getList } from "../api";
 import { el, icon } from "../dom";
 import { formatWeekday, moneyInputValue, parseMoney } from "../format";
 import { button, field, form, input, select, textarea } from "../components/forms";
+import { dirtyTracker, saveAllButton, type EditableSection } from "../components/editable";
 import { confirmDialog } from "../components/modal";
 import { imageField } from "../components/images";
 import { contactIcon, contactTarget, type Linkable } from "../contacts";
@@ -139,49 +140,10 @@ function restaurantControls(
 ): HTMLElement {
   const { t } = app;
 
-  // One Save for the restaurant, covering its own fields and its opening hours.
-  //
-  // The hours had a Save of their own inside the tab. Two buttons called Save on
-  // one page, each covering a different part of it, is a question nobody should
-  // have to answer -- and the one in the heading was already the one that looks
-  // like it means "save this restaurant". It writes whichever of the two has
-  // actually changed, so pressing it never sends a request that changes
-  // nothing.
-  let dataDirty = false;
-  let hoursDirty = false;
-
-  const save = button({ label: t.t("action.save"), variant: "primary" });
-  save.disabled = true;
-  save.addEventListener("click", () => {
-    void (async (): Promise<void> => {
-      save.disabled = true;
-      try {
-        if (dataDirty) {
-          await data.save();
-        }
-        if (hoursDirty) {
-          await hours.save();
-        }
-      } catch {
-        // Each section reports its own failure in its own status line, which is
-        // in the tab the failure belongs to. Re-enabling the button is all that
-        // is left to do here.
-        save.disabled = false;
-      }
-    })();
-  });
-
-  const update = (): void => {
-    save.disabled = !dataDirty && !hoursDirty;
-  };
-  data.onDirtyChange((dirty) => {
-    dataDirty = dirty;
-    update();
-  });
-  hours.onDirtyChange((dirty) => {
-    hoursDirty = dirty;
-    update();
-  });
+  // One Save for the restaurant, covering its own fields and its opening hours:
+  // two buttons called Save on one page, each covering a different part of it,
+  // is a question nobody should have to answer.
+  const save = saveAllButton(t, [data, hours]);
 
   const why = !app.session.isAdmin
     ? t.t("restaurant.delete.admin_only")
@@ -272,11 +234,8 @@ function createPage(app: App, reference: ReferenceData): HTMLElement {
  * section keeps is the knowledge of *when* saving is worth offering, which is
  * why it reports its dirty state rather than exposing its inputs.
  */
-interface DataSection {
-  element: HTMLElement;
-  save(): Promise<void>;
+interface DataSection extends EditableSection {
   remove(): Promise<void>;
-  onDirtyChange(listen: (dirty: boolean) => void): void;
   /** Called with the new name after a save that changed it. */
   onRename(listen: (name: string) => void): void;
 }
@@ -338,20 +297,14 @@ function dataSection(
       logoImageId,
     ]);
 
-  let saved = snapshot();
-  const listeners: ((dirty: boolean) => void)[] = [];
+  const tracker = dirtyTracker(snapshot);
   const renameListeners: ((name: string) => void)[] = [];
   const renamed = (next: string): void => {
     for (const listen of renameListeners) {
       listen(next);
     }
   };
-  const touched = (): void => {
-    const dirty = snapshot() !== saved;
-    for (const listen of listeners) {
-      listen(dirty);
-    }
-  };
+  const touched = tracker.touched;
 
   for (const control of [name, currency, minimum, fee, notes]) {
     control.addEventListener("input", touched);
@@ -388,8 +341,7 @@ function dataSection(
       renamed(name.value.trim());
       // What was just written becomes the new baseline, so Save goes quiet
       // again until something else changes.
-      saved = snapshot();
-      touched();
+      tracker.saved();
     } catch (error) {
       status.fail(errorMessage(t, error));
       // Rethrown, as the hours section does: the heading's Save is re-enabled
@@ -456,9 +408,7 @@ function dataSection(
     element,
     save,
     remove,
-    onDirtyChange(listen: (dirty: boolean) => void): void {
-      listeners.push(listen);
-    },
+    onDirtyChange: tracker.onDirtyChange,
     onRename(listen: (name: string) => void): void {
       renameListeners.push(listen);
     },
@@ -706,12 +656,7 @@ function contactsSection(
  * matches how a person edits them: a lunch break is two rows that only make
  * sense together.
  */
-interface HoursSection {
-  element: HTMLElement;
-  /** Writes the whole set. Rejects so the caller can leave Save enabled. */
-  save(): Promise<void>;
-  onDirtyChange(listen: (dirty: boolean) => void): void;
-}
+type HoursSection = EditableSection;
 
 function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
   const { t } = app;
@@ -804,14 +749,8 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
       })),
     );
 
-  let saved = current();
-  const listeners: ((dirty: boolean) => void)[] = [];
-  const touched = (): void => {
-    const dirty = current() !== saved;
-    for (const listen of listeners) {
-      listen(dirty);
-    }
-  };
+  const tracker = dirtyTracker(current);
+  const touched = tracker.touched;
   // One listener on the list rather than one per control, so rows added later
   // are covered without anything remembering to wire them up.
   list.addEventListener("input", touched);
@@ -824,8 +763,7 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
         opening_hours: JSON.parse(current()) as unknown,
       });
       status.say(t.t("state.saved"));
-      saved = current();
-      touched();
+      tracker.saved();
     } catch (error) {
       status.fail(errorMessage(t, error));
       throw error;
@@ -854,8 +792,6 @@ function hoursSection(app: App, restaurant: RestaurantDetail): HoursSection {
   return {
     element,
     save,
-    onDirtyChange(listen: (dirty: boolean) => void): void {
-      listeners.push(listen);
-    },
+    onDirtyChange: tracker.onDirtyChange,
   };
 }

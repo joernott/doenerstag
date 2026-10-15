@@ -9,6 +9,7 @@ import { NAME_COOKIE, readCookie, writeCookie } from "../cookies";
 import { el, type Child } from "../dom";
 import { formatDateTime } from "../format";
 import { button, field, form, input } from "../components/forms";
+import { dirtyTracker, saveAllButton, type EditableSection } from "../components/editable";
 import { openFormDialog } from "../components/formdialog";
 import { confirmDialog, openModal } from "../components/modal";
 import { passwordField } from "../components/password";
@@ -219,40 +220,7 @@ function accountControls(
 ): HTMLElement {
   const { t } = app;
 
-  let profileDirty = false;
-  let passwordDirty = false;
-
-  const save = button({ label: t.t("action.save"), variant: "primary" });
-  save.disabled = true;
-  save.addEventListener("click", () => {
-    void (async (): Promise<void> => {
-      save.disabled = true;
-      try {
-        if (profileDirty) {
-          await profile.save();
-        }
-        if (passwordDirty) {
-          await password.save();
-        }
-      } catch {
-        // Each form reports its own failure in its own tab; all that is left
-        // here is to let somebody try again.
-        save.disabled = false;
-      }
-    })();
-  });
-
-  const update = (): void => {
-    save.disabled = !profileDirty && !passwordDirty;
-  };
-  profile.onDirtyChange((dirty) => {
-    profileDirty = dirty;
-    update();
-  });
-  password.onDirtyChange((dirty) => {
-    passwordDirty = dirty;
-    update();
-  });
+  const save = saveAllButton(t, [profile, password]);
 
   const controls: Child[] = [save];
 
@@ -266,14 +234,6 @@ function accountControls(
   }
 
   return el("div", { class: "page-heading-actions" }, ...controls);
-}
-
-/** A section of the account page that has something to save. */
-interface EditableSection {
-  element: HTMLElement;
-  /** Rejects so the caller can leave Save enabled. */
-  save(): Promise<void>;
-  onDirtyChange(listen: (dirty: boolean) => void): void;
 }
 
 function profileSection(app: App, user: SessionUser): EditableSection {
@@ -292,8 +252,7 @@ function profileSection(app: App, user: SessionUser): EditableSection {
       email.value = body.email ?? "";
       // The address arriving is not somebody editing: it is the form finishing
       // loading, and Save must stay quiet until there is a real change.
-      saved = snapshot();
-      touched();
+      tracker.saved();
     })
     .catch(() => {
       // Leaving it empty would offer to clear an address that is set, so the
@@ -313,14 +272,8 @@ function profileSection(app: App, user: SessionUser): EditableSection {
   const snapshot = (): string =>
     JSON.stringify([name.value.trim(), displayName.value.trim(), email.value.trim()]);
 
-  let saved = snapshot();
-  const listeners: ((dirty: boolean) => void)[] = [];
-  const touched = (): void => {
-    const dirty = snapshot() !== saved;
-    for (const listen of listeners) {
-      listen(dirty);
-    }
-  };
+  const tracker = dirtyTracker(snapshot);
+  const touched = tracker.touched;
   for (const control of [name, displayName, email]) {
     control.addEventListener("input", touched);
   }
@@ -360,8 +313,7 @@ function profileSection(app: App, user: SessionUser): EditableSection {
       // The title bar shows the display name, so it has to be rebuilt.
       app.render();
       status.say(t.t("state.saved"));
-      saved = snapshot();
-      touched();
+      tracker.saved();
     } catch (error) {
       status.fail(errorMessage(t, error));
       throw error;
@@ -371,9 +323,7 @@ function profileSection(app: App, user: SessionUser): EditableSection {
   return {
     element,
     save,
-    onDirtyChange(listen: (dirty: boolean) => void): void {
-      listeners.push(listen);
-    },
+    onDirtyChange: tracker.onDirtyChange,
   };
 }
 
@@ -395,13 +345,8 @@ function passwordSection(app: App, user: SessionUser): EditableSection {
   });
   // "Dirty" here means a new password has been typed. There is nothing to save
   // otherwise, and the current-password field on its own changes nothing.
-  const listeners: ((dirty: boolean) => void)[] = [];
-  const touched = (): void => {
-    const dirty = next.control.value !== "";
-    for (const listen of listeners) {
-      listen(dirty);
-    }
-  };
+  const tracker = dirtyTracker(() => next.control.value);
+  const touched = tracker.touched;
   for (const control of [current.control, next.control]) {
     control.addEventListener("input", touched);
   }
@@ -444,9 +389,7 @@ function passwordSection(app: App, user: SessionUser): EditableSection {
   return {
     element,
     save,
-    onDirtyChange(listen: (dirty: boolean) => void): void {
-      listeners.push(listen);
-    },
+    onDirtyChange: tracker.onDirtyChange,
   };
 }
 
