@@ -306,6 +306,13 @@ references the restaurant.
    the category in its `aria-label`. A dozen controls all called "Edit" is
    ambiguous under a screen reader and unusable by voice.
 
+   **Duplicate** sits beside Edit on every item and on every category heading
+   (F4.8), named for what it copies in its `aria-label` for the same reason.
+   It asks nothing: the copy appears directly below the original, its name
+   saying it is a copy, and is edited from there like anything else. The
+   bracketed word is sent from the reader's catalog (`menu.copy_label`),
+   because the server has no language of its own to name things in.
+
    Reordering is by button rather than by dragging. The accessibility rule below
    requires a keyboard equivalent for any drag, and once the buttons exist for a
    list that is rarely more than five entries long, the drag implementation is

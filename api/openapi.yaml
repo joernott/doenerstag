@@ -1442,6 +1442,45 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /restaurants/{id}/categories/{cid}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The category's id.
+        schema: { type: string, format: uuid }
+    post:
+      tags: [menu]
+      operationId: duplicateCategory
+      summary: Copy a category and every dish in it.
+      description: |
+        The copy keeps the category's sort order and availability rules, and
+        holds a copy of every living dish in it, each made as the dish
+        duplicate route makes one. Its name is the original's with the label
+        in brackets, numbered when that name is taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateRequest"
+      responses:
+        "201":
+          description: The new category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /restaurants/{id}/menu-items:
     parameters:
       - $ref: "#/components/parameters/RestaurantId"
@@ -1577,6 +1616,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items/{mid}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - $ref: "#/components/parameters/MenuItemId"
+    post:
+      tags: [menu]
+      operationId: duplicateMenuItem
+      summary: Copy a menu item with everything it carries.
+      description: |
+        Price, description, image, tags, allergens, additives, options and
+        availability rules are all copied; the copy stays in the original's
+        category. Its name is the original's with the label in brackets,
+        "Döner (copy)", numbered when that name is taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateRequest"
+      responses:
+        "201":
+          description: The copy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /restaurants/{id}/menu-items/{mid}/modifications:
     parameters:
@@ -2781,6 +2855,17 @@ components:
         tag_ids: { type: array, items: { type: string, format: uuid } }
         allergen_ids: { type: array, items: { type: string, format: uuid } }
         additive_ids: { type: array, items: { type: string, format: uuid } }
+
+    DuplicateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 32
+          description: |
+            The word for "copy" in the caller's language, which the copy's name
+            is given in brackets. The server has no language of its own to
+            name things in. Empty or absent means "copy".
 
     PatchMenuItemRequest:
       allOf:

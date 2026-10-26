@@ -130,6 +130,7 @@
   "action.cancel": "Abbrechen",
   "action.delete": "Löschen",
   "action.edit": "Bearbeiten",
+  "action.duplicate": "Duplizieren",
   "action.add": "Hinzufügen",
   "action.remove": "Entfernen",
   "action.close": "Schließen",
@@ -335,6 +336,8 @@
 
   "menu.tags": "Merkmale",
   "menu.empty": "Diese Speisekarte ist leer.",
+  "menu.copy_label": "Kopie",
+  "menu.duplicated": "Kopiert. Die Kopie steht direkt unter dem Original.",
   "menu.category.add": "Kategorie hinzufügen",
   "menu.category.rename": "Kategorie umbenennen",
   "menu.category.name": "Kategorie",

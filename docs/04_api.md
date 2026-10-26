@@ -221,11 +221,13 @@ works never fails a request; see
 | `POST`   | `/restaurants/{id}/categories`                        | user   | Add a category.                                    |
 | `PATCH`  | `/restaurants/{id}/categories/{cid}`                  | user   | Rename or reorder.                                 |
 | `DELETE` | `/restaurants/{id}/categories/{cid}`                  | admin  | Soft delete.                                       |
+| `POST`   | `/restaurants/{id}/categories/{cid}/duplicate`        | user   | Copy the category and its items (F4.8).            |
 | `GET`    | `/restaurants/{id}/menu-items`                        | public | Menu items. Supports the filters below.            |
 | `POST`   | `/restaurants/{id}/menu-items`                        | user   | Add a menu item.                                   |
 | `GET`    | `/restaurants/{id}/menu-items/{mid}`                  | public | One menu item with its modifications.              |
 | `PATCH`  | `/restaurants/{id}/menu-items/{mid}`                  | user   | Update, including the `available` flag.            |
 | `DELETE` | `/restaurants/{id}/menu-items/{mid}`                  | admin  | Soft delete.                                       |
+| `POST`   | `/restaurants/{id}/menu-items/{mid}/duplicate`        | user   | Copy the item with everything it carries (F4.8).   |
 | `GET`    | `/restaurants/{id}/menu-items/{mid}/modifications`    | public | Predefined modifications.                          |
 | `POST`   | `/restaurants/{id}/menu-items/{mid}/modifications`    | user   | Add a modification.                                |
 | `PATCH`  | `/restaurants/{id}/menu-items/{mid}/modifications/{k}`| user   | Update a modification.                             |

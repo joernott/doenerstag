@@ -92,6 +92,10 @@ var reviewedAssemblies = map[string]string{
 	"replaceAttachments": "the table and column come from the two call sites in " +
 		"this file (SetCategoryFilters, SetMenuItemFilters), each passing a " +
 		"string literal. The ids are bound as $1, $2 and $3.",
+	"takenNames": "the table is one of the two literals in DuplicateMenuItem " +
+		"and DuplicateCategory. The restaurant id is bound as $1.",
+	"copyMenuItem": "the table and column come from the literal list of link " +
+		"tables inside the function. The ids are bound as $1, $2 and $3.",
 }
 
 // The second rule: the SQL handed to the driver is built only from things that

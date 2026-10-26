@@ -130,6 +130,7 @@
   "action.cancel": "Cancel",
   "action.delete": "Delete",
   "action.edit": "Edit",
+  "action.duplicate": "Duplicate",
   "action.add": "Add",
   "action.remove": "Remove",
   "action.close": "Close",
@@ -335,6 +336,8 @@
 
   "menu.tags": "Tags",
   "menu.empty": "This menu is empty.",
+  "menu.copy_label": "copy",
+  "menu.duplicated": "Copied. The copy is directly below the original.",
   "menu.category.add": "Add a category",
   "menu.category.rename": "Rename the category",
   "menu.category.name": "Category",

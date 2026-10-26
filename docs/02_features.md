@@ -81,6 +81,14 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   10; items without an ID sort last.
 - **F4.7** Menu items can be filtered in the UI by free tags and, independently,
   by allergens and additives.
+- **F4.8** Any logged-in user can duplicate a menu item or a whole category. A
+  copied item carries everything the original has — price, description, image,
+  tags, allergens, additives, predefined modifications and availability rules —
+  and stays in the original's category. A copied category carries its
+  availability rules and a copy of every living item in it. A copy is named
+  after the original with the word for "copy" in brackets, in the language of
+  whoever made it, and numbered when that name is taken: "Döner (Kopie)",
+  "Döner (Kopie 2)". Duplicating is creating, so nothing is ever removed by it.
 
 ## F5 — Orders
 

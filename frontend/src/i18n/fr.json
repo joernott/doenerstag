@@ -132,6 +132,7 @@
   "action.cancel": "Annuler",
   "action.delete": "Supprimer",
   "action.edit": "Modifier",
+  "action.duplicate": "Dupliquer",
   "action.add": "Ajouter",
   "action.remove": "Retirer",
   "action.close": "Fermer",
@@ -343,6 +344,8 @@
 
   "menu.tags": "Étiquettes",
   "menu.empty": "Ce menu est vide.",
+  "menu.copy_label": "copie",
+  "menu.duplicated": "Copié. La copie se trouve juste sous l’original.",
   "menu.category.add": "Ajouter une catégorie",
   "menu.category.rename": "Renommer la catégorie",
   "menu.category.name": "Catégorie",
