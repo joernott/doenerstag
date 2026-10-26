@@ -498,6 +498,9 @@ Primary key is the column pair. These tables carry audit columns as well.
 | `deadline_at`           | `timestamptz` | no   | Last moment items may be added or changed.                |
 | `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. `ON DELETE SET NULL`. |
 | `pickup_person_id`      | `uuid`        | yes  | The account fetching the order. `ON DELETE SET NULL`.     |
+| `jobs_drawn`            | `boolean`     | no   | The draw for empty jobs at the deadline has been made (21.3). Default `false`. |
+| `money_collector_drawn` | `boolean`     | no   | `money_collector_id` was filled by the draw, not by a volunteer. Default `false`. |
+| `pickup_person_drawn`   | `boolean`     | no   | `pickup_person_id` was filled by the draw, not by a volunteer. Default `false`. |
 | `currency_code`         | `char(3)`     | no   | Copied from the restaurant at creation.                   |
 | `min_order_value_cents` | `bigint`      | yes  | Copied from the restaurant at creation.                   |
 | `delivery_fee_cents`    | `bigint`      | yes  | Copied from the restaurant at creation.                   |
@@ -514,8 +517,14 @@ Constraints:
   `UPDATE` carries the condition itself, so an item added between a check and
   the write cannot slip through.
 
+- The draw (F5.10a) sets `jobs_drawn` once, in the same `UPDATE` that fills
+  the jobs, so it is made exactly once per order however many processes or
+  passes look. Migration 16 marks every order already closed as drawn, so an
+  upgrade does not send anybody for food fetched long ago.
+
 Indexes: `(deadline_at)` for the overview and the `cleanup` verb,
-`(restaurant_id)`, `(creator_id)`.
+`(deadline_at) WHERE NOT jobs_drawn` for the draw, `(restaurant_id)`,
+`(creator_id)`.
 
 ### `order_item`
 

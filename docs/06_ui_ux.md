@@ -111,6 +111,10 @@ administrator.
   While the order is open, an empty job offers every signed-in visitor a
   **Me!** button that takes it, whether or not they opened the order. It only
   fills a vacancy; changing who has a job is the creator's, in the editor.
+  A job still empty at the deadline is filled by lot (F5.10a), and the name is
+  followed by "(picked by lot)" so nobody mistakes it for volunteering. The
+  order is closed by then, so the job stays where the lot put it; swapping is
+  a conversation, which the Chat tab is for.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.

@@ -119,8 +119,15 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 - **F5.9** The order creator and the administrator can delete an order. For an
   active order this requires confirmation and warns how many participants will
   lose their items.
-- **F5.10** An order carries two optional free-text fields: who collects the
-  money and who does the pickup.
+- **F5.10** An order names two optional people, each an account: who collects
+  the money and who does the pickup. While the order is open, anybody signed in
+  may take a job nobody has.
+- **F5.10a** When the deadline passes and a job is still empty, the server
+  picks one person at random from those with an item in the order and puts
+  them in every empty job — one person for both when both are empty. A job
+  somebody took is left alone; an order without items has nobody to pick. The
+  draw is made once, by the server, whether or not anybody has the page open,
+  and the order page says beside the name that it was by lot.
 - **F5.11** An order stores a copy of the restaurant's currency, minimum order
   value and delivery fee as they were when the restaurant was selected.
 

@@ -47,6 +47,9 @@ type Server struct {
 	// events is the SSE registry, kept so shutdown can close every stream.
 	events *sse.Registry
 
+	// orders is kept for the draw loop, which runs as long as the server does.
+	orders *OrderHandlers
+
 	// routes is what the router registered, kept for the OpenAPI check.
 	routes []RouteInfo
 }
@@ -163,6 +166,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		Logger: opts.Logger,
 	}
 	orderHandlers.Register(router)
+	s.orders = orderHandlers
 
 	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
 	restaurantHandlers.Register(router)
@@ -354,6 +358,11 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 				"for development. Behind a proxy that terminates TLS, add " +
 				"--behind-tls-proxy.")
 	}
+
+	// The draw at the deadline (21.3) lives as long as the listener does.
+	draws, stopDraws := context.WithCancel(ctx)
+	defer stopDraws()
+	go s.orders.RunDraws(draws, DrawInterval)
 
 	errs := make(chan error, 1)
 	go func() {

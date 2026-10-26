@@ -66,6 +66,7 @@
   "order.fulfilment.delivery": "Livraison",
   "order.status.active": "Ouverte",
   "order.status.expired": "Close",
+  "order.drawn": "(tiré au sort)",
   "order.nobody": "Personne pour l'instant",
   "order.volunteer": "Moi !",
   "order.release": "Retirer",

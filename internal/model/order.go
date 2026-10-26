@@ -41,6 +41,11 @@ type Order struct {
 	PickupPersonID     *uuid.UUID
 	PickupPersonName   string
 
+	// Whether the draw at the deadline filled each job, rather than a
+	// volunteer (21.3). False until then, and for a job somebody took.
+	MoneyCollectorDrawn bool
+	PickupPersonDrawn   bool
+
 	CurrencyCode       string
 	MinOrderValueCents *int64
 	DeliveryFeeCents   *int64

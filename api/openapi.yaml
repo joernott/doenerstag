@@ -2958,6 +2958,16 @@ components:
             pickup_person_name:
               type: string
               description: Empty when nobody is fetching the food.
+            money_collector_drawn:
+              type: boolean
+              description: >-
+                The person collecting the money was picked by lot at the
+                deadline because nobody had volunteered.
+            pickup_person_drawn:
+              type: boolean
+              description: >-
+                The person fetching the food was picked by lot at the deadline
+                because nobody had volunteered.
 
     OrderDetail:
       allOf:

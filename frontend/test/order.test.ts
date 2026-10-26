@@ -118,6 +118,8 @@ function detail(overrides: Record<string, unknown> = {}): Record<string, unknown
     money_collector_name: "Jo",
     pickup_person_id: null,
     pickup_person_name: "",
+    money_collector_drawn: false,
+    pickup_person_drawn: false,
     items: [orderItem],
     item_total_cents: 2100,
     unpaid_total_cents: 2100,
@@ -816,6 +818,33 @@ describe("the order page", () => {
     await settle();
 
     expect(releaseButton(app, rendered, "order.money_collector")).toBeNull();
+  });
+
+  it("says beside a name that the job was picked by lot", async () => {
+    stubServer(
+      orderStubs(
+        detail({
+          deadline_at: soon(-2),
+          fulfilment_at: soon(-1),
+          status: "expired",
+          pickup_person_id: "u2",
+          pickup_person_name: "Alex",
+          pickup_person_drawn: true,
+        }),
+      ),
+    );
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    // Alex was drawn; Jo collects the money because Jo said so, and is not
+    // marked.
+    const marks = [...rendered.querySelectorAll(".order-drawn")];
+    expect(marks.length).toBe(1);
+    expect(marks[0]?.textContent).toBe(app.t.t("order.drawn"));
+    expect(marks[0]?.parentElement?.textContent).toContain("Alex");
   });
 
   it("offers an anonymous visitor nothing to volunteer for", async () => {

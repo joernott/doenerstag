@@ -66,6 +66,7 @@
   "order.fulfilment.delivery": "Lieferung",
   "order.status.active": "Offen",
   "order.status.expired": "Geschlossen",
+  "order.drawn": "(ausgelost)",
   "order.nobody": "Noch niemand",
   "order.volunteer": "Ich!",
   "order.release": "Entfernen",
