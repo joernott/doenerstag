@@ -13,37 +13,35 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.5.0.** Everything the specification describes is built: accounts and
+**0.6.0.** Everything the specification describes is built: accounts and
 sessions, restaurants with menus and opening hours, orders with a deadline and a
 pickup or delivery time, per-person items, a summary page for whoever is calling
 the restaurant, live updates over SSE, German, English and French, and an
 administration surface.
 
-0.5.0 is a release about the code rather than the features: three reviews --
-of the data model, the Go code and the frontend -- and the work that came of
-them. What changes for somebody using it:
+New in 0.6.0:
 
-- **Fixes the reviews found.** `doenerstag user delete` now follows the same
-  rules as deleting an account in the browser; a password reset for an address
-  several accounts share mails every one of them; the nightly cleanup leaves a
-  freshly uploaded picture alone; the account-deletion warning names the orders
-  somebody collects the money for or fetches; keyboard focus stays where it was
-  when the order page redraws; Save comes back after a failed save on the
-  restaurant page; `doenerstag update`, run as root, leaves the configuration
-  file readable by the service.
-- **Two rules the database now enforces itself**: a dish's category belongs to
-  the same restaurant, and an order's restaurant changes only while nothing has
-  been ordered from it.
-- **DEBUG logging** as docs/08 describes it: every request handler and every
-  query with its timing, secrets redacted.
-- **Errors sit beside their field**, announced to screen readers with it.
-- **Go 1.26.9 and golang.org/x/net 0.60.0**, for GO-2026-6612, -6613 and
-  -6617. There is no separate 0.4.1.
+- **A chat on every order.** The menu column of the order page has two tabs,
+  Menu and Chat (n). The people taking part in an order -- whoever ordered
+  something, opened it, fetches the food or collects the money -- talk there,
+  live, before and after the deadline: "the food is here", "who has change".
+  Nobody else reads a word of it. The chat goes with the order.
+- **Nobody volunteered? Somebody is picked.** When the deadline passes with
+  nobody fetching the food or collecting the money, the server picks one of
+  the people who ordered, at random, for every empty job, and the order page
+  says it was by lot.
+- **Duplicate a dish or a whole category** on the restaurant page, with
+  everything it carries -- options, allergens, availability -- under a name
+  that says it is a copy, in your language.
+- In the dish editor, the Remove button on an option is shown to everybody,
+  disabled with the reason for anybody but the administrator, rather than
+  missing.
+- **Go 1.26.10**, for GO-2026-6809: crypto/x509 now distrusts a set of
+  compromised intermediate certificates, which matters for the TLS
+  connection to the mail server.
 
-Behind that, the code is easier to read: shared helpers in place of copied
-error handling, dialogs and dirty tracking, and the largest files split into
-modules with one job each. The frontend stays without a framework; the
-reasons are in docs/14_implementation_plan.md, sprint 20.
+Two migrations come with it, so run `doenerstag update` after installing.
+Orders that closed before the update are not drawn for.
 
 Still a 0.x release, and marked as a pre-release for the reason it was at
 0.1.0: it works, and not many people have used it yet.
@@ -54,13 +52,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.5.0-1_amd64.deb
+apt install ./doenerstag_0.6.0-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.5.0-1.x86_64.rpm
+dnf install ./doenerstag-0.6.0-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.5.0
+docker pull docker.io/joernott/doenerstag:0.6.0
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```

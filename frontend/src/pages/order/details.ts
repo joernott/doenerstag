@@ -72,6 +72,7 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
         personRow(
           own.money_collector_name,
           own.money_collector_id,
+          own.money_collector_drawn,
           "money-collector",
           t.t("order.money_collector"),
         ),
@@ -81,6 +82,7 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
         personRow(
           own.pickup_person_name,
           own.pickup_person_id,
+          own.pickup_person_drawn,
           "pickup-person",
           t.t("order.pickup_person"),
         ),
@@ -175,24 +177,33 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
    * lets clear it: whoever is doing it, so that "Me!" can be taken back without
    * finding the creator, the creator, and the administrator. Open orders only,
    * like everything else that changes the order.
+   *
+   * Somebody the server picked by lot at the deadline, because nobody had
+   * volunteered (F5.10a), is shown with words saying so: "picked by lot" is
+   * a different thing to read about a person than "said they would go".
    */
   function personRow(
     name: string,
     holderID: string | null,
+    drawn: boolean,
     job: "pickup-person" | "money-collector",
     jobName: string,
   ): Child {
     if (name) {
+      const who: Child[] = [el("span", { text: name })];
+      if (drawn) {
+        who.push(el("span", { class: "muted order-drawn", text: t.t("order.drawn") }));
+      }
       const me = app.session.user?.id;
       const mayRelease =
         me !== undefined && active() && (app.session.isAdmin || isCreator() || holderID === me);
       if (!mayRelease) {
-        return name;
+        return drawn ? el("span", { class: "order-person" }, ...who) : name;
       }
       return el(
         "span",
         { class: "order-person" },
-        el("span", { text: name }),
+        ...who,
         // The same key as "Me!": pressing one replaces it with the other, and
         // focus follows to the control that undoes what was just done.
         keyed(

@@ -81,6 +81,14 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   10; items without an ID sort last.
 - **F4.7** Menu items can be filtered in the UI by free tags and, independently,
   by allergens and additives.
+- **F4.8** Any logged-in user can duplicate a menu item or a whole category. A
+  copied item carries everything the original has — price, description, image,
+  tags, allergens, additives, predefined modifications and availability rules —
+  and stays in the original's category. A copied category carries its
+  availability rules and a copy of every living item in it. A copy is named
+  after the original with the word for "copy" in brackets, in the language of
+  whoever made it, and numbered when that name is taken: "Döner (Kopie)",
+  "Döner (Kopie 2)". Duplicating is creating, so nothing is ever removed by it.
 
 ## F5 — Orders
 
@@ -111,8 +119,15 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 - **F5.9** The order creator and the administrator can delete an order. For an
   active order this requires confirmation and warns how many participants will
   lose their items.
-- **F5.10** An order carries two optional free-text fields: who collects the
-  money and who does the pickup.
+- **F5.10** An order names two optional people, each an account: who collects
+  the money and who does the pickup. While the order is open, anybody signed in
+  may take a job nobody has.
+- **F5.10a** When the deadline passes and a job is still empty, the server
+  picks one person at random from those with an item in the order and puts
+  them in every empty job — one person for both when both are empty. A job
+  somebody took is left alone; an order without items has nobody to pick. The
+  draw is made once, by the server, whether or not anybody has the page open,
+  and the order page says beside the name that it was by lot.
 - **F5.11** An order stores a copy of the restaurant's currency, minimum order
   value and delivery fee as they were when the restaurant was selected.
 
@@ -184,3 +199,21 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   is no longer referenced.
 - **F10.6** All data-changing operations are logged at INFO level with the acting
   user and a correlation ID. This is the audit trail.
+
+## F11 — Order chat
+
+- **F11.1** Every order has a chat: a list of messages tied to the order, each
+  with its author, the time it was written and its text, up to 1000
+  characters.
+- **F11.2** The chat belongs to the order's participants — its creator, anybody
+  with an item in it, whoever fetches the food and whoever collects the money —
+  and the administrator. They read it and write to it; nobody else sees a word
+  of it. A signed-in visitor who is not taking part sees how many messages
+  there are and nothing more, and an anonymous one not even that.
+- **F11.3** The chat does not close at the deadline. It stays open until the
+  order is deleted, because that is when it is most use: "the food is here",
+  "who has change for a fifty".
+- **F11.4** The chat goes with its order. When an author deletes their account,
+  their messages stay and are shown as from "deleted user", so a conversation
+  does not lose lines from its middle.
+- **F11.5** New messages appear on every participant's page without a reload.

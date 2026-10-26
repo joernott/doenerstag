@@ -24,6 +24,7 @@ const (
 	EventOrderUpdated   = "order.updated"
 	EventOrderDeleted   = "order.deleted"
 	EventOrderExpired   = "order.expired"
+	EventOrderMessage   = "order.message"
 	EventPing           = "ping"
 )
 

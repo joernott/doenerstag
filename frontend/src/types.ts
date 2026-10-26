@@ -134,6 +134,9 @@ export interface OrderListEntry extends OrderHeader {
   money_collector_name?: string;
   pickup_person_id?: string | null;
   pickup_person_name?: string;
+  /** Picked by lot at the deadline because nobody volunteered (F5.10a). */
+  money_collector_drawn?: boolean;
+  pickup_person_drawn?: boolean;
 }
 
 /** One order item, which only an authenticated caller ever sees. */
@@ -160,6 +163,9 @@ export interface OrderDetail extends OrderHeader {
   money_collector_name: string;
   pickup_person_id: string | null;
   pickup_person_name: string;
+  /** Picked by lot at the deadline because nobody volunteered (F5.10a). */
+  money_collector_drawn: boolean;
+  pickup_person_drawn: boolean;
   items: OrderItem[];
   item_total_cents: number;
   /** The item total split by the paid tick; the two always add up to it. */
@@ -167,6 +173,17 @@ export interface OrderDetail extends OrderHeader {
   paid_total_cents: number;
   grand_total_cents: number;
   below_minimum: boolean;
+  /** How many lines the order's chat has. The lines are for participants. */
+  message_count: number;
+}
+
+/** One line of an order's chat (F11). */
+export interface OrderMessage {
+  id: string;
+  user_id: string;
+  user_name: string;
+  body: string;
+  created_at: string;
 }
 
 export interface DeletionImpact {

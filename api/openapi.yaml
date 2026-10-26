@@ -1442,6 +1442,45 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /restaurants/{id}/categories/{cid}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - name: cid
+        in: path
+        required: true
+        description: The category's id.
+        schema: { type: string, format: uuid }
+    post:
+      tags: [menu]
+      operationId: duplicateCategory
+      summary: Copy a category and every dish in it.
+      description: |
+        The copy keeps the category's sort order and availability rules, and
+        holds a copy of every living dish in it, each made as the dish
+        duplicate route makes one. Its name is the original's with the label
+        in brackets, numbered when that name is taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateRequest"
+      responses:
+        "201":
+          description: The new category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /restaurants/{id}/menu-items:
     parameters:
       - $ref: "#/components/parameters/RestaurantId"
@@ -1577,6 +1616,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /restaurants/{id}/menu-items/{mid}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/RestaurantId"
+      - $ref: "#/components/parameters/MenuItemId"
+    post:
+      tags: [menu]
+      operationId: duplicateMenuItem
+      summary: Copy a menu item with everything it carries.
+      description: |
+        Price, description, image, tags, allergens, additives, options and
+        availability rules are all copied; the copy stays in the original's
+        category. Its name is the original's with the label in brackets,
+        "Döner (copy)", numbered when that name is taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateRequest"
+      responses:
+        "201":
+          description: The copy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuItem"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /restaurants/{id}/menu-items/{mid}/modifications:
     parameters:
@@ -2128,6 +2202,11 @@ paths:
         payloads, while an anonymous one receives `order.item_count` instead
         and never any item detail (F7.4).
 
+        An authenticated subscriber also receives `order.message`, carrying
+        only `{"message_count": n}` when the chat grows: the stream does not
+        know who is a participant, so the lines are fetched from the route
+        that checks.
+
         Both receive `order.updated`, `order.deleted` and `order.expired` —
         with `order.updated` carrying the same header shape a fetch would give
         that caller, so a live event cannot deliver what a fetch withholds.
@@ -2143,6 +2222,70 @@ paths:
           content:
             text/event-stream:
               schema: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{id}/messages:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [orders]
+      operationId: listOrderMessages
+      summary: The order's chat, oldest first.
+      description: |
+        For the order's participants -- its creator, anybody with an item in
+        it, whoever fetches the food or collects the money -- and the
+        administrator. 403 error 3004 for everybody else. Readable before and
+        after the deadline alike.
+      responses:
+        "200":
+          description: Every message.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrderMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [orders]
+      operationId: postOrderMessage
+      summary: Add a line to the order's chat.
+      description: |
+        For the same people who may read it, and not closed by the deadline:
+        the chat is where somebody says the food has arrived. Surrounding
+        space is trimmed; what is left must be 1 to 1000 characters.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, maxLength: 1000 }
+      responses:
+        "201":
+          description: The message, as it will be listed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderMessage"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -2782,6 +2925,17 @@ components:
         allergen_ids: { type: array, items: { type: string, format: uuid } }
         additive_ids: { type: array, items: { type: string, format: uuid } }
 
+    DuplicateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 32
+          description: |
+            The word for "copy" in the caller's language, which the copy's name
+            is given in brackets. The server has no language of its own to
+            name things in. Empty or absent means "copy".
+
     PatchMenuItemRequest:
       allOf:
         - $ref: "#/components/schemas/MenuItemRequest"
@@ -2873,6 +3027,16 @@ components:
             pickup_person_name:
               type: string
               description: Empty when nobody is fetching the food.
+            money_collector_drawn:
+              type: boolean
+              description: >-
+                The person collecting the money was picked by lot at the
+                deadline because nobody had volunteered.
+            pickup_person_drawn:
+              type: boolean
+              description: >-
+                The person fetching the food was picked by lot at the deadline
+                because nobody had volunteered.
 
     OrderDetail:
       allOf:
@@ -2901,6 +3065,24 @@ components:
               format: int64
               description: The item total plus the delivery fee.
             below_minimum: { type: boolean }
+            message_count:
+              type: integer
+              description: >-
+                How many lines the order's chat has. The lines themselves are
+                for participants, from GET /orders/{id}/messages.
+
+    OrderMessage:
+      type: object
+      required: [id, user_id, user_name, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        user_id:
+          type: string
+          format: uuid
+          description: The author, or the deleted-user placeholder once their account is gone.
+        user_name: { type: string }
+        body: { type: string, maxLength: 1000 }
+        created_at: { type: string, format: date-time }
 
     OrderItem:
       type: object

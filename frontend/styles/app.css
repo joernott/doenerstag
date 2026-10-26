@@ -1910,3 +1910,50 @@ button.menu-entry {
   width: 0.9rem;
   height: 0.9rem;
 }
+
+/* --- the order chat ------------------------------------------------------ */
+
+/* The messages above, the field to write in below. The log scrolls on its
+   own, so the field stays where it is however long the chat grows. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-log {
+  min-block-size: 12rem;
+  max-block-size: 28rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  /* What somebody typed, with its line breaks and long words, never wider
+     than the column. */
+  overflow-wrap: anywhere;
+}
+
+.chat-line {
+  margin: 0 0 0.4rem;
+}
+
+.chat-line:last-child {
+  margin-block-end: 0;
+}
+
+.chat-compose {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-compose .input {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+/* A tab that cannot be chosen says so by looking it, and by its title. */
+.tab[aria-disabled="true"] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}

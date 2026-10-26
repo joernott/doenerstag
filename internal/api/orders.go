@@ -63,6 +63,9 @@ func (h *OrderHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodGet, "/orders/:id/summary", h.summary)
 	r.HandleFunc(http.MethodGet, "/orders/:id/events", h.events)
 
+	r.HandleFunc(http.MethodGet, "/orders/:id/messages", h.listMessages)
+	r.HandleFunc(http.MethodPost, "/orders/:id/messages", h.postMessage)
+
 	r.HandleFunc(http.MethodPost, "/orders/:id/items", h.addItem)
 	r.HandleFunc(http.MethodPatch, "/orders/:id/items/:iid", h.patchItem)
 	r.HandleFunc(http.MethodDelete, "/orders/:id/items/:iid", h.deleteItem)
@@ -133,6 +136,11 @@ type orderDetailBody struct {
 	// disagree about what is still owed.
 	UnpaidTotalCents int64 `json:"unpaid_total_cents"`
 	PaidTotalCents   int64 `json:"paid_total_cents"`
+
+	// MessageCount is how many lines the order's chat has (21.7), for the Chat
+	// tab's title. The lines themselves are for participants, from their own
+	// route; a number says nothing anybody signed in may not know.
+	MessageCount int `json:"message_count"`
 }
 
 type orderItemBody struct {
@@ -233,6 +241,11 @@ type orderListEntry struct {
 	MoneyCollectorName string  `json:"money_collector_name"`
 	PickupPersonID     *string `json:"pickup_person_id"`
 	PickupPersonName   string  `json:"pickup_person_name"`
+
+	// True when the draw at the deadline put this person in the job rather
+	// than their volunteering (21.3), which the order page says beside them.
+	MoneyCollectorDrawn bool `json:"money_collector_drawn"`
+	PickupPersonDrawn   bool `json:"pickup_person_drawn"`
 }
 
 // listEntry is the authenticated shape of one order, built in one place so the
@@ -246,6 +259,9 @@ func (h *OrderHandlers) listEntry(o model.Order) orderListEntry {
 		MoneyCollectorName: o.MoneyCollectorName,
 		PickupPersonID:     idString(o.PickupPersonID),
 		PickupPersonName:   o.PickupPersonName,
+
+		MoneyCollectorDrawn: o.MoneyCollectorDrawn && o.MoneyCollectorID != nil,
+		PickupPersonDrawn:   o.PickupPersonDrawn && o.PickupPersonID != nil,
 	}
 }
 
@@ -332,6 +348,12 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 	// the rows just read keeps the two halves of the response consistent even
 	// if an item is added between the two queries.
 	body.ItemCount = len(items)
+
+	body.MessageCount, err = db.CountMessages(r.Context(), h.Pool, order.ID)
+	if err != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
 
 	_ = WriteJSON(w, status, body)
 }

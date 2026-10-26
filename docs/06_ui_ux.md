@@ -111,6 +111,10 @@ administrator.
   While the order is open, an empty job offers every signed-in visitor a
   **Me!** button that takes it, whether or not they opened the order. It only
   fills a vacancy; changing who has a job is the creator's, in the editor.
+  A job still empty at the deadline is filled by lot (F5.10a), and the name is
+  followed by "(picked by lot)" so nobody mistakes it for volunteering. The
+  order is closed by then, so the job stays where the lot put it; swapping is
+  a conversation, which the Chat tab is for.
 - Minimum order value and delivery fee, if set.
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
@@ -150,7 +154,37 @@ it received. Live updates follow the same split: an anonymous page subscribes to
 the same stream but receives only `order.item_count` and the header events, so
 the count stays current without item detail ever reaching the browser.
 
-### Right column — the menu
+### Right column — the menu and the chat
+
+Two tabs (21.7), built by the same tabs component as the restaurant page:
+**Menu**, first and selected, and **Chat (n)**, where n is the number of
+messages. The Menu tab is the menu exactly as described below.
+
+The Chat tab is there for everybody and can be selected by the order's
+participants (F11.2). For anybody else it is shown, greyed, with the reason in
+its title, like the summary link: a signed-in visitor not taking part sees the
+count and is told the chat is for the people in the order; an anonymous
+visitor sees "Chat" without a count and is told to log in and take part. The
+arrow keys step over a tab that cannot be chosen. Becoming a participant while
+the page is open — the first item, taking a job — opens the tab; removing the
+last item closes it again and returns to the menu.
+
+Inside it:
+
+- At the top, the messages, oldest first, in a scrolling box that is an ARIA
+  `log`, so a screen reader reads a new line out as it arrives. Each line is
+  the author's display name in bold, the time in brackets, a colon and the
+  message: **Alex** (12:04): Bin unterwegs. The time is the viewer's local time,
+  with the date as well when the message was not written today. A message is
+  always text, never markup.
+- At the bottom, a field and a **Send** button. Enter sends, as the button
+  does; the field is cleared and keeps focus, so a conversation is typed
+  without the mouse. An empty message sends nothing.
+- New messages arrive without a reload (F11.5). The box follows them while it
+  is scrolled to the bottom and stays put while somebody is reading back; a
+  message of one's own always scrolls into view. The count in the tab's title
+  follows too, for participants and the signed-in bystanders who can see it.
+- The chat does not close at the deadline (F11.3).
 
 - Menu items grouped by category, categories in `sort_order`. When the
   restaurant has no categories, one flat list.
@@ -188,7 +222,9 @@ the count stays current without item detail ever reaching the browser.
 
 The page subscribes to `GET /api/v1/orders/{id}/events`. Items added, changed or
 removed by other people appear without a reload. When the `order.expired` event
-arrives, the page switches itself to the read-only state. When `order.deleted`
+arrives, the page switches itself to the read-only state. When `order.message`
+arrives, the Chat tab's count changes and a participant's page fetches the
+chat; the order itself is not fetched again for it. When `order.deleted`
 arrives, the visitor is shown a message and returned to the overview.
 
 ## Summary page
@@ -305,6 +341,18 @@ references the restaurant.
    word is no longer an accessible name on its own: the category's button names
    the category in its `aria-label`. A dozen controls all called "Edit" is
    ambiguous under a screen reader and unusable by voice.
+
+   **Duplicate** sits beside Edit on every item and on every category heading
+   (F4.8), named for what it copies in its `aria-label` for the same reason.
+   It asks nothing: the copy appears directly below the original, its name
+   saying it is a copy, and is edited from there like anything else. The
+   bracketed word is sent from the reader's catalog (`menu.copy_label`),
+   because the server has no language of its own to name things in.
+
+   In the item editor every option has a **Remove** button. Removing menu data
+   is the administrator's (F4.5), so for everybody else it is shown disabled
+   with the reason in its title rather than left out: an editor with no way
+   to remove anything reads as broken, not as a rule.
 
    Reordering is by button rather than by dragging. The accessibility rule below
    requires a keyboard equivalent for any drag, and once the buttons exist for a

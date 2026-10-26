@@ -48,12 +48,14 @@ func (h *MenuHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodPost, "/restaurants/:id/categories", h.createCategory)
 	r.HandleFunc(http.MethodPatch, "/restaurants/:id/categories/:cid", h.patchCategory)
 	r.HandleFunc(http.MethodDelete, "/restaurants/:id/categories/:cid", h.deleteCategory)
+	r.HandleFunc(http.MethodPost, "/restaurants/:id/categories/:cid/duplicate", h.duplicateCategory)
 
 	r.HandleFunc(http.MethodGet, "/restaurants/:id/menu-items", h.listItems)
 	r.HandleFunc(http.MethodPost, "/restaurants/:id/menu-items", h.createItem)
 	r.HandleFunc(http.MethodGet, "/restaurants/:id/menu-items/:mid", h.getItem)
 	r.HandleFunc(http.MethodPatch, "/restaurants/:id/menu-items/:mid", h.patchItem)
 	r.HandleFunc(http.MethodDelete, "/restaurants/:id/menu-items/:mid", h.deleteItem)
+	r.HandleFunc(http.MethodPost, "/restaurants/:id/menu-items/:mid/duplicate", h.duplicateItem)
 
 	r.HandleFunc(http.MethodGet, "/restaurants/:id/menu-items/:mid/modifications", h.listModifications)
 	r.HandleFunc(http.MethodPost, "/restaurants/:id/menu-items/:mid/modifications", h.createModification)

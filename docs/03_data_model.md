@@ -50,6 +50,7 @@ app_user ──< session
          ──< food_order (money collector, 0..1)
          ──< food_order (pickup person, 0..1)
          ──< order_item (owner)
+         ──< order_message (author)
 
 restaurant ──< restaurant_contact >── contact_type
            ──< opening_hours
@@ -68,6 +69,7 @@ restaurant ──< restaurant_contact >── contact_type
 food_order ── restaurant
            ──< order_item ── menu_item
                           ──< order_item_modification ── menu_item_modification (0..1)
+           ──< order_message
 
 content_page
 app_version
@@ -498,6 +500,9 @@ Primary key is the column pair. These tables carry audit columns as well.
 | `deadline_at`           | `timestamptz` | no   | Last moment items may be added or changed.                |
 | `money_collector_id`    | `uuid`        | yes  | The account collecting the money. Free text until migration 9. `ON DELETE SET NULL`. |
 | `pickup_person_id`      | `uuid`        | yes  | The account fetching the order. `ON DELETE SET NULL`.     |
+| `jobs_drawn`            | `boolean`     | no   | The draw for empty jobs at the deadline has been made (21.3). Default `false`. |
+| `money_collector_drawn` | `boolean`     | no   | `money_collector_id` was filled by the draw, not by a volunteer. Default `false`. |
+| `pickup_person_drawn`   | `boolean`     | no   | `pickup_person_id` was filled by the draw, not by a volunteer. Default `false`. |
 | `currency_code`         | `char(3)`     | no   | Copied from the restaurant at creation.                   |
 | `min_order_value_cents` | `bigint`      | yes  | Copied from the restaurant at creation.                   |
 | `delivery_fee_cents`    | `bigint`      | yes  | Copied from the restaurant at creation.                   |
@@ -514,8 +519,14 @@ Constraints:
   `UPDATE` carries the condition itself, so an item added between a check and
   the write cannot slip through.
 
+- The draw (F5.10a) sets `jobs_drawn` once, in the same `UPDATE` that fills
+  the jobs, so it is made exactly once per order however many processes or
+  passes look. Migration 16 marks every order already closed as drawn, so an
+  upgrade does not send anybody for food fetched long ago.
+
 Indexes: `(deadline_at)` for the overview and the `cleanup` verb,
-`(restaurant_id)`, `(creator_id)`.
+`(deadline_at) WHERE NOT jobs_drawn` for the draw, `(restaurant_id)`,
+`(creator_id)`.
 
 ### `order_item`
 
@@ -555,6 +566,23 @@ Line total for an order item:
 ```
 quantity * (unit_price_cents + SUM(order_item_modification.price_delta_cents))
 ```
+
+### `order_message`
+
+The order's chat (F11, ADR-0012).
+
+| Column      | Type          | Null | Notes                                                    |
+| ----------- | ------------- | ---- | -------------------------------------------------------- |
+| `id`        | `uuid`        | no   | PK, UUIDv7.                                               |
+| `order_id`  | `uuid`        | no   | FK `food_order`, `ON DELETE CASCADE`.                     |
+| `user_id`   | `uuid`        | no   | FK `app_user`, `ON DELETE SET DEFAULT` → deleted user.    |
+| `body`      | `text`        | no   | `CHECK (char_length(body) BETWEEN 1 AND 1000)`.           |
+
+- Read whole, oldest first, by `created_at` and then `id`.
+- Not edited or deleted one by one; `updated_*` only moves when an account
+  deletion hands a message to the placeholder.
+
+Index: `(order_id, created_at, id)`, `(user_id)`.
 
 ---
 
@@ -666,10 +694,10 @@ application's own history; `golang-migrate` maintains its separate
 
 | Action                          | Effect                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Sessions and tokens → cascade. |
+| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Chat messages → placeholder. Sessions and tokens → cascade. |
 | Delete restaurant (admin)       | Rejected while any `food_order` references it. Otherwise soft delete.                        |
 | Delete menu category (admin)    | Soft delete. Its items lose their `category_id` at once and appear under no category.       |
 | Delete menu item (admin)        | Soft delete. Hidden from menus immediately.                                                  |
 | Delete modification (admin)     | Soft delete. Snapshots in existing order items are unaffected.                               |
-| Delete order (creator or admin) | Hard delete, cascading to items and item modifications.                                      |
+| Delete order (creator or admin) | Hard delete, cascading to items, item modifications and chat messages.                       |
 | `cleanup`                       | Deletes orders past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images older than a day, then expired sessions and API tokens. |

@@ -88,6 +88,28 @@ export function formatDateTime(locale: string, value: Date | string): string {
 }
 
 /**
+ * The time on a chat line: the time alone when it was today, the date as well
+ * when it was not. A lunch order's chat is nearly always read the day it was
+ * written, and a date on every line would be most of the line.
+ */
+export function formatChatTime(locale: string, value: Date | string, now = new Date()): string {
+  const date = toDate(value);
+  const today =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (!today) {
+    return formatDateTime(locale, value);
+  }
+  return (
+    unformattable(value, date) ??
+    cached(`t:${locale}`, () => new Intl.DateTimeFormat(locale, { timeStyle: "short" })).format(
+      date,
+    )
+  );
+}
+
+/**
  * An order's display title: the restaurant and the fulfilment time (F5.6).
  *
  * Built here rather than taken from the API's `title`, which the server formats

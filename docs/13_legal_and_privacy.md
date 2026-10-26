@@ -33,7 +33,9 @@ connections at all at runtime.
 | Last login timestamp                    | `app_user.last_login_at`            | Operational.                                    |
 | IP address and user agent               | `session`, and the request log       | Session handling and troubleshooting.           |
 | Food choices and modifications          | `order_item`                        | The purpose of the application.                 |
-| Free-text notes                         | `order_item.note`, `food_order.money_collector`, `food_order.pickup_person` | Coordination. May name people. |
+| Free-text notes                         | `order_item.note` | Coordination. May name people. |
+| Who fetches and who collects, and whether by lot | `food_order.pickup_person_id`, `money_collector_id`, `*_drawn` | Coordination. |
+| Chat messages                           | `order_message`                     | Coordination. Free text, so may say anything; deleted with the order. |
 | Who created and last changed each row   | `created_by` / `updated_by`         | Accountability.                                 |
 | Every data-changing action with the user | The INFO-level log                 | Audit trail.                                    |
 
@@ -54,7 +56,7 @@ of the inference and should not, for example, feed the data into anything else.
 | ----------------------------- | ---------------------------------------------------------- |
 | Anyone reaching the server    | That an order exists, for which restaurant and when, and how many items are in it. Nothing about who ordered what. |
 | Any logged-in user            | The full item list of any order, including who ordered what. |
-| Participants of an order      | Additionally, that order's summary page with per-person totals. |
+| Participants of an order      | Additionally, that order's summary page with per-person totals, and its chat. |
 
 The first tier is the one that matters for the inference described above. An
 unauthenticated passer-by on the network cannot see any individual's food

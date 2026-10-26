@@ -41,6 +41,11 @@ type Order struct {
 	PickupPersonID     *uuid.UUID
 	PickupPersonName   string
 
+	// Whether the draw at the deadline filled each job, rather than a
+	// volunteer (21.3). False until then, and for a job somebody took.
+	MoneyCollectorDrawn bool
+	PickupPersonDrawn   bool
+
 	CurrencyCode       string
 	MinOrderValueCents *int64
 	DeliveryFeeCents   *int64
@@ -137,4 +142,17 @@ type OrderItemModification struct {
 	ModificationID  *uuid.UUID
 	Name            string
 	PriceDeltaCents int64
+}
+
+// OrderMessage is one line of an order's chat (21.5).
+type OrderMessage struct {
+	ID      uuid.UUID
+	OrderID uuid.UUID
+	UserID  uuid.UUID
+
+	// UserName is the author's display label, joined in like CreatorName.
+	UserName string
+
+	Body      string
+	CreatedAt time.Time
 }

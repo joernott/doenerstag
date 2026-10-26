@@ -109,6 +109,20 @@ export function menuSection(
     replace(body, ...groups);
   }
 
+  // A copy is named in the language of whoever made it -- "Döner (Kopie)" --
+  // because the server has no language to name it in. The copy is then on the
+  // page directly below the original, ready to be edited into what it should
+  // be (21.1, 21.2).
+  async function duplicate(path: string): Promise<void> {
+    await runAction({ status, t }, async () => {
+      await api.post(`/restaurants/${restaurant.id}/${path}/duplicate`, {
+        label: t.t("menu.copy_label"),
+      });
+      await reload();
+      status.say(t.t("menu.duplicated"));
+    });
+  }
+
   // --- categories ------------------------------------------------------------
 
   function categoryBlock(category: Category, index: number, own: MenuItem[]): HTMLElement {
@@ -197,6 +211,13 @@ export function menuSection(
             onSaved: reload,
           });
         },
+      }),
+      button({
+        label: t.t("action.duplicate"),
+        variant: "quiet",
+        title: `${t.t("action.duplicate")}: ${category.name}`,
+        ariaLabel: `${t.t("action.duplicate")}: ${category.name}`,
+        onclick: () => duplicate(`categories/${category.id}`),
       }),
       button({
         label: t.t("menu.category.move_up"),
@@ -303,6 +324,12 @@ export function menuSection(
           onclick: () => {
             edit(item, item.category_id);
           },
+        }),
+        button({
+          label: t.t("action.duplicate"),
+          variant: "quiet",
+          ariaLabel: `${t.t("action.duplicate")}: ${item.name}`,
+          onclick: () => duplicate(`menu-items/${item.id}`),
         }),
       ),
     );

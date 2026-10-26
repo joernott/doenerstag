@@ -747,6 +747,42 @@ one job each.
 
 ---
 
+## Sprint 21 — Duplicates, a volunteer by lot, and a chat
+
+**Goal:** make a menu quicker to build, make sure every order ends with
+somebody fetching it, and give the people in an order a place to talk about it
+that is not a different application. The chat is the first new kind of data
+since availability (17.11), so this sprint touches the schema, the API, the
+live stream and the order page together.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| ✅ 21.1 | A Duplicate button beside each dish on the restaurant page's Menu tab, for the people who may edit the menu. The copy carries everything the dish has -- price, description, image reference, tags, allergens, additives, modifications and availability rules -- lands directly below the original, and has " (copy)" appended to its name in the language of the person duplicating it. One `POST` route doing the copy in one transaction | M | [04](04_api.md) |
+| ✅ 21.2 | A Duplicate button on each category heading, for the same people. The copy is a new category directly below the original, with the category's availability rules and a copy of every dish in it as 21.1 makes them. Deleted dishes are not copied | M | [04](04_api.md) |
+| ✅ 21.2.1 | The dish editor offered no way to remove an option, which is the first thing somebody does to a copied category. Removing one is the administrator's (F4.5) and stays so; for everybody else the Remove button was simply absent. It is shown now, disabled, with the reason in its title, as the restaurant's Delete already is. Reported by the user, after duplicating a section of the menu | S | [06](06_ui_ux.md) |
+| ✅ 21.3 | When an order's deadline passes and nobody is fetching the food or collecting the money, the server picks one person at random from those with an item in the order and puts them in every job that is still empty. A job somebody claimed is left alone. Nobody is picked for an order without items. The pick is made once, by the server rather than by whichever browser happens to be open, survives a restart that spans the deadline, and reaches open order pages through the live stream like any other change | L | [02](02_features.md) |
+| ✅ 21.4 | The order page says who was picked by lot rather than by volunteering, "(picked by lot)" beside the name. The plan first said the person picked could hand the job back with 19.5's remove button; that button is for open orders only, and the draw happens when the order closes, so the job stays where the lot put it -- a swap is agreed in the chat | S | [06](06_ui_ux.md) |
+| ✅ 21.5 | The chat's data model: a table of messages tied to an order, each with its author, its time and its text, a length limit, removed with the order. Deleting an account hands that person's messages to the deleted-user placeholder, as F2.6 does with items. docs/02, docs/03 and an ADR record why it lives in the database rather than in memory | M | [03](03_data_model.md) |
+| ✅ 21.6 | The chat's API: list an order's messages and post one, for the order's participants -- everybody with an item in it, its creator, and whoever fetches the food or collects the money, as 19.2 made them -- and nobody else; a new event on the order's live stream for each new message. The event carries the new count rather than the message, because a stream knows whether its reader is signed in and not whether they are in the order; a participant's page fetches the lines (ADR-0012). The anonymous order shape says nothing about the chat, not even how many messages there are | M | [04](04_api.md) |
+| ✅ 21.7 | The order page's menu column becomes two tabs, built like the restaurant page's. "Menu" holds the menu exactly as it is now; "Chat (n)" shows the number of messages and can be selected only by the order's participants. Keyboard and screen-reader behaviour as docs/06 requires of tabs | M | [06](06_ui_ux.md) |
+| ✅ 21.8 | The Chat tab: the messages at the top, each as **display name** (time): message, in the viewer's time zone; an input at the bottom sending on Enter or with a Send button. New messages appear without a reload, the count in the tab title follows them, and the list scrolls to the newest unless the reader has scrolled up. All three languages | L | [06](06_ui_ux.md) |
+| ✅ 21.9 | Version references moved to 0.6.0, the README's status rewritten around what is new since 0.5.0, sprint 21 squashed into `main` and released as 0.6.0 -- built with Go 1.26.10 for GO-2026-6809, which was published while the sprint branch was in CI | S | [10](10_operations.md) |
+
+**Decided before the sprint** (2026-10-26): when both jobs are empty at the
+deadline, one person is picked for both. The chat belongs to the same people as
+the summary: anybody with an item, the creator and both jobholders. It stays
+open after the deadline, until the order is deleted -- it is where somebody
+says the food has arrived.
+
+**Exit criteria:** a dish or a whole category can be copied with one press and
+edited from there. An order whose deadline passes with nobody fetching it has
+somebody fetching it, and everybody on the page can see it was decided by lot.
+The people in an order can talk about it on the order page, live, in all three
+languages, and nobody outside the order can read what they said. Sprint 21 is
+on `main` and released as 0.6.0.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are

@@ -1210,3 +1210,60 @@ recorded on the branch of the sprint it belongs to.
 
 > As we are still in the development phase, we will release 0.5.0 after sprint
 > completion. This makes a separate 0.4.1 obsolete
+
+---
+
+### Prompt 81
+
+> Please create a new sprint for doenerstag, following the alredy established
+> rules.
+> I want to add the following features:
+> - On the restaurant page: A feature to duplicate menu entries and categories
+> - On the order page: When the order time is over and nobody volunteered to
+>   collect the money and fetch the order, a random person will be picked among
+>   the people who participated.
+> - On the order page: Where the restaurant menu is, create a tabbed view with
+>   two tabs. The first tab contains the menu, the same way it does now. The
+>   secont tab "Chat" contains a chat that is related to the order. The chat is
+>   a new feature, tied to an order. The chat tab can be selected by users who
+>   have placed an order. The top of the chat field contains a text box
+>   containing the chat messages. Each message starts with the users display
+>   name in bold, the time in brackets, a colon and their message.  At the
+>   bottom of the tab is an input field, where users can type a message that
+>   will be sent when they press enter or press the send button. The tab title
+>   should show the word "Chat" followed by the number of messages in brackets.
+
+---
+
+### Prompt 82
+
+> 1: Yes, one person for both jobs is right
+> 2: These people should also count as participants and should be able to use
+>    the caht
+> 3: Yes, the chat should stay open untilit is deleted. The chat can be used to
+>    notify people when the food has arrived and to discuss related topics.
+>
+> Please go ahead
+
+---
+
+### Prompt 83
+
+> Those decisions are fine.
+> I just copied a section of the menu and tried to remove one of the options
+> there. There is no button to delete an option. Please add that option, too
+
+Asked who may remove an option; the answer was to keep it
+administrator-only and show everybody else why.
+
+---
+
+### Prompt 84
+
+> I now have the situation that I want to have 2 variations of a dish. One
+> category is available on all days except thursday where the menu item has
+> the option "Scheibenfleisch", the other one is
+
+### Prompt 85
+
+> sry, forget it and please continue with the release

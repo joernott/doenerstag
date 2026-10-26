@@ -262,6 +262,71 @@ describe("the restaurant page", () => {
     expect(labels).not.toContain(app.t.t("additive.colouring"));
   });
 
+  it("duplicates a dish and a category, naming the copy in the reader's language", async () => {
+    const server = stubServer({
+      ...restaurantStubs(),
+      "POST /restaurants/r1/menu-items/m1/duplicate": { ...menuItem, id: "m2" },
+      "POST /restaurants/r1/categories/cat1/duplicate": { id: "cat2", name: "Kebap (copy)" },
+    });
+
+    const app = mountApp(() => []);
+    const rendered = await restaurantPage(app, "r1");
+    await settle();
+
+    const named = (label: string): HTMLButtonElement | undefined =>
+      [...rendered.querySelectorAll<HTMLButtonElement>("button")].find(
+        (control) => control.getAttribute("aria-label") === label,
+      );
+
+    named(`${app.t.t("action.duplicate")}: Döner Kebap`)?.click();
+    await settle();
+    named(`${app.t.t("action.duplicate")}: Kebap`)?.click();
+    await settle();
+
+    const posts = server.calls.filter((call) => call.method === "POST");
+    expect(posts).toEqual([
+      {
+        method: "POST",
+        path: "/restaurants/r1/menu-items/m1/duplicate",
+        body: { label: app.t.t("menu.copy_label") },
+      },
+      {
+        method: "POST",
+        path: "/restaurants/r1/categories/cat1/duplicate",
+        body: { label: app.t.t("menu.copy_label") },
+      },
+    ]);
+    // Each copy reloads the menu, so the copy is on the page.
+    const menuReads = server.calls.filter(
+      (call) => call.method === "GET" && call.path === "/restaurants/r1/menu-items",
+    );
+    expect(menuReads.length).toBe(3);
+  });
+
+  it("shows a non-administrator why an option cannot be removed", async () => {
+    stubServer({
+      ...restaurantStubs(),
+      "GET /restaurants/r1/menu-items/m1": {
+        ...menuItem,
+        modifications: [{ id: "mod1", name: "Extra scharf", price_delta_cents: 0, sort_order: 10 }],
+      },
+    });
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await restaurantPage(app, "r1");
+    await settle();
+
+    rendered.querySelector<HTMLButtonElement>(".menu-item button")?.click();
+    await settle();
+
+    const remove = document.querySelector<HTMLButtonElement>(
+      `.modal button[aria-label='${app.t.t("action.remove")}: Extra scharf']`,
+    );
+    expect(remove?.disabled).toBe(true);
+    expect(remove?.title).toBe(app.t.t("menu.modification.remove.admin_only"));
+  });
+
   it("offers only what a non-administrator may do", async () => {
     stubServer(restaurantStubs());
 
