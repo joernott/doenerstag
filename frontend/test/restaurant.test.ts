@@ -303,6 +303,30 @@ describe("the restaurant page", () => {
     expect(menuReads.length).toBe(3);
   });
 
+  it("shows a non-administrator why an option cannot be removed", async () => {
+    stubServer({
+      ...restaurantStubs(),
+      "GET /restaurants/r1/menu-items/m1": {
+        ...menuItem,
+        modifications: [{ id: "mod1", name: "Extra scharf", price_delta_cents: 0, sort_order: 10 }],
+      },
+    });
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u1", name: "jo", display_name: "Jo", is_admin: false });
+    const rendered = await restaurantPage(app, "r1");
+    await settle();
+
+    rendered.querySelector<HTMLButtonElement>(".menu-item button")?.click();
+    await settle();
+
+    const remove = document.querySelector<HTMLButtonElement>(
+      `.modal button[aria-label='${app.t.t("action.remove")}: Extra scharf']`,
+    );
+    expect(remove?.disabled).toBe(true);
+    expect(remove?.title).toBe(app.t.t("menu.modification.remove.admin_only"));
+  });
+
   it("offers only what a non-administrator may do", async () => {
     stubServer(restaurantStubs());
 

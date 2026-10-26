@@ -349,6 +349,11 @@ references the restaurant.
    bracketed word is sent from the reader's catalog (`menu.copy_label`),
    because the server has no language of its own to name things in.
 
+   In the item editor every option has a **Remove** button. Removing menu data
+   is the administrator's (F4.5), so for everybody else it is shown disabled
+   with the reason in its title rather than left out: an editor with no way
+   to remove anything reads as broken, not as a rule.
+
    Reordering is by button rather than by dragging. The accessibility rule below
    requires a keyboard equivalent for any drag, and once the buttons exist for a
    list that is rarely more than five entries long, the drag implementation is

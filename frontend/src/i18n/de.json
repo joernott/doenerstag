@@ -354,6 +354,7 @@
   "menu.item.category": "Kategorie",
   "menu.item.image": "Bild",
   "menu.modification.title": "Optionen",
+  "menu.modification.remove.admin_only": "Nur die Administratorin oder der Administrator kann eine Option entfernen.",
   "menu.modification.add": "Option hinzufügen",
   "menu.modification.name": "Option",
   "menu.modification.price": "Preisänderung",

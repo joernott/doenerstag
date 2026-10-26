@@ -1244,3 +1244,14 @@ recorded on the branch of the sprint it belongs to.
 >    notify people when the food has arrived and to discuss related topics.
 >
 > Please go ahead
+
+---
+
+### Prompt 83
+
+> Those decisions are fine.
+> I just copied a section of the menu and tried to remove one of the options
+> there. There is no button to delete an option. Please add that option, too
+
+Asked who may remove an option; the answer was to keep it
+administrator-only and show everybody else why.

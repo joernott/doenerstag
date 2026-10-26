@@ -269,13 +269,17 @@ function modificationsBlock(options: MenuItemEditorOptions, item: MenuItem): HTM
           label: t.t("action.save"),
           onclick: () => save(),
         }),
-        app.session.isAdmin
-          ? button({
-              label: t.t("action.remove"),
-              variant: "danger",
-              onclick: () => remove(),
-            })
-          : null,
+        // Removing menu data is the administrator's (F4.5). Everybody else
+        // sees the button and why it is not theirs, rather than an editor
+        // that seems to have forgotten how to delete (21.2.1).
+        button({
+          label: t.t("action.remove"),
+          variant: "danger",
+          disabled: !app.session.isAdmin,
+          ...(app.session.isAdmin ? {} : { title: t.t("menu.modification.remove.admin_only") }),
+          ariaLabel: `${t.t("action.remove")}: ${modification.name}`,
+          onclick: () => remove(),
+        }),
       ),
     );
   }

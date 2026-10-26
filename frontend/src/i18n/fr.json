@@ -362,6 +362,7 @@
   "menu.item.category": "Catégorie",
   "menu.item.image": "Image",
   "menu.modification.title": "Options",
+  "menu.modification.remove.admin_only": "Seul l'administrateur peut supprimer une option.",
   "menu.modification.add": "Ajouter une option",
   "menu.modification.name": "Option",
   "menu.modification.price": "Supplément de prix",
