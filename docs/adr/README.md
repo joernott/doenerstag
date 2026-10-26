@@ -22,3 +22,4 @@ Format: Status, Context, Decision, Consequences. Keep them to a page.
 | [0009](0009-snapshot-prices-on-order-items.md) | Snapshot names and prices onto order items | Accepted |
 | [0010](0010-httprouter-for-routing.md) | httprouter for all routing | Accepted |
 | [0011](0011-tiered-order-visibility.md) | Tiered order visibility | Accepted |
+| [0012](0012-order-chat-in-the-database.md) | The order chat lives in the database, and the stream carries only its count | Accepted |

@@ -122,7 +122,7 @@ falls back to `message` when no translation exists.
 | 3001 | 403  | Only the order creator may change this order.                   |
 | 3002 | 403  | Only the owner may change this order item.                      |
 | 3003 | 403  | The deleted-user placeholder cannot be modified.                |
-| 3004 | 403  | Only participants of this order may see its summary.            |
+| 3004 | 403  | Only participants of this order may see its summary or its chat. |
 | 3005 | 403  | Only the owner of this resource may act on it.                   |
 | 3006 | 403  | Only the person doing this job, the order's creator or the administrator may do that. |
 | 4000 | 404  | Resource not found.                                             |
@@ -259,6 +259,8 @@ parameter names, OR within one parameter name:
 | `DELETE` | `/orders/{id}/money-collector`   | holder, creator | Take the person collecting the money off the order. 403 error 3006 for anybody else. |
 | `GET`    | `/orders/{id}/summary`           | participant | Aggregated summary, see below. 403 error 3004 for everyone else. |
 | `GET`    | `/orders/{id}/events`            | public  | SSE stream of changes to this order. Payloads depend on authentication. |
+| `GET`    | `/orders/{id}/messages`          | participant | The order's chat, oldest first. 403 error 3004 for everyone else. |
+| `POST`   | `/orders/{id}/messages`          | participant | Add a line to the chat, before or after the deadline. |
 | `POST`   | `/orders/{id}/items`             | user    | Add an order item. Snapshots name and price.          |
 | `PATCH`  | `/orders/{id}/items/{iid}`       | owner   | Change quantity, note or modifications.               |
 | `DELETE` | `/orders/{id}/items/{iid}`       | owner   | Remove the item.                                      |
@@ -281,6 +283,16 @@ only, never item detail.
 
 The distinction is enforced in the handler, not by the frontend hiding fields.
 An anonymous caller must never receive item data in any response.
+
+### The chat
+
+`GET` and `POST /orders/{id}/messages` belong to the same people as the
+summary: the participants and the administrator (F11). The authenticated order
+shape carries `message_count`, which is a number and says nothing anybody
+signed in may not know; the anonymous shape carries nothing about the chat at
+all. The live event carries only the new count, because a stream knows whether
+its subscriber is signed in and not whether they are in the order — a message
+on the stream would reach every signed-in reader of the page.
 
 ### Summary access
 
@@ -354,6 +366,7 @@ they are authenticated, mirroring the split in `GET /orders/{id}` (F7.4).
 | `order.updated`   | everyone       | The changed order header.                         |
 | `order.deleted`   | everyone       | `{"id": "…"}`. The client navigates away.         |
 | `order.expired`   | everyone       | `{"id": "…"}`. The client switches to read-only.  |
+| `order.message`   | authenticated  | `{"message_count": 4}`. The chat grew; a participant's page fetches the lines. |
 | `ping`            | everyone       | Empty. Sent every 30 s to keep proxies honest.    |
 
 The authentication state is captured when the stream is opened. A subscriber who

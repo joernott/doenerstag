@@ -29,8 +29,8 @@ An unauthenticated visitor **cannot** see:
   total (F1.2).
 - Who created an order. The header carries the restaurant and the times, not a
   person.
-- Any order's summary page. That is restricted further still, to participants
-  (F1.3).
+- Any order's summary page or its chat. Both are restricted further still, to
+  participants (F1.3, F11.2).
 
 The line is drawn so that the application is useful before you log in — you can
 see that a Döner Palast order closes at 11:30 and that nine items are already in
@@ -66,7 +66,7 @@ Participation is derived, never stored: it is a query against
 `food_order.creator_id`, `money_collector_id`, `pickup_person_id` and
 `order_item.user_id`. Adding an item makes you a participant immediately;
 removing your last item stops you being one. A user who is removed from an
-order therefore loses access to its summary, which is intended.
+order therefore loses access to its summary and its chat, which is intended.
 
 ## Registration
 
@@ -320,10 +320,12 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Edit or delete an order item                  | – | – | ✓ | ✓ |
 | Edit or delete an order item after deadline   | – | – | – | – |
 | Tick an order item as paid, deadline or not   | – | – | ✓ | ✓ |
+| Read and write an order's chat, deadline or not | – | participants only | ✓ | ✓ |
 | Create a restaurant                           | – | ✓ | ✓ | ✓ |
 | Edit a restaurant, contacts, opening hours    | – | ✓ | ✓ | ✓ |
 | Delete a restaurant                           | – | – | – | ✓ |
 | Create a menu category or menu item           | – | ✓ | ✓ | ✓ |
+| Duplicate a menu category or menu item        | – | ✓ | ✓ | ✓ |
 | Edit a menu item, mark it unavailable         | – | ✓ | ✓ | ✓ |
 | Delete a menu category, item or modification  | – | – | – | ✓ |
 | Create a free tag                             | – | ✓ | ✓ | ✓ |

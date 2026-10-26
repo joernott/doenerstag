@@ -199,3 +199,21 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   is no longer referenced.
 - **F10.6** All data-changing operations are logged at INFO level with the acting
   user and a correlation ID. This is the audit trail.
+
+## F11 — Order chat
+
+- **F11.1** Every order has a chat: a list of messages tied to the order, each
+  with its author, the time it was written and its text, up to 1000
+  characters.
+- **F11.2** The chat belongs to the order's participants — its creator, anybody
+  with an item in it, whoever fetches the food and whoever collects the money —
+  and the administrator. They read it and write to it; nobody else sees a word
+  of it. A signed-in visitor who is not taking part sees how many messages
+  there are and nothing more, and an anonymous one not even that.
+- **F11.3** The chat does not close at the deadline. It stays open until the
+  order is deleted, because that is when it is most use: "the food is here",
+  "who has change for a fifty".
+- **F11.4** The chat goes with its order. When an author deletes their account,
+  their messages stay and are shown as from "deleted user", so a conversation
+  does not lose lines from its middle.
+- **F11.5** New messages appear on every participant's page without a reload.

@@ -185,7 +185,7 @@
   "error.3001": "Das kann nur ändern, wer die Bestellung eröffnet hat.",
   "error.3002": "Sie können nur Ihre eigenen Positionen ändern.",
   "error.3003": "Das Platzhalterkonto kann nicht geändert werden.",
-  "error.3004": "Die Übersicht sehen nur Teilnehmer dieser Bestellung.",
+  "error.3004": "Die Übersicht und den Chat sehen nur Teilnehmer dieser Bestellung.",
   "error.3005": "Das kann nur der Eigentümer.",
   "error.3006": "Das kann nur, wer diese Aufgabe übernommen hat, wer die Bestellung angelegt hat oder der Administrator.",
   "error.4000": "Das gibt es nicht.",

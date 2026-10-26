@@ -50,6 +50,7 @@ app_user ──< session
          ──< food_order (money collector, 0..1)
          ──< food_order (pickup person, 0..1)
          ──< order_item (owner)
+         ──< order_message (author)
 
 restaurant ──< restaurant_contact >── contact_type
            ──< opening_hours
@@ -68,6 +69,7 @@ restaurant ──< restaurant_contact >── contact_type
 food_order ── restaurant
            ──< order_item ── menu_item
                           ──< order_item_modification ── menu_item_modification (0..1)
+           ──< order_message
 
 content_page
 app_version
@@ -565,6 +567,23 @@ Line total for an order item:
 quantity * (unit_price_cents + SUM(order_item_modification.price_delta_cents))
 ```
 
+### `order_message`
+
+The order's chat (F11, ADR-0012).
+
+| Column      | Type          | Null | Notes                                                    |
+| ----------- | ------------- | ---- | -------------------------------------------------------- |
+| `id`        | `uuid`        | no   | PK, UUIDv7.                                               |
+| `order_id`  | `uuid`        | no   | FK `food_order`, `ON DELETE CASCADE`.                     |
+| `user_id`   | `uuid`        | no   | FK `app_user`, `ON DELETE SET DEFAULT` → deleted user.    |
+| `body`      | `text`        | no   | `CHECK (char_length(body) BETWEEN 1 AND 1000)`.           |
+
+- Read whole, oldest first, by `created_at` and then `id`.
+- Not edited or deleted one by one; `updated_*` only moves when an account
+  deletion hands a message to the placeholder.
+
+Index: `(order_id, created_at, id)`, `(user_id)`.
+
 ---
 
 ## Supporting entities
@@ -675,10 +694,10 @@ application's own history; `golang-migrate` maintains its separate
 
 | Action                          | Effect                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Sessions and tokens → cascade. |
+| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Chat messages → placeholder. Sessions and tokens → cascade. |
 | Delete restaurant (admin)       | Rejected while any `food_order` references it. Otherwise soft delete.                        |
 | Delete menu category (admin)    | Soft delete. Its items lose their `category_id` at once and appear under no category.       |
 | Delete menu item (admin)        | Soft delete. Hidden from menus immediately.                                                  |
 | Delete modification (admin)     | Soft delete. Snapshots in existing order items are unaffected.                               |
-| Delete order (creator or admin) | Hard delete, cascading to items and item modifications.                                      |
+| Delete order (creator or admin) | Hard delete, cascading to items, item modifications and chat messages.                       |
 | `cleanup`                       | Deletes orders past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images older than a day, then expired sessions and API tokens. |

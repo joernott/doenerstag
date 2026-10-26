@@ -40,6 +40,7 @@ var expectedTables = []string{
 	"opening_hours",
 	"order_item",
 	"order_item_modification",
+	"order_message",
 	"restaurant",
 	"restaurant_contact",
 	"session",

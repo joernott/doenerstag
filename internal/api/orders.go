@@ -63,6 +63,9 @@ func (h *OrderHandlers) Register(r *Router) {
 	r.HandleFunc(http.MethodGet, "/orders/:id/summary", h.summary)
 	r.HandleFunc(http.MethodGet, "/orders/:id/events", h.events)
 
+	r.HandleFunc(http.MethodGet, "/orders/:id/messages", h.listMessages)
+	r.HandleFunc(http.MethodPost, "/orders/:id/messages", h.postMessage)
+
 	r.HandleFunc(http.MethodPost, "/orders/:id/items", h.addItem)
 	r.HandleFunc(http.MethodPatch, "/orders/:id/items/:iid", h.patchItem)
 	r.HandleFunc(http.MethodDelete, "/orders/:id/items/:iid", h.deleteItem)
@@ -133,6 +136,11 @@ type orderDetailBody struct {
 	// disagree about what is still owed.
 	UnpaidTotalCents int64 `json:"unpaid_total_cents"`
 	PaidTotalCents   int64 `json:"paid_total_cents"`
+
+	// MessageCount is how many lines the order's chat has (21.7), for the Chat
+	// tab's title. The lines themselves are for participants, from their own
+	// route; a number says nothing anybody signed in may not know.
+	MessageCount int `json:"message_count"`
 }
 
 type orderItemBody struct {
@@ -340,6 +348,12 @@ func (h *OrderHandlers) writeDetail(w http.ResponseWriter, r *http.Request, orde
 	// the rows just read keeps the two halves of the response consistent even
 	// if an item is added between the two queries.
 	body.ItemCount = len(items)
+
+	body.MessageCount, err = db.CountMessages(r.Context(), h.Pool, order.ID)
+	if err != nil {
+		WriteError(w, r, &Error{Code: CodeDatabaseUnavailable, Cause: err})
+		return
+	}
 
 	_ = WriteJSON(w, status, body)
 }

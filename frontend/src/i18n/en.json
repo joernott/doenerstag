@@ -185,7 +185,7 @@
   "error.3001": "Only the person who opened this order can change it.",
   "error.3002": "You can only change your own items.",
   "error.3003": "The placeholder account cannot be changed.",
-  "error.3004": "Only people taking part in this order can see its summary.",
+  "error.3004": "Only people taking part in this order can see its summary or its chat.",
   "error.3005": "Only the owner can do that.",
   "error.3006": "Only the person doing this job, the order's creator or the administrator can do that.",
   "error.4000": "That does not exist.",

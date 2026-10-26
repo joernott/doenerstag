@@ -127,6 +127,32 @@ func contentRows() []contentCase {
 			},
 		},
 		{
+			row:    "Read and write an order's chat, deadline or not",
+			method: http.MethodGet,
+			path:   func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/messages" },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotParticipant},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			// After the deadline, because that is when "the food is here" is
+			// said: the chat does not close with the order.
+			row:           "Read and write an order's chat, deadline or not",
+			method:        http.MethodPost,
+			afterDeadline: true,
+			path:          func(c *contentMatrix) string { return "/orders/" + c.order.ID + "/messages" },
+			body:          func(*contentMatrix) any { return map[string]any{"body": "Ist da!"} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotParticipant},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
 			// The one row that is anonymous-only. Registering starts a session,
 			// and until sprint 14 a logged-in caller who asked was quietly
 			// switched to the new account instead of being refused.
@@ -355,6 +381,34 @@ func contentRows() []contentCase {
 			body: func(*contentMatrix) any {
 				return map[string]any{"name": "Getränke", "sort_order": 9}
 			},
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Duplicate a menu category or menu item",
+			method: http.MethodPost,
+			path: func(c *contentMatrix) string {
+				return c.menuPath("/menu-items/" + c.doener.ID + "/duplicate")
+			},
+			body: func(*contentMatrix) any { return map[string]any{"label": "copy"} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Duplicate a menu category or menu item",
+			method: http.MethodPost,
+			path: func(c *contentMatrix) string {
+				return c.menuPath("/categories/" + c.category + "/duplicate")
+			},
+			body: func(*contentMatrix) any { return map[string]any{"label": "copy"} },
 			cells: []cell{
 				{anonymous, refused, api.CodeNotAuthenticated},
 				{otherUser, allowed, 0},

@@ -123,7 +123,7 @@ var registry = map[Code]definition{
 	CodeNotOrderCreator:     {http.StatusForbidden, "only the order creator may change this order"},
 	CodeNotItemOwner:        {http.StatusForbidden, "only the owner may change this order item"},
 	CodePlaceholderReadOnly: {http.StatusForbidden, "the deleted-user placeholder cannot be modified"},
-	CodeNotParticipant:      {http.StatusForbidden, "only participants of this order may see its summary"},
+	CodeNotParticipant:      {http.StatusForbidden, "only participants of this order may see its summary or its chat"},
 	CodeNotOwner:            {http.StatusForbidden, "only the owner of this resource may act on it"},
 	CodeNotJobHolder:        {http.StatusForbidden, "only the person doing this job, the order's creator or the administrator may do that"},
 

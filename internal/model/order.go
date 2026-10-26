@@ -143,3 +143,16 @@ type OrderItemModification struct {
 	Name            string
 	PriceDeltaCents int64
 }
+
+// OrderMessage is one line of an order's chat (21.5).
+type OrderMessage struct {
+	ID      uuid.UUID
+	OrderID uuid.UUID
+	UserID  uuid.UUID
+
+	// UserName is the author's display label, joined in like CreatorName.
+	UserName string
+
+	Body      string
+	CreatedAt time.Time
+}
