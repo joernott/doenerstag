@@ -148,10 +148,16 @@ func TestTheDrawReachesThePageWatchingTheOrder(t *testing.T) {
 	o := newOrderFixture(t)
 	ayse := o.register("ayse")
 	o.addOrderItem(ayse, map[string]any{})
+
+	// The clock moves before the stream opens: the stream's goroutine reads
+	// it, and moving it underneath would be a race of the test's own making.
+	o.advance(3 * time.Hour)
 	watching := o.openStream(o.order.ID, o.cookies)
 	waitForSubscribers(t, o, 1)
 
-	o.draw()
+	if err := o.orders.DrawJobs(context.Background()); err != nil {
+		t.Fatalf("drawing: %v", err)
+	}
 
 	_, data := watching.waitFor("order.updated")
 	var event orderResponse
