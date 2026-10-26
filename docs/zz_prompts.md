@@ -1210,3 +1210,25 @@ recorded on the branch of the sprint it belongs to.
 
 > As we are still in the development phase, we will release 0.5.0 after sprint
 > completion. This makes a separate 0.4.1 obsolete
+
+---
+
+### Prompt 81
+
+> Please create a new sprint for doenerstag, following the alredy established
+> rules.
+> I want to add the following features:
+> - On the restaurant page: A feature to duplicate menu entries and categories
+> - On the order page: When the order time is over and nobody volunteered to
+>   collect the money and fetch the order, a random person will be picked among
+>   the people who participated.
+> - On the order page: Where the restaurant menu is, create a tabbed view with
+>   two tabs. The first tab contains the menu, the same way it does now. The
+>   secont tab "Chat" contains a chat that is related to the order. The chat is
+>   a new feature, tied to an order. The chat tab can be selected by users who
+>   have placed an order. The top of the chat field contains a text box
+>   containing the chat messages. Each message starts with the users display
+>   name in bold, the time in brackets, a colon and their message.  At the
+>   bottom of the tab is an input field, where users can type a message that
+>   will be sent when they press enter or press the send button. The tab title
+>   should show the word "Chat" followed by the number of messages in brackets.

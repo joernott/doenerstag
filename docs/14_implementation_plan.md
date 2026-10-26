@@ -747,6 +747,35 @@ one job each.
 
 ---
 
+## Sprint 21 — Duplicates, a volunteer by lot, and a chat
+
+**Goal:** make a menu quicker to build, make sure every order ends with
+somebody fetching it, and give the people in an order a place to talk about it
+that is not a different application. The chat is the first new kind of data
+since availability (17.11), so this sprint touches the schema, the API, the
+live stream and the order page together.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| 21.1 | A Duplicate button beside each dish on the restaurant page's Menu tab, for the people who may edit the menu. The copy carries everything the dish has -- price, description, image reference, tags, allergens, additives, modifications and availability rules -- lands directly below the original, and has " (copy)" appended to its name in the language of the person duplicating it. One `POST` route doing the copy in one transaction | M | [04](04_api.md) |
+| 21.2 | A Duplicate button on each category heading, for the same people. The copy is a new category directly below the original, with the category's availability rules and a copy of every dish in it as 21.1 makes them. Deleted dishes are not copied | M | [04](04_api.md) |
+| 21.3 | When an order's deadline passes and nobody is fetching the food or collecting the money, the server picks one person at random from those with an item in the order and puts them in every job that is still empty. A job somebody claimed is left alone. Nobody is picked for an order without items. The pick is made once, by the server rather than by whichever browser happens to be open, survives a restart that spans the deadline, and reaches open order pages through the live stream like any other change | L | [02](02_features.md) |
+| 21.4 | The order page says who was picked by lot rather than by volunteering, beside the name, until somebody changes it; the person picked can still hand the job back with 19.5's remove button | S | [06](06_ui_ux.md) |
+| 21.5 | The chat's data model: a table of messages tied to an order, each with its author, its time and its text, a length limit, removed with the order. Deleting an account hands that person's messages to the deleted-user placeholder, as F2.6 does with items. docs/02, docs/03 and an ADR record why it lives in the database rather than in memory | M | [03](03_data_model.md) |
+| 21.6 | The chat's API: list an order's messages and post one, for people with an item in the order and nobody else; a new event on the order's live stream carrying each new message. The anonymous order shape says nothing about the chat, not even how many messages there are | M | [04](04_api.md) |
+| 21.7 | The order page's menu column becomes two tabs, built like the restaurant page's. "Menu" holds the menu exactly as it is now; "Chat (n)" shows the number of messages and can be selected only by somebody with an item in the order. Keyboard and screen-reader behaviour as docs/06 requires of tabs | M | [06](06_ui_ux.md) |
+| 21.8 | The Chat tab: the messages at the top, each as **display name** (time): message, in the viewer's time zone; an input at the bottom sending on Enter or with a Send button. New messages appear without a reload, the count in the tab title follows them, and the list scrolls to the newest unless the reader has scrolled up. All three languages | L | [06](06_ui_ux.md) |
+| 21.9 | Version references moved to 0.6.0, the README's status rewritten around what is new since 0.5.0, sprint 21 squashed into `main` and released as 0.6.0 | S | [10](10_operations.md) |
+
+**Exit criteria:** a dish or a whole category can be copied with one press and
+edited from there. An order whose deadline passes with nobody fetching it has
+somebody fetching it, and everybody on the page can see it was decided by lot.
+The people in an order can talk about it on the order page, live, in all three
+languages, and nobody outside the order can read what they said. Sprint 21 is
+on `main` and released as 0.6.0.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
