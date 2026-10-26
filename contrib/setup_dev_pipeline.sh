@@ -14,7 +14,7 @@
 #   sudo ./contrib/setup_dev_pipeline.sh
 #
 # Environment overrides:
-#   GO_VERSION          Go toolchain to install            (default 1.26.9)
+#   GO_VERSION          Go toolchain to install            (default 1.26.10)
 #   NODE_MAJOR          Node.js major version              (default 22)
 #   DEV_USER            user to grant docker access to     (default the invoking user)
 #   POSTGRES_PASSWORD   password for the postgres superuser
@@ -23,7 +23,7 @@
 
 set -euo pipefail
 
-GO_VERSION="${GO_VERSION:-1.26.9}"
+GO_VERSION="${GO_VERSION:-1.26.10}"
 NODE_MAJOR="${NODE_MAJOR:-22}"
 DEV_USER="${DEV_USER:-${SUDO_USER:-$(id -un)}}"
 TEST_DB_NAME="${TEST_DB_NAME:-doenerstag_test}"

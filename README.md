@@ -36,6 +36,9 @@ New in 0.6.0:
 - In the dish editor, the Remove button on an option is shown to everybody,
   disabled with the reason for anybody but the administrator, rather than
   missing.
+- **Go 1.26.10**, for GO-2026-6809: crypto/x509 now distrusts a set of
+  compromised intermediate certificates, which matters for the TLS
+  connection to the mail server.
 
 Two migrations come with it, so run `doenerstag update` after installing.
 Orders that closed before the update are not drawn for.
