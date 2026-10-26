@@ -126,6 +126,7 @@ function detail(overrides: Record<string, unknown> = {}): Record<string, unknown
     paid_total_cents: 0,
     grand_total_cents: 2450,
     below_minimum: false,
+    message_count: 0,
     ...overrides,
   };
 }
@@ -138,6 +139,7 @@ function orderStubs(order: Record<string, unknown>): Record<string, unknown> {
     "GET /restaurants/r1/categories": { categories: [{ id: "cat1", name: "Kebap", sort_order: 10 }] },
     "GET /restaurants/r1/menu-items": { menu_items: [menuItem] },
     "GET /restaurants/r1/menu-items/m1": menuItem,
+    "GET /orders/o1/messages": { messages: [] },
   };
 }
 
@@ -1307,6 +1309,30 @@ describe("live updates on the order page", () => {
   // answer the same way. It was made with a bare re-fetch: a deleted order
   // stayed on screen and no change was announced. The heading of a deleted
   // order is the local-time title, which 19.1 missed here.
+  it("fetches the chat when the stream says it grew, and counts it in the tab", async () => {
+    const stubs = orderStubs(detail({ message_count: 0 }));
+    stubServer(stubs);
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const stream = controllable();
+    const rendered = await orderPage(app, "o1", { factory: stream.factory });
+    await settle();
+
+    stubs["GET /orders/o1/messages"] = {
+      messages: [chatMessage({ body: "Essen ist da!" })],
+    };
+    const server = stubServer(stubs);
+    stream.fire("order.message", { message_count: 1 });
+    await settle(20);
+
+    expect(chatTab(rendered)?.textContent).toBe(app.t.t("chat.tab", { count: 1 }));
+    expect(rendered.querySelector(".chat-log")?.textContent).toContain("Essen ist da!");
+    // A chat line is not an order change: the order is not fetched again for
+    // it.
+    expect(server.calls.filter((call) => call.path === "/orders/o1").length).toBe(0);
+  });
+
   it("still handles a deleted order after logging in on the page", async () => {
     const when = "2026-09-10T10:30:00Z";
     stubServer(orderStubs(detail({ title: "Pinar Kebap — server time", fulfilment_at: when })));
@@ -1327,5 +1353,157 @@ describe("live updates on the order page", () => {
     expect(document.getElementById("live-region")?.textContent).toBe(app.t.t("order.deleted"));
     expect(rendered.textContent).toContain(`Pinar Kebap — ${formatDateTime(app.language, when)}`);
     expect(rendered.textContent).not.toContain("server time");
+  });
+});
+
+/** A chat line as the server sends it. */
+function chatMessage(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: "msg1",
+    user_id: "u2",
+    user_name: "Alex",
+    body: "Bin unterwegs",
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function chatTab(rendered: HTMLElement): HTMLButtonElement | null {
+  return rendered.querySelector<HTMLButtonElement>("#tab-order-chat");
+}
+
+describe("the chat on the order page", () => {
+  it("puts the menu in the first tab and the chat, counted, in the second", async () => {
+    stubServer({
+      ...orderStubs(detail({ message_count: 2 })),
+      "GET /orders/o1/messages": {
+        messages: [
+          chatMessage({ user_name: "Jo", user_id: "u1", body: "Wer holt?" }),
+          chatMessage({ id: "msg2", body: "Ich!" }),
+        ],
+      },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const labels = [...rendered.querySelectorAll("[role=tab]")].map((tab) => tab.textContent);
+    expect(labels).toEqual([app.t.t("menu.items"), app.t.t("chat.tab", { count: 2 })]);
+    // The menu is showing, as it always was.
+    expect(rendered.querySelector<HTMLElement>("#panel-order-menu")?.hidden).toBe(false);
+    expect(rendered.querySelector<HTMLElement>("#panel-order-chat")?.hidden).toBe(true);
+
+    chatTab(rendered)?.click();
+    expect(rendered.querySelector<HTMLElement>("#panel-order-chat")?.hidden).toBe(false);
+
+    // Name in bold, the time in brackets, a colon, the message.
+    const lines = [...rendered.querySelectorAll(".chat-line")];
+    expect(lines.map((line) => line.querySelector("strong")?.textContent)).toEqual(["Jo", "Alex"]);
+    expect(lines[1]?.textContent).toMatch(/^Alex \(.+\): Ich!$/);
+  });
+
+  it("writes a message as text, never as markup", async () => {
+    stubServer({
+      ...orderStubs(detail({ message_count: 1 })),
+      "GET /orders/o1/messages": { messages: [chatMessage({ body: "<b>laut</b>" })] },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const line = rendered.querySelector(".chat-line");
+    expect(line?.querySelector("b")).toBeNull();
+    expect(line?.textContent).toContain("<b>laut</b>");
+  });
+
+  it("sends on Enter, clears the field and reads the chat again", async () => {
+    const server = stubServer({
+      ...orderStubs(detail()),
+      "POST /orders/o1/messages": { status: 201, body: chatMessage({ body: "Bin da" }) },
+    });
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const field = rendered.querySelector<HTMLInputElement>(".chat-compose input");
+    const compose = rendered.querySelector<HTMLFormElement>(".chat-compose");
+    if (!field || !compose) {
+      throw new Error("the chat has no field to write in");
+    }
+    field.value = "  Bin da  ";
+    // Enter in a text field submits its form; jsdom does not simulate the key.
+    compose.requestSubmit();
+    await settle(20);
+
+    const post = server.calls.find((call) => call.method === "POST");
+    expect(post).toEqual({ method: "POST", path: "/orders/o1/messages", body: { body: "Bin da" } });
+    expect(field.value).toBe("");
+    const reads = server.calls.filter(
+      (call) => call.path === "/orders/o1/messages" && call.method === "GET",
+    );
+    expect(reads.length).toBe(2);
+  });
+
+  it("sends nothing for an empty message", async () => {
+    const server = stubServer(orderStubs(detail()));
+
+    const app = mountApp(() => []);
+    loggedIn(app);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    rendered.querySelector<HTMLFormElement>(".chat-compose")?.requestSubmit();
+    await settle();
+    expect(server.calls.some((call) => call.method === "POST")).toBe(false);
+  });
+
+  it("keeps the chat from somebody signed in who is not taking part, and says why", async () => {
+    const server = stubServer(orderStubs(detail({ message_count: 3 })));
+
+    const app = mountApp(() => []);
+    app.session.set({ id: "u9", name: "sam", display_name: "Sam", is_admin: false });
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const tab = chatTab(rendered);
+    expect(tab?.getAttribute("aria-disabled")).toBe("true");
+    expect(tab?.title).toBe(app.t.t("chat.participants_only"));
+    // They may know how many messages there are, not what they say.
+    expect(tab?.textContent).toBe(app.t.t("chat.tab", { count: 3 }));
+    tab?.click();
+    expect(rendered.querySelector<HTMLElement>("#panel-order-chat")?.hidden).toBe(true);
+    expect(server.calls.some((call) => call.path === "/orders/o1/messages")).toBe(false);
+  });
+
+  it("offers an anonymous visitor the tab, closed, without a count", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const tab = chatTab(rendered);
+    expect(tab?.textContent).toBe(app.t.t("chat.tab.plain"));
+    expect(tab?.getAttribute("aria-disabled")).toBe("true");
+    expect(tab?.title).toBe(app.t.t("chat.login"));
+  });
+
+  it("steps over the closed chat tab with the arrow keys", async () => {
+    stubServer(orderStubs(header()));
+
+    const app = mountApp(() => []);
+    const rendered = await orderPage(app, "o1", { factory: silentFactory });
+    await settle();
+
+    const menuTab = rendered.querySelector<HTMLButtonElement>("#tab-order-menu");
+    menuTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(menuTab?.getAttribute("aria-selected")).toBe("true");
+    expect(chatTab(rendered)?.getAttribute("aria-selected")).toBe("false");
   });
 });

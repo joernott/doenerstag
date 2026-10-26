@@ -173,6 +173,17 @@ export interface OrderDetail extends OrderHeader {
   paid_total_cents: number;
   grand_total_cents: number;
   below_minimum: boolean;
+  /** How many lines the order's chat has. The lines are for participants. */
+  message_count: number;
+}
+
+/** One line of an order's chat (F11). */
+export interface OrderMessage {
+  id: string;
+  user_id: string;
+  user_name: string;
+  body: string;
+  created_at: string;
 }
 
 export interface DeletionImpact {

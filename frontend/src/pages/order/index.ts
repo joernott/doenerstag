@@ -11,8 +11,9 @@
 //
 // This module loads the order, lays the page out and keeps it live. What is
 // drawn is in the modules beside it, which share an OrderContext: details.ts
-// (the order's facts and its own controls), items.ts (what has been ordered)
-// and menu.ts (the menu column).
+// (the order's facts and its own controls), items.ts (what has been ordered),
+// menu.ts (the menu) and chat.ts (the chat), the last two as the tabs of the
+// right-hand column.
 
 import type { App } from "../../app";
 import { api, getList } from "../../api";
@@ -20,15 +21,18 @@ import { el, rerender, type Child } from "../../dom";
 import {
   EVENT_ORDER_DELETED,
   EVENT_ORDER_EXPIRED,
+  EVENT_ORDER_MESSAGE,
   subscribeToOrder,
   type EventSourceFactory,
 } from "../../events";
 import { orderTitle } from "../../format";
 import { moneyFormatOf, referenceData } from "../../reference";
 import { statusLine } from "../../components/status";
+import { tabControls } from "../../components/tabs";
 import type { Category, MenuItem, OrderDetail, OrderHeader, RestaurantDetail } from "../../types";
 import { failedPage, pageWithActions, section } from "../page";
 import { menuPath, orderContext } from "./context";
+import { orderChat } from "./chat";
 import { orderDetails } from "./details";
 import { orderItems } from "./items";
 import { orderMenu } from "./menu";
@@ -77,6 +81,7 @@ export async function orderPage(
 
   const left = el("div", { class: "order-column" });
   const right = el("div", { class: "order-column" });
+  const menuPanel = el("div");
   const banner = el("div");
   const heading = el("div", { class: "page-heading-actions" });
 
@@ -93,6 +98,7 @@ export async function orderPage(
     render: () => {
       renderLeft();
       menuColumn.renderMenu();
+      renderChatTab();
     },
     renderMenu: () => {
       menuColumn.renderMenu();
@@ -101,7 +107,42 @@ export async function orderPage(
 
   const details = orderDetails(ctx, heading);
   const items = orderItems(ctx);
-  const menuColumn = orderMenu(ctx, right, items.openItemEditor);
+  const menuColumn = orderMenu(ctx, menuPanel, items.openItemEditor);
+  const chat = orderChat(ctx);
+
+  // The menu exactly as it was, and the chat beside it (21.7). The chat tab is
+  // there for everybody and selectable by the participants, saying why not to
+  // anybody else; its title counts the messages.
+  const columnTabs = tabControls(
+    [
+      { id: "order-menu", label: t.t("menu.items"), panel: menuPanel },
+      { id: "order-chat", label: chatLabel(), panel: chat.panel, disabled: chat.unavailable() },
+    ],
+    { label: t.t("order.tabs") },
+  );
+  right.append(columnTabs.element);
+
+  function chatLabel(): string {
+    return app.session.isAuthenticated
+      ? t.t("chat.tab", { count: chat.count() })
+      : t.t("chat.tab.plain");
+  }
+
+  // Becoming a participant -- the first item, taking a job -- opens the chat
+  // and reads it; the last item removed closes it again. Read only on that
+  // change: every other refresh leaves the lines as the stream keeps them.
+  let chatOpen = chat.unavailable() === undefined;
+  function renderChatTab(): void {
+    const reason = chat.unavailable();
+    columnTabs.setDisabled("order-chat", reason);
+    if (reason === undefined && !chatOpen) {
+      void chat.reload().then(() => {
+        columnTabs.setLabel("order-chat", chatLabel());
+      });
+    }
+    chatOpen = reason === undefined;
+    columnTabs.setLabel("order-chat", chatLabel());
+  }
 
   // The left column: the order's own card, then what has been ordered -- or,
   // for an anonymous visitor, only how much.
@@ -134,7 +175,20 @@ export async function orderPage(
   // one made after logging in or out: a bare re-fetch there would leave a
   // deleted order on screen and announce nothing.
   const handlers = {
-    onEvent: (name: string): void => {
+    onEvent: (name: string, data: unknown): void => {
+      if (name === EVENT_ORDER_MESSAGE) {
+        // A new line in the chat, as a count. The log announces the line
+        // itself to a screen reader, so nothing is announced here.
+        const next = (data as { message_count?: unknown } | null)?.message_count;
+        if (typeof next === "number") {
+          void chat.heard(next).then(() => {
+            columnTabs.setLabel("order-chat", chatLabel());
+          });
+          columnTabs.setLabel("order-chat", chatLabel());
+        }
+        return;
+      }
+
       if (name === EVENT_ORDER_DELETED) {
         // Nothing left to look at: say so and go back to the overview.
         app.announce(t.t("order.deleted"));
@@ -158,6 +212,9 @@ export async function orderPage(
     onReconnect: (): void => {
       // Whatever happened while the stream was down was never delivered.
       void ctx.refresh();
+      void chat.reload().then(() => {
+        columnTabs.setLabel("order-chat", chatLabel());
+      });
     },
   };
 

@@ -19,6 +19,8 @@ export const EVENT_ITEM_COUNT = "order.item_count";
 export const EVENT_ORDER_UPDATED = "order.updated";
 export const EVENT_ORDER_DELETED = "order.deleted";
 export const EVENT_ORDER_EXPIRED = "order.expired";
+/** The chat grew. Carries the new count, never the message (ADR-0012). */
+export const EVENT_ORDER_MESSAGE = "order.message";
 
 /** Every event the stream sends that a page acts on. */
 export const ORDER_EVENTS = [
@@ -29,6 +31,7 @@ export const ORDER_EVENTS = [
   EVENT_ORDER_UPDATED,
   EVENT_ORDER_DELETED,
   EVENT_ORDER_EXPIRED,
+  EVENT_ORDER_MESSAGE,
 ] as const;
 
 export interface StreamHandlers {
