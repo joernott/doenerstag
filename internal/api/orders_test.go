@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -325,6 +326,10 @@ func TestAnEmptyOrderIsValid(t *testing.T) {
 // anonymous GET must contain no user name and no menu item name anywhere in
 // the response body. Scanned as raw text, not by inspecting fields -- a field
 // that leaked under an unexpected name would pass a structural check.
+// opaqueValues matches a UUID or an RFC 3339 timestamp.
+var opaqueValues = regexp.MustCompile(
+	`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`)
+
 func TestAnAnonymousReadLeaksNothing(t *testing.T) {
 	o := newOrderFixture(t)
 	hungry := o.register("hungrig")
@@ -339,7 +344,11 @@ func TestAnAnonymousReadLeaksNothing(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
-	body := rec.Body.String()
+	// Identifiers and timestamps are blanked before the scan. They are random
+	// or clock-made text that can contain any run of digits -- a restaurant id
+	// ending in ...e983650 failed this test on main with nothing leaked -- and
+	// neither can carry a name or a price.
+	body := opaqueValues.ReplaceAllString(rec.Body.String(), "")
 
 	// Nothing about who ordered, who opened the order, what was ordered, or
 	// what it cost. No user is named at all -- the creator included, which is
