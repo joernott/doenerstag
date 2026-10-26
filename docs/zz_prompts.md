@@ -1232,3 +1232,15 @@ recorded on the branch of the sprint it belongs to.
 >   bottom of the tab is an input field, where users can type a message that
 >   will be sent when they press enter or press the send button. The tab title
 >   should show the word "Chat" followed by the number of messages in brackets.
+
+---
+
+### Prompt 82
+
+> 1: Yes, one person for both jobs is right
+> 2: These people should also count as participants and should be able to use
+>    the caht
+> 3: Yes, the chat should stay open untilit is deleted. The chat can be used to
+>    notify people when the food has arrived and to discuss related topics.
+>
+> Please go ahead
