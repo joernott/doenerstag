@@ -449,7 +449,7 @@ loud rather than storing silently.
 
 ```json
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "commit": "7c81636",
   "build_date": "2026-09-06T09:12:44Z",
   "swagger": true,

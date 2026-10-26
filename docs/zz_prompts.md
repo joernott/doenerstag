@@ -1255,3 +1255,15 @@ recorded on the branch of the sprint it belongs to.
 
 Asked who may remove an option; the answer was to keep it
 administrator-only and show everybody else why.
+
+---
+
+### Prompt 84
+
+> I now have the situation that I want to have 2 variations of a dish. One
+> category is available on all days except thursday where the menu item has
+> the option "Scheibenfleisch", the other one is
+
+### Prompt 85
+
+> sry, forget it and please continue with the release
