@@ -474,7 +474,8 @@ Global Flags:
 ### doenerstag restaurant delete
 
 ```
-Delete a restaurant, its contacts, opening hours, menu -- and its orders.
+Delete a restaurant, its contacts, opening hours, menu -- and its orders,
+and every vote that offered it.
 
 This is not what the delete button in the browser does. That one refuses while
 any order still points at the restaurant, because somebody clicking it must not

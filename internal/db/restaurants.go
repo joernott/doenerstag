@@ -279,16 +279,24 @@ func CreateRestaurantWithContacts(
 // the restaurant and its history gone -- for a test fixture, a duplicate
 // imported by mistake, or a restaurant that closed years ago.
 //
-// The orders go first. Everything else -- contacts, opening hours, categories,
-// items, modifications, tags -- is ON DELETE CASCADE from restaurant, but
-// food_order is ON DELETE RESTRICT, and order_item holds menu_item with
-// RESTRICT as well. Removing the orders first turns both of those into a
-// cascade the database is willing to perform.
+// The votes that offer it go first, then the orders. Everything else --
+// contacts, opening hours, categories, items, modifications, tags -- is ON
+// DELETE CASCADE from restaurant, but vote_choice is ON DELETE RESTRICT,
+// food_order is too, and order_item holds menu_item with RESTRICT as well.
+// Removing the votes and the orders first turns all of those into a cascade
+// the database is willing to perform. A vote goes whole, decided or not: one
+// that offered the restaurant cannot keep the choice and lose the restaurant
+// (23.2).
 //
 // The caller supplies the transaction. An import that replaces a restaurant
 // needs the delete and the insert to be one operation, and a delete that
 // removed the orders and then failed would be the worst outcome available.
 func HardDeleteRestaurant(ctx context.Context, q Querier, id uuid.UUID) error {
+	if _, err := q.Exec(ctx, `
+		DELETE FROM vote WHERE id IN (SELECT vote_id FROM vote_choice WHERE restaurant_id = $1)`,
+		id); err != nil {
+		return fmt.Errorf("removing the votes offering restaurant %s: %w", id, err)
+	}
 	if _, err := q.Exec(ctx, `DELETE FROM food_order WHERE restaurant_id = $1`, id); err != nil {
 		return fmt.Errorf("removing the orders of restaurant %s: %w", id, err)
 	}
@@ -314,6 +322,7 @@ type RestaurantDependents struct {
 	MenuItems  int
 	Contacts   int
 	Hours      int
+	Votes      int
 }
 
 // CountRestaurantDependents counts what HardDeleteRestaurant would remove.
@@ -327,7 +336,8 @@ func CountRestaurantDependents(ctx context.Context, q Querier, id uuid.UUID) (Re
 			(SELECT count(*) FROM menu_category WHERE restaurant_id = $1),
 			(SELECT count(*) FROM menu_item WHERE restaurant_id = $1),
 			(SELECT count(*) FROM restaurant_contact WHERE restaurant_id = $1),
-			(SELECT count(*) FROM opening_hours WHERE restaurant_id = $1)`,
-		id).Scan(&d.Orders, &d.OrderItems, &d.Categories, &d.MenuItems, &d.Contacts, &d.Hours)
+			(SELECT count(*) FROM opening_hours WHERE restaurant_id = $1),
+			(SELECT count(DISTINCT vote_id) FROM vote_choice WHERE restaurant_id = $1)`,
+		id).Scan(&d.Orders, &d.OrderItems, &d.Categories, &d.MenuItems, &d.Contacts, &d.Hours, &d.Votes)
 	return d, err
 }

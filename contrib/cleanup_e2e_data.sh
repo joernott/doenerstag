@@ -39,8 +39,9 @@ test_restaurant() {
   echo "($1 LIKE 'e2e-%' OR $1 ~ '^Neu [0-9a-z]{6,12}\$')"
 }
 
-# Votes first. Until HardDeleteRestaurant removes the votes that offer a
-# restaurant itself, a vote holding one refuses the restaurant's deletion.
+# Votes first. From 0.7.1 the restaurant verb removes the votes that offered
+# a restaurant itself (23.2); an installation still on 0.7.0 refuses the
+# deletion while one does, so this stays for those.
 votes=$(psql_q "DELETE FROM vote WHERE id IN (
   SELECT c.vote_id FROM vote_choice c JOIN restaurant r ON r.id = c.restaurant_id
   WHERE $(test_restaurant r.name)) RETURNING id" | wc -l)

@@ -81,7 +81,8 @@ func newRestaurantDeleteCommand(app *appContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a restaurant and everything that depends on it",
-		Long: `Delete a restaurant, its contacts, opening hours, menu -- and its orders.
+		Long: `Delete a restaurant, its contacts, opening hours, menu -- and its orders,
+and every vote that offered it.
 
 This is not what the delete button in the browser does. That one refuses while
 any order still points at the restaurant, because somebody clicking it must not
@@ -239,6 +240,7 @@ func deleteRestaurant(
 	_, _ = fmt.Fprintf(out, "  %d menu items in %d categories\n", counts.MenuItems, counts.Categories)
 	_, _ = fmt.Fprintf(out, "  %d contacts, %d opening periods\n", counts.Contacts, counts.Hours)
 	_, _ = fmt.Fprintf(out, "  %d orders holding %d items\n", counts.Orders, counts.OrderItems)
+	_, _ = fmt.Fprintf(out, "  %d votes offering it\n", counts.Votes)
 
 	if !force {
 		// The orders are the part worth stopping for. Everything else can be
