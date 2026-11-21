@@ -138,8 +138,8 @@ doenerstag/
 └── Makefile
 ```
 
-`static/` is generated. It is checked in so that a release can be built without
-running the frontend toolchain, but it is never edited by hand.
+`static/` is generated and is not checked in (ADR-0014): `make frontend` builds
+it, and every target that embeds it builds it first. It is never edited by hand.
 
 ## Static asset serving and the embed switch
 

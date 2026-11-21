@@ -46,9 +46,10 @@ HEADER
 
 # --- the Go modules in the binary -------------------------------------------
 #
-# The embedstatic tag is what a release is built with, so it is what the
-# dependency set is read from. Without it the report would miss nothing today,
-# but a dependency behind that tag would be invisible.
+# Read without the embedstatic tag a release is built with. The tag adds no
+# module -- embed.go imports only "embed" -- and with it the package could not
+# be loaded without a built static/, which is build output and not in the
+# checkout (ADR-0014). A dependency ever added behind the tag would need it.
 echo "collecting Go module licences" >&2
 saved="$work/go"
 go-licenses save ./cmd/doenerstag \

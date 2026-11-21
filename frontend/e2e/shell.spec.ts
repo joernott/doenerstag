@@ -4,7 +4,7 @@
 // and the only way to know the application uses it correctly is to reload a
 // real browser.
 
-import { expect, login, loginThroughTheForm, register, seedRestaurant, test } from "./support";
+import { expect, login, loginThroughTheForm, register, seedRestaurant, test, unique } from "./support";
 
 test.describe("the shell", () => {
   test("remembers the language and the theme across a reload", async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe("the shell", () => {
     await page.goto("/restaurants");
     await page.getByRole("link", { name: "New restaurant" }).click();
 
-    const name = `Neu ${Date.now().toString(36)}`;
+    const name = unique("Neu");
     await page.getByLabel("Name").fill(name);
     await page.getByLabel("Currency").selectOption("CHF");
     await page.getByLabel("Value").fill("+41 44 000 00 00");

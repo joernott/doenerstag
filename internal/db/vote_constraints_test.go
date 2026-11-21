@@ -485,3 +485,38 @@ func TestCleanupRemovesOldVotesThatBecameNoOrder(t *testing.T) {
 		t.Errorf("an old vote that became no order was kept: %+v", report.Steps)
 	}
 }
+
+// 23.2: the hard delete behind `doenerstag restaurant delete` and a replacing
+// import removes the votes that offered the restaurant, rather than being
+// refused by vote_choice's foreign key.
+func TestAHardDeleteTakesTheVotesThatOfferedTheRestaurant(t *testing.T) {
+	f := newVoteFixture(t)
+	mustCreateVote(t, f, 2)
+	if err := castBallot(t, f, f.anna, 0+1); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	counts, err := db.CountRestaurantDependents(ctx, f.pool, uuid.MustParse(f.restaurants[0]))
+	if err != nil || counts.Votes != 1 {
+		t.Fatalf("the dependents count %d votes (%v), want 1", counts.Votes, err)
+	}
+
+	tx, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := db.HardDeleteRestaurant(ctx, tx, uuid.MustParse(f.restaurants[0])); err != nil {
+		t.Fatalf("hard-deleting a restaurant a vote offered: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, f.pool, `SELECT count(*) FROM vote`); n != 0 {
+		t.Errorf("%d votes survived the restaurant they offered", n)
+	}
+	if n := count(t, f.pool, `SELECT count(*) FROM restaurant WHERE id = $1`, f.restaurants[1]); n != 1 {
+		t.Errorf("the other restaurant in the vote went too")
+	}
+}

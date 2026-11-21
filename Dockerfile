@@ -22,7 +22,8 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend/ ./
-COPY static/ /src/static/
+# build.mjs writes ../static. Nothing is copied there first: static/ is build
+# output and not in the repository (ADR-0014).
 RUN npm run build
 
 
@@ -45,8 +46,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-# The frontend built above, replacing whatever was committed. Building it here
-# rather than trusting the checked-in copy is what keeps the image honest.
+# The frontend built above. A static/ left in the build context by a local
+# build is overwritten, so the image always embeds what its sources make.
 COPY --from=frontend /src/static/ ./static/
 
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \

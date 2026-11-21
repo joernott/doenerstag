@@ -239,6 +239,15 @@ describe("starting a vote", () => {
 });
 
 describe("the start page", () => {
+  // 23.1: the plus starts either, so it says both.
+  it("labels the plus tile for an order or a vote", async () => {
+    stubServer({ "GET /orders": { orders: [] }, "GET /votes": { votes: [] } });
+    const app = mountApp(() => []);
+    const page = await ordersPage(app);
+    await settle();
+    expect(page.querySelector(".tile-add-label")?.textContent).toBe("New order or vote");
+  });
+
   it("lists an open vote as a vote, with the restaurant ahead", async () => {
     stubServer({ "GET /orders": { orders: [] }, "GET /votes": { votes: [vote()] } });
     const app = mountApp(() => []);

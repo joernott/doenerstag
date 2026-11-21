@@ -12,7 +12,7 @@ Format: Status, Context, Decision, Consequences. Keep them to a page.
 | ADR | Title | Status |
 | --- | ----- | ------ |
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
-| [0002](0002-static-assets-embed-toggle.md) | Build-tag toggle between embedded and on-disk assets | Accepted |
+| [0002](0002-static-assets-embed-toggle.md) | Build-tag toggle between embedded and on-disk assets | Accepted; committing static/ superseded by 0014 |
 | [0003](0003-sse-for-order-updates.md) | Server-Sent Events for live order updates | Accepted |
 | [0004](0004-jwt-with-server-side-sessions.md) | JWT backed by a server-side session table | Accepted |
 | [0005](0005-server-side-argon2id.md) | Hash passwords server-side with Argon2id | Accepted |
@@ -24,3 +24,4 @@ Format: Status, Context, Decision, Consequences. Keep them to a page.
 | [0011](0011-tiered-order-visibility.md) | Tiered order visibility | Accepted |
 | [0012](0012-order-chat-in-the-database.md) | The order chat lives in the database, and the stream carries only its count | Accepted |
 | [0013](0013-votes-are-their-own-entity.md) | A vote is a thing of its own, and the server decides it | Accepted |
+| [0014](0014-static-is-build-output.md) | static/ is build output and is not committed | Accepted |

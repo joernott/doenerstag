@@ -1,0 +1,55 @@
+# Dependency updates as pull requests (23.4), instead of a round by hand once a
+# sprint (22.1-22.3).
+#
+# Minor and patch updates are grouped per ecosystem, so a week's worth is one
+# pull request each; a new major arrives on its own, because that is the one
+# that needs reading. static/ is not committed (ADR-0014), so an npm update
+# needs nothing rebuilt by hand: CI builds the frontend from the new lock file.
+#
+# Two holds, both decided in sprint 22 and recorded in docs/14:
+#   - pflag stays below 1.1, which prints every boolean flag as
+#     --flag[=true|false] in the help and the CLI reference;
+#   - TypeScript stays below 6.1 while typescript-eslint supports no later.
+# Lift a hold by deleting its entry, not by merging a pull request around it.
+
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: github.com/spf13/pflag
+        versions: [">= 1.1.0"]
+    groups:
+      go-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: typescript
+        versions: [">= 6.1.0"]
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  # The base images in the Dockerfile: node and golang for the build stages.
+  # The Go version also lives in both workflows and the setup script, which
+  # Dependabot does not edit; a golang image update is the reminder to move
+  # GO_VERSION with it.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

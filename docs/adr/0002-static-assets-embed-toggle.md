@@ -58,5 +58,7 @@ Releases are always built with the tag.
   nothing will be confused once. The startup log states which mode is active,
   and the troubleshooting table in [10_operations.md](../10_operations.md) names
   the symptom.
-- `static/` is generated output that is nevertheless committed, so a release can
-  be built without the Node toolchain. It must never be edited by hand.
+- ~~`static/` is generated output that is nevertheless committed, so a release can
+  be built without the Node toolchain.~~ Superseded by
+  [ADR-0014](0014-static-is-build-output.md): `static/` is build output and is
+  not committed. It must never be edited by hand.

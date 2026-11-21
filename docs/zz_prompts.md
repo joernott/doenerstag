@@ -1330,3 +1330,45 @@ creator sets the fulfilment type afterwards.
 
 > go ahead with the rest of the sprint, finish as many steps as you can without
 > prompting for my input
+
+---
+
+### Prompt 90
+
+> I tested the deployed version on the VM and have a few findings:
+> - On the "Orders" page, the text under the + sign reads "New order", this
+>   should be "New order or vote" Please add that to the toDos for the next
+>   sprint, this change alone is not worth an entire release.
+> - There are many left over restaurants from previous Tests. Please always
+>   clean up those restaurants/users you created in previous runs but leave
+>   alone "Ali Baba" and my user
+
+---
+
+### Prompt 91
+
+> Please add another task for sprint 23 to add a dependabot.yml.
+
+---
+
+### Prompt 92
+
+> Is there a way that a rebuild of /static can be done by a github action?
+
+Answered that CI already rebuilds static/ reproducibly, and offered a
+workflow committing the rebuild to Dependabot's pull requests, or not
+committing static/ at all.
+
+---
+
+### Prompt 93
+
+> I would prefer to go ahead with the more thorough alternative. Split it into
+> more tasks in sprint 23 as you see fit. It removes an unnecessary dependency
+> on the VM and results in a cleaner build process.
+
+---
+
+### Prompt 94
+
+> go ahead with sprint 23 and create release 0.7.1 from it

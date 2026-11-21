@@ -456,6 +456,7 @@
   "vote.new": "Nouveau vote",
   "vote.title": "Vote — {when}",
   "vote.badge": "Vote",
+  "start.new": "Nouvelle commande ou vote",
   "start.title": "Que voulez-vous lancer ?",
   "start.order": "Une commande",
   "start.order.hint": "Le restaurant est choisi ; chacun ajoute ce qu'il veut.",
