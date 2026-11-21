@@ -243,13 +243,15 @@ concurrently with the server.
 Order of operations, each in its own transaction:
 
 1. Delete orders whose `deadline_at` is older than the retention period,
-   cascading to their items and item modifications.
+   cascading to their items, item modifications, chat and the vote they came
+   from. Then delete the votes that became no order and whose decision time is
+   older than the retention period.
 2. Physically delete soft-deleted `menu_item_modification` rows no longer
    referenced by any `order_item_modification`.
 3. Physically delete soft-deleted `menu_item` rows no longer referenced by any
    `order_item`.
 4. Physically delete soft-deleted `menu_category` and `restaurant` rows no
-   longer referenced by anything.
+   longer referenced by anything -- a decided vote's choice included.
 5. Delete `image` rows referenced by no restaurant and no menu item and
    uploaded more than a day ago. Attaching a picture is two requests, the upload
    and the change that names it, and an image is unreferenced in between.

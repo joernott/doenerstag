@@ -27,13 +27,20 @@ type stream struct {
 // only way to test a stream at all.
 func (o *orderFixture) openStream(orderID string, cookies []*http.Cookie) *stream {
 	o.t.Helper()
+	return o.openStreamAt("/orders/"+orderID+"/events", cookies)
+}
+
+// openStreamAt connects to any event stream by its path below the API prefix;
+// a vote's stream behaves like an order's.
+func (o *orderFixture) openStreamAt(path string, cookies []*http.Cookie) *stream {
+	o.t.Helper()
 
 	server := httptest.NewServer(o.handler)
 	o.t.Cleanup(server.Close)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		server.URL+api.APIPrefix+"/orders/"+orderID+"/events", http.NoBody)
+		server.URL+api.APIPrefix+path, http.NoBody)
 	if err != nil {
 		cancel()
 		o.t.Fatalf("building the stream request: %v", err)

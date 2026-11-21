@@ -29,7 +29,7 @@ Fixed to the top of the viewport on every page. Left to right:
 | Element                 | Behaviour                                                                   |
 | ----------------------- | --------------------------------------------------------------------------- |
 | Application logo        | Always links back to the order overview. One SVG for both themes: the frame and the calendar text are `currentColor`, so the mark takes the text colour of whatever renders it — white-on-dark and near-black-on-light fall out of the palette rather than out of two asset files. It is inlined into the page rather than referenced with `<img>`, because an image is a separate document and inherits no colour from the page. The same asset serves the tile placeholders and the overview watermark. |
-| Application name        | "doenerstag". Hidden below the small breakpoint.                             |
+| Application name        | "doenerstag". Hidden below the small breakpoint. Logo and name are one link, whose accessible name begins with the visible one -- "doenerstag, back to the orders" -- so somebody using voice control can say what they see (WCAG 2.5.3). |
 | *(spacer)*              |                                                                              |
 | Language selector       | A button showing the language in force, opening a list the page draws itself (not a native select, whose open list Firefox lets no page style) of every translation shipped with the application, each in its own language ("English", "Deutsch"). Not a hardcoded pair — the list is derived from the catalogs present in the build, so adding a translation adds an entry with no change to this component. Hidden entirely when only one translation exists. The entry under the pointer or the keyboard is orange; the language in force is not marked in the list, because the button shows it. Writes the `doener_lang` cookie. |
 | Dark/light toggle       | Icon button. Writes the `doener_theme` cookie.                               |
@@ -64,11 +64,22 @@ Fixed to the top of the viewport on every page. Left to right:
 
 The default page. A grid of tiles.
 
-- The **first tile** always carries a plus sign and creates a new order. For
+- The **first tile** always carries a plus sign. It opens a small dialog
+  asking what to start: **an order**, when the restaurant is settled, or **a
+  vote**, to let the group choose it first (F12) -- each with a line saying
+  so. For
   anonymous visitors it is shown but leads to the login page.
 - When there are no orders at all, the plus tile is the only thing on the page.
   That is the empty state; there is no separate illustration or message.
 - **Active orders** come first, sorted by fulfilment time ascending.
+- **Open votes** are among them, sorted by their fulfilment time like the
+  orders, and told apart at a glance: a "Vote" badge where an order shows its
+  fulfilment type, the decision time with its relative hint where an order
+  shows its deadline, and in place of the logo the logo of the restaurant
+  ahead, named below the title with its share ("Roma ahead, 4 of 7"), or "No
+  votes yet". A decided vote leaves the overview; its order takes its place.
+  The Summary button has no meaning for a vote and is absent; edit and delete
+  are there for the creator, as on an order.
 - **Expired orders** follow, sorted by fulfilment time descending, rendered
   faded (reduced opacity plus a muted border) but fully clickable.
 
@@ -116,6 +127,7 @@ administrator.
   order is closed by then, so the job stays where the lot put it; swapping is
   a conversation, which the Chat tab is for.
 - Minimum order value and delivery fee, if set.
+- For an order made by a vote, "Chosen by vote" linking to it (F12.12).
 - Editing controls for the creator. The restaurant selector is disabled once the
   order has at least one item, with a tooltip explaining why.
 
@@ -226,6 +238,112 @@ arrives, the page switches itself to the read-only state. When `order.message`
 arrives, the Chat tab's count changes and a participant's page fetches the
 chat; the order itself is not fetched again for it. When `order.deleted`
 arrives, the visitor is shown a message and returned to the overview.
+
+## Creating a vote
+
+`/votes/new`, a page like `/orders/new`, reached from the plus tile's "Vote"
+(F12.1).
+
+- **Restaurants**: a list of every restaurant with a checkbox each, sorted by
+  name. Two to five may be ticked; the count is shown beside the list's label
+  ("3 of at most 5"), the sixth checkbox is disabled while five are ticked,
+  and submitting with fewer than two names the error at the list.
+- **Decision time**, **order deadline**, **fulfilment time**, in that order on
+  the page because that is the order they must come in. Each is checked
+  against the one before it as the order form checks its pair, and the
+  decision time against now. The form opens on one, two and three hours from
+  now. The fulfilment time is checked against each ticked restaurant's
+  opening hours and warns, not refuses, naming the restaurants that would be
+  closed (F5.4).
+- **Others may add restaurants** and **Ballots are public**, two checkboxes,
+  both off: the cautious choice is the one nobody has to think about. The
+  second carries a line of help: "Everybody signed in sees who chose what."
+- There is no fulfilment type. A line under the times says that the order
+  starts as a pickup and its creator can change that (F12.9).
+
+Creating the vote opens its page.
+
+## Vote page
+
+`/votes/{id}`. Two columns at `lg` and above, stacked below, the same grid as
+the order page.
+
+The heading is the derived title, "Vote — <fulfilment date and time>". Below
+it a line with the three times in local time and, while the vote is open, the
+decision time's relative hint ("decided in 2 h"). For signed-in viewers the
+line names the creator; for anonymous ones it does not (F12.6). A small badge
+says whether ballots are public or secret, so nobody votes believing the wrong
+one.
+
+### Left column — the restaurants
+
+One row per restaurant, in the order they were added:
+
+| Element        | Notes                                                                 |
+| -------------- | --------------------------------------------------------------------- |
+| Choice control | A radio button per row, all in one group labelled "Your choice", so a ballot is one click or one arrow key. Checked on the viewer's own choice. Disabled for anonymous viewers, with the login link beside the group, and for everybody after the decision. A **Withdraw my vote** button under the list clears it. |
+| Logo and name  | The restaurant's logo, or the doenerstag mark, and its name, which links to the restaurant page in a new tab: the voter wants to look at the menu without losing the vote. |
+| Colour key     | A small square in the colour of the restaurant's slice of the pie, so the two columns read together. |
+| Count          | The number of votes, right-aligned, large enough to read across a room. |
+| Voters         | With public ballots and a signed-in viewer only: the names of those who chose it, in a muted line under the row. |
+| Remove         | A bin icon for the creator and for whoever added the restaurant, while nobody has chosen it and more than two remain; otherwise absent. |
+
+The row of the restaurant **ahead** (F12.7) is highlighted: a thicker border in
+the accent colour, a tinted background, and the word "Ahead" (after the
+decision, "Winner") as a badge in the row, so the highlight does not depend on
+colour. While nobody has voted no row is highlighted. A screen reader hears the
+badge as part of the row and, through a polite live region, "Pizzeria Roma is
+ahead" when the leader changes -- not on every ballot.
+
+Under the list, when the viewer may add one (F12.3) and fewer than five are
+offered: **Add a restaurant**, opening a form dialog with a select of the
+restaurants not yet in the vote.
+
+### Right column — the distribution
+
+A pie chart of the votes: one slice per restaurant with at least one vote, in
+the same order as the list, coloured from a palette of five tokens defined for
+both themes and checked for contrast against the page background and against
+each other. The slice of the restaurant ahead is pulled out slightly from the
+centre, which again does not depend on colour. While nobody has voted, the
+chart is an empty ring with "No votes yet" in it.
+
+Directly below the chart: the total, "7 votes", large.
+
+The chart is inline SVG drawn by our own code -- a pie of at most five slices
+is a few lines of arithmetic and does not justify a chart library. It is
+`aria-hidden`: the list on the left carries every number the chart shows, and
+is its text alternative. Slices change without animation under
+`prefers-reduced-motion`, and with a short transition otherwise.
+
+### Editing and deleting
+
+For the creator, while the vote is open, **Edit** and **Delete** buttons sit on
+the heading's line, as on an order. Edit opens a form dialog with the three
+times and the two switches, checked as on the creation page. Delete asks for
+confirmation and names how many people have voted. The administrator sees
+Delete on every vote, decided or not.
+
+### After the decision
+
+The choice controls, the add and remove controls and Edit disappear. A banner
+replaces the decision hint:
+
+- **ordered**: "Decided: <restaurant>" with a primary **Go to the order**
+  button.
+- **no_ballots**: "Nobody voted, so no order was made."
+- **too_late**: "The decision came after the order deadline, so no order was
+  made."
+
+The counts are the final ones (F12.12).
+
+### Live updates
+
+The page subscribes to `/votes/{id}/events` (docs/04). `vote.updated` redraws
+both columns from the payload, keeping the viewer's own choice and keyboard
+focus where they were; `vote.decided` switches the page to the decided state
+without a reload; `vote.deleted` says so and returns to the overview. After
+logging in or out the stream is reopened, as on the order page.
 
 ## Summary page
 

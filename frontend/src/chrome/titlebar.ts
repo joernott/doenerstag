@@ -15,7 +15,9 @@ export function renderTitleBar(app: App): HTMLElement {
 
   const brand = el(
     "a",
-    { class: "brand", href: "/", "aria-label": t.t("nav.home") },
+    // The accessible name starts with the visible name, so a voice-control user
+    // can say what they see (WCAG 2.5.3).
+    { class: "brand", href: "/", "aria-label": t.t("nav.brand") },
     logo(),
     el("span", { class: "brand-name", text: t.t("app.name") }),
   );
@@ -247,7 +249,8 @@ function dropdown(
     document.removeEventListener("click", onDocumentClick);
   };
 
-  button.addEventListener("click", () => setOpen(panel.hidden));
+  // `hidden` may also be "until-found", which is hidden too.
+  button.addEventListener("click", () => setOpen(panel.hidden !== false));
   panel.addEventListener("click", () => setOpen(false));
 
   return container;

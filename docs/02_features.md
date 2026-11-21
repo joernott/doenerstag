@@ -7,7 +7,8 @@ specified in [03_data_model.md](03_data_model.md), the screens in
 
 ## F1 — Browsing without an account
 
-- **F1.1** Any visitor, logged in or not, can see the list of orders.
+- **F1.1** Any visitor, logged in or not, can see the list of orders, and
+  of open votes (F12).
 - **F1.2** A visitor who is **not logged in** can open an order and see its
   header — restaurant, fulfilment type, fulfilment time, deadline and status —
   and the **number of order items**. They cannot see the items themselves, who
@@ -43,6 +44,8 @@ specified in [03_data_model.md](03_data_model.md), the screens in
     placeholder; the administrator remains able to delete them.
   - Before deleting, the user is shown how many active orders they still
     participate in and is given the chance to cancel.
+  - Their ballots are removed from every vote; votes they created pass to
+    the placeholder (F12.14).
 - **F2.7** A user may create, list and revoke API tokens for third-party access.
 - **F2.8** There is exactly one administrator account, `root`, created during
   installation. It cannot be deleted or renamed.
@@ -217,3 +220,65 @@ specified in [03_data_model.md](03_data_model.md), the screens in
   their messages stay and are shown as from "deleted user", so a conversation
   does not lose lines from its middle.
 - **F11.5** New messages appear on every participant's page without a reload.
+
+## F12 — Votes
+
+A vote settles *where* to order before anybody orders. It is created instead of
+an order, and at its decision time the server turns it into one.
+
+- **F12.1** Any logged-in user can create a vote by choosing two to five
+  restaurants, a decision time, an order deadline and a fulfilment time. The
+  three times must come in that order and the decision time must lie in the
+  future: `now < decision < deadline < fulfilment`. The vote has no fulfilment
+  type; see F12.9.
+- **F12.2** The creator decides two things when creating the vote and may
+  change them until the decision time: whether others may add restaurants, and
+  whether ballots are public. Ballots cast in secret stay secret: once anybody
+  has voted, a secret vote cannot be made public.
+- **F12.3** A vote offers at least two and at most five restaurants, each at
+  most once. The creator may always add one; anybody else signed in may when
+  the creator allows it. A restaurant may be removed by the creator or by
+  whoever added it, only while nobody has chosen it, and never below two.
+- **F12.4** Every logged-in user may vote, once: they choose one restaurant and
+  may change or withdraw that choice at any time until the decision time.
+- **F12.5** With **secret ballots** nobody is told who chose what — not the
+  creator, not the administrator, not through the live stream and not through
+  the log. A voter learns only their own choice. With **public ballots** every
+  signed-in viewer sees the names beside each restaurant. Either way every
+  viewer sees how many votes each restaurant has and how many there are in
+  all. With few voters the counts can give a secret ballot away; the
+  application does not pretend otherwise.
+- **F12.6** Anonymous visitors see a vote, its restaurants and the counts, and
+  never a name, not even the creator's (F1.2).
+- **F12.7** The restaurant **ahead** is the one with the most votes. Between
+  restaurants level on votes, the one that reached its count first is ahead:
+  the one whose newest current ballot is the oldest. A ballot counts from the
+  moment it was cast or last changed. While nobody has voted, none is ahead.
+- **F12.8** Until the decision time the creator may change the three times —
+  in the same order, the decision time still in the future — and the two
+  switches of F12.2, and may delete the vote. The administrator may delete any
+  vote. After the decision time a vote is read-only for everyone.
+- **F12.9** At the decision time the server decides the vote, once, whether or
+  not anybody has the page open, and survives a restart that spans the
+  decision time. The restaurant ahead (F12.7) wins and the server creates an
+  order for it: the vote's creator becomes the order's creator, the vote's
+  deadline and fulfilment time become the order's, the fulfilment type starts
+  as pickup, and currency, minimum order value and delivery fee are copied as
+  F5.11 says. The order's creator then edits it like any other (F5.7) — to
+  switch it to delivery, say.
+- **F12.10** A vote nobody voted in creates no order. Nor does a vote decided
+  only after its order deadline — a server down past both times — because the
+  order would be born closed (F5.3a). Either way the vote says why.
+- **F12.11** Voting makes nobody a participant of the order (F1.3). The people
+  who voted take part by ordering, as with any order.
+- **F12.12** A decided vote stays readable, with its final counts, and links to
+  the order it became. It goes with that order — deleted by its creator, the
+  administrator or `cleanup`. A vote that became no order is removed by
+  `cleanup` once its decision time is older than the retention period.
+- **F12.13** Open votes appear on the start page beside the orders (F1.1).
+  While a vote page is open, ballots, added and removed restaurants, edits and
+  the decision appear without a reload (F7).
+- **F12.14** Deleting an account (F2.6) removes that person's ballots from
+  every vote, decided or not: a decided vote keeps the counts it was decided
+  with. Votes the person created and restaurants they added pass to the
+  deleted-user placeholder.

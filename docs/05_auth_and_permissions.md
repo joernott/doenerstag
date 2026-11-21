@@ -21,6 +21,8 @@ Reading is mostly open, but not entirely. An unauthenticated visitor can see:
   time, deadline and status. **No user is named**, not even the order's
   creator.
 - **How many** items an order has — but not the items themselves.
+- Every vote, the restaurants it offers and how many votes each has — but
+  not who voted, even with public ballots, nor who created it (F12.6).
 - The version, imprint and legal notes pages.
 
 An unauthenticated visitor **cannot** see:
@@ -321,6 +323,15 @@ deliberate non-feature; if the password is lost, the operator resets it with
 | Edit or delete an order item after deadline   | – | – | – | – |
 | Tick an order item as paid, deadline or not   | – | – | ✓ | ✓ |
 | Read and write an order's chat, deadline or not | – | participants only | ✓ | ✓ |
+| View a vote, its restaurants and counts       | ✓ | ✓ | ✓ | ✓ |
+| See who chose what in a vote with public ballots | – | ✓ | ✓ | ✓ |
+| See who chose what in a vote with secret ballots | – | – | – | – |
+| Create a vote                                 | – | ✓ | ✓ | ✓ |
+| Cast, change or withdraw one's own ballot, until the decision | – | ✓ | ✓ | ✓ |
+| Add a restaurant to a vote, until the decision | – | when the creator allows it | ✓ | ✓ |
+| Remove a restaurant nobody chose, until the decision | – | – | ✓ | ✓ |
+| Edit a vote's times and switches, until the decision | – | – | ✓ | ✓ |
+| Delete a vote                                 | – | – | until the decision | ✓ |
 | Create a restaurant                           | – | ✓ | ✓ | ✓ |
 | Edit a restaurant, contacts, opening hours    | – | ✓ | ✓ | ✓ |
 | Delete a restaurant                           | – | – | – | ✓ |
@@ -343,6 +354,14 @@ is ticked, the administrator can act as well.
 For taking somebody off a job, the person doing that job counts as an owner
 alongside the order's creator: whoever said "Me!" and then cannot go gives it
 up themselves (19.5). Anybody else is refused with 3006.
+
+For removing a restaurant from a vote, whoever added it counts as an owner
+alongside the vote's creator (F12.3). Anybody else is refused with 3009.
+
+A secret ballot is the one place the administrator sees less than an owner
+can: nobody is told who chose what, and the row in the matrix is empty on
+purpose (F12.5). A vote is read-only for everyone after its decision time;
+the administrator may still delete it.
 
 Note the deliberate asymmetry: **creating and editing** menu data is open to
 every logged-in user so the database can be crowdsourced, while **deleting** it

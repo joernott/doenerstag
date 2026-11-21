@@ -51,6 +51,9 @@ app_user ──< session
          ──< food_order (pickup person, 0..1)
          ──< order_item (owner)
          ──< order_message (author)
+         ──< vote (creator)
+         ──< vote_choice (added by)
+         ──< vote_ballot (voter)
 
 restaurant ──< restaurant_contact >── contact_type
            ──< opening_hours
@@ -70,6 +73,10 @@ food_order ── restaurant
            ──< order_item ── menu_item
                           ──< order_item_modification ── menu_item_modification (0..1)
            ──< order_message
+           ──  vote (0..1, the vote it came from)
+
+vote ──< vote_choice ── restaurant
+     ──< vote_ballot ── vote_choice
 
 content_page
 app_version
@@ -586,6 +593,92 @@ Index: `(order_id, created_at, id)`, `(user_id)`.
 
 ---
 
+## Vote entities
+
+A vote (F12, ADR-0013) chooses the restaurant for an order that does not exist
+yet. Three tables: the vote, the restaurants it offers, and one ballot per
+voter.
+
+### `vote`
+
+| Column             | Type          | Null | Notes                                                    |
+| ------------------ | ------------- | ---- | -------------------------------------------------------- |
+| `id`               | `uuid`        | no   | PK, UUIDv7.                                               |
+| `creator_id`       | `uuid`        | no   | FK `app_user`, `ON DELETE SET DEFAULT` → deleted user.    |
+| `decision_at`      | `timestamptz` | no   | When the vote is decided and the order created.           |
+| `deadline_at`      | `timestamptz` | no   | Becomes the order's `deadline_at`.                        |
+| `fulfilment_at`    | `timestamptz` | no   | Becomes the order's `fulfilment_at`.                      |
+| `open_choices`     | `boolean`     | no   | Others may add restaurants (F12.3). Default `false`.      |
+| `public_ballots`   | `boolean`     | no   | Voters are named beside their choice (F12.5). Default `false`. |
+| `decided`          | `boolean`     | no   | The decision has been made (F12.9). Default `false`.      |
+| `outcome`          | `text`        | yes  | Null until decided; then `ordered`, `no_ballots` or `too_late` (F12.10). `CHECK`ed, and `CHECK (decided = (outcome IS NOT NULL))`. |
+| `winner_choice_id` | `uuid`        | yes  | The `vote_choice` that won. Set with `outcome = 'ordered'`. |
+| `order_id`         | `uuid`        | yes  | FK `food_order`, `ON DELETE CASCADE`: the vote goes with the order it became (F12.12). Unique. |
+
+Constraints:
+
+- `CHECK (decision_at < deadline_at AND deadline_at < fulfilment_at)`.
+- `decision_at` in the future is checked by the API on create and edit, not
+  by the schema: a vote stays valid as its decision time passes.
+- The decision sets `decided`, `outcome`, `winner_choice_id` and `order_id` in
+  the same `UPDATE ... WHERE NOT decided` that the order is created beside, in
+  one transaction, so a vote is decided exactly once however many processes or
+  passes look -- as 21.3's draw is.
+- `winner_choice_id` references `vote_choice (vote_id, id)` through the pair
+  `(id, winner_choice_id)`, so the winner is one of this vote's own choices.
+- `(outcome = 'ordered')` exactly when `order_id` and `winner_choice_id` are
+  set, as a `CHECK`.
+- There is no stored title. The derived title is `"Vote — <fulfilment_at in
+  local time>"`, as an order's is derived (F5.6).
+
+Indexes: `(decision_at) WHERE NOT decided` for the decision pass and the
+overview, `(creator_id)`; `order_id` is unique, which indexes it.
+
+### `vote_choice`
+
+| Column          | Type      | Null | Notes                                                    |
+| --------------- | --------- | ---- | -------------------------------------------------------- |
+| `id`            | `uuid`    | no   | PK, UUIDv7, so choices sort in the order they were added. |
+| `vote_id`       | `uuid`    | no   | FK `vote`, `ON DELETE CASCADE`.                           |
+| `restaurant_id` | `uuid`    | no   | FK `restaurant`, `ON DELETE RESTRICT`.                    |
+| `added_by_id`   | `uuid`    | no   | Who added it, for F12.3's removal rule. FK `app_user`, `ON DELETE SET DEFAULT` → deleted user. |
+| `final_count`   | `integer` | yes  | Null until decided; then the number of ballots it had, so a decided vote keeps its counts when a voter deletes their account (F12.12, F12.14). |
+
+Constraints:
+
+- `UNIQUE (vote_id, restaurant_id)`: a restaurant once per vote.
+- `UNIQUE (vote_id, id)`, the target of the ballots' composite foreign key.
+- Two to five per vote: a deferred constraint trigger counts the vote's
+  choices at commit, after every insert or delete of a choice and every insert
+  of a vote, and fails the transaction outside 2..5. Deferred, because a vote
+  and its first choices are inserted one row at a time; skipped when the vote
+  itself is gone, so deleting a vote cascades cleanly. The insert path locks
+  the vote row first, so two people adding the fifth and a sixth at once
+  cannot both pass. The trigger takes that lock itself, so the rule holds
+  for a write that does not come through the API.
+
+Indexes: `(restaurant_id)`, for the restaurant-deletion check; `(added_by_id)`, for account deletion.
+
+### `vote_ballot`
+
+| Column      | Type          | Null | Notes                                                    |
+| ----------- | ------------- | ---- | -------------------------------------------------------- |
+| `vote_id`   | `uuid`        | no   | PK part. FK `vote`, `ON DELETE CASCADE`.                  |
+| `user_id`   | `uuid`        | no   | PK part. FK `app_user`, `ON DELETE CASCADE` (F12.14).     |
+| `choice_id` | `uuid`        | no   | With `vote_id`, FK `vote_choice (vote_id, id)`, `ON DELETE NO ACTION`: a choice somebody chose cannot be removed (F12.3), and a ballot can only name a choice of its own vote. `NO ACTION` rather than `RESTRICT` because it is checked at the end of the statement, so deleting the vote -- cascading to choices and ballots alike -- goes through. |
+| `cast_at`   | `timestamptz` | no   | When the ballot was cast or last changed to this choice. The tie rule of F12.7 reads it. |
+
+- The primary key `(vote_id, user_id)` is the one-ballot-per-voter rule.
+  Changing one's mind is an `UPDATE` of `choice_id` and `cast_at`; withdrawing
+  is a `DELETE`.
+- The table knows who chose what whatever the vote's setting. F12.5's secrecy
+  is a promise about responses, events and the log, not about the database;
+  docs/13 says so.
+
+Indexes: `(vote_id, choice_id)` for the counts and the foreign key, `(user_id)` for account deletion.
+
+---
+
 ## Supporting entities
 
 ### `image`
@@ -694,10 +787,11 @@ application's own history; `golang-migrate` maintains its separate
 
 | Action                          | Effect                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Chat messages → placeholder. Sessions and tokens → cascade. |
-| Delete restaurant (admin)       | Rejected while any `food_order` references it. Otherwise soft delete.                        |
+| Delete user (self or admin)     | Items in expired orders → deleted-user placeholder. Items in active orders → deleted. Orders created by them → placeholder. Orders they collect the money for or fetch → nobody (`SET NULL`). Chat messages → placeholder. Ballots → deleted, in every vote. Votes created and choices added by them → placeholder. Sessions and tokens → cascade. |
+| Delete restaurant (admin)       | Rejected while any `food_order` references it or an undecided vote offers it. Otherwise soft delete. |
 | Delete menu category (admin)    | Soft delete. Its items lose their `category_id` at once and appear under no category.       |
 | Delete menu item (admin)        | Soft delete. Hidden from menus immediately.                                                  |
 | Delete modification (admin)     | Soft delete. Snapshots in existing order items are unaffected.                               |
-| Delete order (creator or admin) | Hard delete, cascading to items, item modifications and chat messages.                       |
-| `cleanup`                       | Deletes orders past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images older than a day, then expired sessions and API tokens. |
+| Delete order (creator or admin) | Hard delete, cascading to items, item modifications, chat messages and the vote it came from. |
+| Delete vote (creator before the decision, or admin) | Hard delete, cascading to its choices and ballots. |
+| `cleanup`                       | Deletes orders past retention (and with them the votes they came from), then votes that became no order and whose decision time is past retention, then physically removes soft-deleted menu data that nothing references, then orphaned images older than a day, then expired sessions and API tokens. |

@@ -44,6 +44,12 @@ type contentMatrix struct {
 	// spare is a restaurant nothing refers to. Deleting the main one is refused
 	// with 4003 whoever asks, which would hide the permission answer.
 	spare string
+
+	// vote offers three restaurants of its own, so that removing one leaves
+	// two and none of them is the spare; extra is a fourth to add (F12).
+	vote        string
+	voteChoices []string
+	extra       string
 }
 
 func newContentMatrix(t *testing.T) *contentMatrix {
@@ -57,6 +63,28 @@ func newContentMatrix(t *testing.T) *contentMatrix {
 	c.orderItem = o.addOrderItem(o.cookies, map[string]any{"quantity": 1}).ID
 	c.emptyOrder = o.createOrder(o.cookies, 2*time.Hour).ID
 	c.spare = o.createRestaurant("Zweite Wahl", o.cookies).ID
+
+	offered := []string{
+		o.createRestaurant("Erste Stimme", o.cookies).ID,
+		o.createRestaurant("Zweite Stimme", o.cookies).ID,
+		o.createRestaurant("Dritte Stimme", o.cookies).ID,
+	}
+	c.extra = o.createRestaurant("Vierte Stimme", o.cookies).ID
+	rec := o.post("/votes", map[string]any{
+		"restaurant_ids": offered,
+		"decision_at":    o.now.Add(time.Hour).UTC().Format(time.RFC3339),
+		"deadline_at":    o.now.Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		"fulfilment_at":  o.now.Add(3 * time.Hour).UTC().Format(time.RFC3339),
+	}, o.cookies...)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("creating the vote: %d %s", rec.Code, rec.Body.String())
+	}
+	var vote voteResp
+	decode(t, rec, &vote)
+	c.vote = vote.ID
+	for _, choice := range vote.Choices {
+		c.voteChoices = append(c.voteChoices, choice.ID)
+	}
 
 	return c
 }
@@ -474,6 +502,98 @@ func contentRows() []contentCase {
 				{anonymous, refused, api.CodeNotAuthenticated},
 				{otherUser, refused, api.CodeAdminRequired},
 				{owner, refused, api.CodeAdminRequired},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "View a vote, its restaurants and counts",
+			method: http.MethodGet,
+			path:   func(c *contentMatrix) string { return "/votes/" + c.vote },
+			cells: []cell{
+				{anonymous, allowed, 0},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Create a vote",
+			method: http.MethodPost,
+			path:   func(*contentMatrix) string { return "/votes" },
+			body: func(c *contentMatrix) any {
+				return map[string]any{
+					"restaurant_ids": []string{c.restaurant, c.spare},
+					"decision_at":    c.now.Add(time.Hour).UTC().Format(time.RFC3339),
+					"deadline_at":    c.now.Add(2 * time.Hour).UTC().Format(time.RFC3339),
+					"fulfilment_at":  c.now.Add(3 * time.Hour).UTC().Format(time.RFC3339),
+				}
+			},
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Cast, change or withdraw one's own ballot, until the decision",
+			method: http.MethodPut,
+			path:   func(c *contentMatrix) string { return "/votes/" + c.vote + "/ballot" },
+			body:   func(c *contentMatrix) any { return map[string]any{"choice_id": c.voteChoices[0]} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, allowed, 0},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			// The vote does not allow others to add restaurants, which is the
+			// case where the user column refuses.
+			row:    "Add a restaurant to a vote, until the decision",
+			method: http.MethodPost,
+			path:   func(c *contentMatrix) string { return "/votes/" + c.vote + "/choices" },
+			body:   func(c *contentMatrix) any { return map[string]any{"restaurant_id": c.extra} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeChoicesClosed},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Remove a restaurant nobody chose, until the decision",
+			method: http.MethodDelete,
+			path: func(c *contentMatrix) string {
+				return "/votes/" + c.vote + "/choices/" + c.voteChoices[2]
+			},
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotChoiceOwner},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Edit a vote's times and switches, until the decision",
+			method: http.MethodPatch,
+			path:   func(c *contentMatrix) string { return "/votes/" + c.vote },
+			body:   func(*contentMatrix) any { return map[string]any{"open_choices": true} },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotVoteCreator},
+				{owner, allowed, 0},
+				{admin, allowed, 0},
+			},
+		},
+		{
+			row:    "Delete a vote",
+			method: http.MethodDelete,
+			path:   func(c *contentMatrix) string { return "/votes/" + c.vote },
+			cells: []cell{
+				{anonymous, refused, api.CodeNotAuthenticated},
+				{otherUser, refused, api.CodeNotVoteCreator},
+				{owner, allowed, 0},
 				{admin, allowed, 0},
 			},
 		},

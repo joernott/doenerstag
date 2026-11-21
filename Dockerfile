@@ -13,7 +13,7 @@
 
 # --- build ------------------------------------------------------------------
 
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend
 
 WORKDIR /src/frontend
 # The lockfile first, so a change to the sources does not re-resolve the whole
@@ -26,7 +26,7 @@ COPY static/ /src/static/
 RUN npm run build
 
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 
 # Set by buildx for each architecture being built. The Go toolchain runs
 # natively on the build platform and cross-compiles, which is far faster than

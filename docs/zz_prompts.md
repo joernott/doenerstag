@@ -1267,3 +1267,66 @@ administrator-only and show everybody else why.
 ### Prompt 85
 
 > sry, forget it and please continue with the release
+
+---
+
+### Prompt 86
+
+> Before starting, please reread the current documentation and your cache as it
+> has been a while since we last worked on the doenerstag app. For the
+> doenerstag app, there has been a new feature request to add a votng feature:
+> - Instead of creating an order, a vote for a restaurant can be created. It
+>   allows interested participants to choose a restaurant by majority vote.
+> - A vote has a defined voting period that starts with its creations and ends
+>   at the decision date/time after which an order is created automatically for
+>   the restaurant with most of the votes. If no restaurant received a vote, no
+>   order is created.
+> - The vote already defines some of the fields of the order like creator, end
+>   of order period, and the delifery/pickup time.
+> - The creator picks the restaurants he wants to have in that vote. He can
+>   choose whether to allow others to add restaurants to the vote.
+> - A vote must contain at minimum two and at maximum five choices.
+> - The creator can choose whether participants and individual votes are
+>   visible or not. I am aware that there is no real privacy if only very few
+>   users have voted.
+> - Every logged in user can participate and choose one restaurant. They can
+>   change that vote at any time.
+> - The vote page contains the list of restaurants at the left and s pie chart
+>   showing the distribution on the right. Next to each restaurant, there is a
+>   number that shows the number of votes received and the total number of
+>   votes is displayed below the pie chart.
+> - The "winning" restaurant is highlighted during the vote.
+>
+> Please create a new sprint for that feature. In addition to the vote, please
+> also make sure, you update the dependencies of the project.
+
+---
+
+### Prompt 87
+
+> Answers to your questions:
+> 1. On a tie, the restaurant that reached the number first wins.
+> 2. Hidden from everyone
+> 3. The restaurants and the counts, but never any names.
+> 4. Yes, take your suggestion
+> 5. Everybody
+> 6. No.
+> 7. Take your suggestion
+
+Asked what "Everybody" meant for question 5; the answer was that the order's
+creator sets the fulfilment type afterwards.
+
+---
+
+### Prompt 88
+
+> I have restarted windows after turning off the memory protection. The VM has
+> been started again. Please start with the vote feature and tell me if the
+> changes I made resulted in a better performance on the VM.
+
+---
+
+### Prompt 89
+
+> go ahead with the rest of the sprint, finish as many steps as you can without
+> prompting for my input

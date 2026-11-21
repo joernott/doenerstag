@@ -46,6 +46,8 @@ tags:
     description: Upload and delivery of logos and dish photographs.
   - name: orders
     description: Orders, their items, their summary and their event stream.
+  - name: votes
+    description: Votes for the restaurant of an order not made yet (F12).
   - name: content
     description: The imprint and the legal notes.
 
@@ -2289,6 +2291,276 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /votes:
+    get:
+      tags: [votes]
+      operationId: listVotes
+      summary: The undecided votes, soonest fulfilment first.
+      description: |
+        Each in the caller's shape, as `GET /votes/{id}` gives it. A decided
+        vote leaves this list; it is reached through the order it became.
+      security: []
+      responses:
+        "200":
+          description: The undecided votes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [votes]
+                properties:
+                  votes:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/VoteDetail"
+                        - $ref: "#/components/schemas/VotePublic"
+    post:
+      tags: [votes]
+      operationId: createVote
+      summary: Start a vote for the restaurant of an order not made yet.
+      description: |
+        Two to five distinct restaurants (error 1017). The decision time must
+        lie in the future and before the order deadline (1018), which must lie
+        before the fulfilment time (1003). The vote has no fulfilment type:
+        the order it becomes starts as a pickup (F12.9).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVoteRequest"
+      responses:
+        "201":
+          description: The new vote.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /votes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/VoteId"
+    get:
+      tags: [votes]
+      operationId: getVote
+      summary: One vote, in the shape the caller is entitled to.
+      description: |
+        An anonymous caller is told the restaurants and the counts and no
+        name at all, the creator included (F12.6). A signed-in caller also
+        gets the creator, who added each restaurant, and their own ballot; with
+        public ballots, each restaurant's voters. With secret ballots the
+        `voters` field is absent from every response to every caller, the
+        administrator's included (F12.5).
+      security: []
+      responses:
+        "200":
+          description: The vote.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/VoteDetail"
+                  - $ref: "#/components/schemas/VotePublic"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [votes]
+      operationId: patchVote
+      summary: Change a vote's times or switches. Creator or administrator.
+      description: |
+        Until the decision time; 4009 afterwards. A vote somebody has voted in
+        cannot be switched from secret to public ballots (1002), so nobody's
+        secret ballot is published.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchVoteRequest"
+      responses:
+        "200":
+          description: The changed vote.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [votes]
+      operationId: deleteVote
+      summary: Delete a vote. The creator until the decision, the administrator always.
+      responses:
+        "204":
+          description: The vote is gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /votes/{id}/choices:
+    parameters:
+      - $ref: "#/components/parameters/VoteId"
+    post:
+      tags: [votes]
+      operationId: addVoteChoice
+      summary: Add a restaurant to a vote.
+      description: |
+        The creator always; anybody signed in when the vote has
+        `open_choices` (3008 otherwise). 4010 if the restaurant is already in
+        the vote, 4011 at five, 4009 after the decision time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [restaurant_id]
+              properties:
+                restaurant_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The vote with the new restaurant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /votes/{id}/choices/{cid}:
+    parameters:
+      - $ref: "#/components/parameters/VoteId"
+      - name: cid
+        in: path
+        required: true
+        description: The choice's id.
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [votes]
+      operationId: removeVoteChoice
+      summary: Remove a restaurant nobody has chosen.
+      description: |
+        The vote's creator or whoever added it (3009 otherwise). 4012 once
+        somebody has chosen it, 4011 at two, 4009 after the decision time.
+      responses:
+        "200":
+          description: The vote without the restaurant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /votes/{id}/ballot:
+    parameters:
+      - $ref: "#/components/parameters/VoteId"
+    put:
+      tags: [votes]
+      operationId: castBallot
+      summary: Cast or change the caller's own ballot.
+      description: |
+        One ballot per voter; a second replaces the first. Choosing the same
+        restaurant again keeps the ballot's time, which the tie rule reads
+        (F12.7). 1019 for a choice of another vote, 4009 after the decision
+        time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [choice_id]
+              properties:
+                choice_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The vote, with the caller's ballot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "400":
+          $ref: "#/components/responses/Validation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [votes]
+      operationId: withdrawBallot
+      summary: Withdraw the caller's own ballot.
+      description: Not an error when the caller has none. 4009 after the decision time.
+      responses:
+        "200":
+          description: The vote, without the caller's ballot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /votes/{id}/events:
+    parameters:
+      - $ref: "#/components/parameters/VoteId"
+    get:
+      tags: [votes]
+      operationId: getVoteEvents
+      summary: A Server-Sent Events stream of changes to this vote.
+      description: |
+        `vote.updated` carries the whole vote in the subscriber's shape,
+        without `my_choice_id`: the stream knows whether its subscriber is
+        signed in, not who they are. `vote.decided` carries the outcome and
+        the order made, `vote.deleted` the id. A `ping` every 30 seconds.
+      security: []
+      responses:
+        "200":
+          description: The stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     session:
@@ -2336,6 +2608,12 @@ components:
       in: path
       required: true
       description: The image's id.
+      schema: { type: string, format: uuid }
+    VoteId:
+      name: id
+      in: path
+      required: true
+      description: The vote's id.
       schema: { type: string, format: uuid }
 
   responses:
@@ -2962,6 +3240,94 @@ components:
         price_delta_cents: { type: integer, format: int64 }
         sort_order: { type: integer }
 
+    VotePublic:
+      type: object
+      description: |
+        A vote as anybody may see it: what is on offer and how many votes each
+        restaurant has. Names nobody, the creator included (F12.6).
+      required: [id, title, decision_at, deadline_at, fulfilment_at, status, open_choices, public_ballots, total, choices]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        decision_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        fulfilment_at: { type: string, format: date-time }
+        status: { type: string, enum: [open, decided] }
+        open_choices: { type: boolean }
+        public_ballots: { type: boolean }
+        outcome:
+          type: string
+          nullable: true
+          enum: [ordered, no_ballots, too_late]
+        order_id: { type: string, format: uuid, nullable: true }
+        total: { type: integer, description: The number of ballots. }
+        leader_choice_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The restaurant ahead (F12.7); after the decision, the winner.
+        choices:
+          type: array
+          items:
+            type: object
+            required: [id, restaurant_id, restaurant_name, count]
+            properties:
+              id: { type: string, format: uuid }
+              restaurant_id: { type: string, format: uuid }
+              restaurant_name: { type: string }
+              restaurant_logo_image_id: { type: string, format: uuid, nullable: true }
+              count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    VoteDetail:
+      description: |
+        A vote as a signed-in caller sees it: the public shape plus the
+        creator, who added each restaurant, the caller's own ballot and, with
+        public ballots only, each restaurant's voters.
+      allOf:
+        - $ref: "#/components/schemas/VotePublic"
+        - type: object
+          properties:
+            creator_id: { type: string, format: uuid }
+            creator_name: { type: string }
+            my_choice_id: { type: string, format: uuid, nullable: true }
+            choices:
+              type: array
+              items:
+                type: object
+                properties:
+                  added_by_id: { type: string, format: uuid }
+                  added_by_name: { type: string }
+                  voters:
+                    type: array
+                    description: Absent with secret ballots.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+    CreateVoteRequest:
+      type: object
+      required: [restaurant_ids, decision_at, deadline_at, fulfilment_at]
+      properties:
+        restaurant_ids:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items: { type: string, format: uuid }
+        decision_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        fulfilment_at: { type: string, format: date-time }
+        open_choices: { type: boolean, default: false }
+        public_ballots: { type: boolean, default: false }
+    PatchVoteRequest:
+      type: object
+      properties:
+        decision_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        fulfilment_at: { type: string, format: date-time }
+        open_choices: { type: boolean }
+        public_ballots: { type: boolean }
     OrderHeader:
       type: object
       description: |
@@ -3004,6 +3370,11 @@ components:
         item_count:
           type: integer
           description: In both shapes, so a client never branches on its absence.
+        vote_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The vote this order was made by (F12.9), null for most orders.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

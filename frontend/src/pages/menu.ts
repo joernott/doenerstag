@@ -179,9 +179,11 @@ export function menuSection(
         variant: "primary",
         // Every category has an Edit button and so does every item, so the
         // visible word is not a name on its own. Naming the category is what
-        // lets a screen reader or a voice command tell them apart.
+        // lets a screen reader or a voice command tell them apart; the name
+        // starts with the visible word, so the voice command is what the
+        // button says (WCAG 2.5.3).
         title: `${t.t("menu.category.rename")}: ${category.name}`,
-        ariaLabel: `${t.t("menu.category.rename")}: ${category.name}`,
+        ariaLabel: `${t.t("action.edit")}: ${category.name}`,
         onclick: () => {
           openNameDialog({
             app,
@@ -199,7 +201,7 @@ export function menuSection(
         // Named for the category, like the Edit beside it and for the same
         // reason: every category has one of these.
         title: `${t.t("availability.attached")}: ${category.name}`,
-        ariaLabel: `${t.t("availability.attached")}: ${category.name}`,
+        ariaLabel: `${t.t("availability.title")}: ${category.name}`,
         onclick: () => {
           openAttachmentEditor({
             app,

@@ -457,8 +457,8 @@ func TestCleanupOnACleanDatabase(t *testing.T) {
 		t.Errorf("removed %d rows from a fresh database: %+v", report.Total(), report.Steps)
 	}
 	// Every step still ran and reported, so the log is complete.
-	if len(report.Steps) != 8 {
-		t.Errorf("%d steps ran, want the eight the specification lists", len(report.Steps))
+	if len(report.Steps) != 9 {
+		t.Errorf("%d steps ran, want the nine the specification lists", len(report.Steps))
 	}
 }
 

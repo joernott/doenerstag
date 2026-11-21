@@ -23,3 +23,4 @@ Format: Status, Context, Decision, Consequences. Keep them to a page.
 | [0010](0010-httprouter-for-routing.md) | httprouter for all routing | Accepted |
 | [0011](0011-tiered-order-visibility.md) | Tiered order visibility | Accepted |
 | [0012](0012-order-chat-in-the-database.md) | The order chat lives in the database, and the stream carries only its count | Accepted |
+| [0013](0013-votes-are-their-own-entity.md) | A vote is a thing of its own, and the server decides it | Accepted |

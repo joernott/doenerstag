@@ -13,35 +13,35 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.6.0.** Everything the specification describes is built: accounts and
+**0.7.0.** Everything the specification describes is built: accounts and
 sessions, restaurants with menus and opening hours, orders with a deadline and a
 pickup or delivery time, per-person items, a summary page for whoever is calling
-the restaurant, live updates over SSE, German, English and French, and an
-administration surface.
+the restaurant, a chat on every order, votes on where to order, live updates
+over SSE, German, English and French, and an administration surface.
 
-New in 0.6.0:
+New in 0.7.0:
 
-- **A chat on every order.** The menu column of the order page has two tabs,
-  Menu and Chat (n). The people taking part in an order -- whoever ordered
-  something, opened it, fetches the food or collects the money -- talk there,
-  live, before and after the deadline: "the food is here", "who has change".
-  Nobody else reads a word of it. The chat goes with the order.
-- **Nobody volunteered? Somebody is picked.** When the deadline passes with
-  nobody fetching the food or collecting the money, the server picks one of
-  the people who ordered, at random, for every empty job, and the order page
-  says it was by lot.
-- **Duplicate a dish or a whole category** on the restaurant page, with
-  everything it carries -- options, allergens, availability -- under a name
-  that says it is a copy, in your language.
-- In the dish editor, the Remove button on an option is shown to everybody,
-  disabled with the reason for anybody but the administrator, rather than
-  missing.
-- **Go 1.26.10**, for GO-2026-6809: crypto/x509 now distrusts a set of
-  compromised intermediate certificates, which matters for the TLS
-  connection to the mail server.
+- **Vote on the restaurant.** The plus tile on the start page now asks
+  whether to start an order or a vote. A vote offers two to five restaurants;
+  everybody signed in picks one and may change their mind until the decision
+  time. The vote page lists the restaurants with their counts beside a pie
+  chart and the total, and highlights the one ahead. At the decision time the
+  server makes the order for the winner -- with the vote's creator, deadline
+  and fulfilment time, as a pickup the creator can switch to delivery -- or
+  none, if nobody voted. On a tie, the restaurant that reached the count first
+  wins.
+- **Public or secret ballots**, chosen by whoever starts the vote. Secret
+  means nobody is told who chose what, the administrator included; a vote
+  somebody has voted in secretly cannot be made public afterwards. Visitors
+  who are not signed in see the counts and no names.
+- **Fresh dependencies**: Go 1.27.4 and every Go module at its newest release,
+  `klauspost/compress` 1.20.2 for GO-2026-6865, Node.js 26, TypeScript 6,
+  ESLint 10, Vitest 5, esbuild 0.28, and the GitHub Actions at their current
+  majors.
+- Accessible names: the logo link and a category's Edit and Availability
+  buttons now start with the words they show, so voice control finds them.
 
-Two migrations come with it, so run `doenerstag update` after installing.
-Orders that closed before the update are not drawn for.
+One migration comes with it, so run `doenerstag update` after installing.
 
 Still a 0.x release, and marked as a pre-release for the reason it was at
 0.1.0: it works, and not many people have used it yet.
@@ -52,13 +52,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.6.0-1_amd64.deb
+apt install ./doenerstag_0.7.0-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.6.0-1.x86_64.rpm
+dnf install ./doenerstag-0.7.0-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.6.0
+docker pull docker.io/joernott/doenerstag:0.7.0
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```

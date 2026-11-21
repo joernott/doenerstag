@@ -118,6 +118,46 @@ export interface OrderHeader {
   min_order_value_cents: number | null;
   delivery_fee_cents: number | null;
   item_count: number;
+  /** The vote this order was made by (F12.9); null for most orders. */
+  vote_id?: string | null;
+}
+
+/** One restaurant a vote offers (F12). */
+export interface VoteChoice {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  restaurant_logo_image_id: string | null;
+  count: number;
+  /** Signed-in callers only. */
+  added_by_id?: string;
+  added_by_name?: string;
+  /** Signed-in callers, and only with public ballots (F12.5). */
+  voters?: { id: string; name: string }[];
+}
+
+/** A vote, in whichever shape the caller is entitled to. */
+export interface Vote {
+  id: string;
+  title: string;
+  decision_at: string;
+  deadline_at: string;
+  fulfilment_at: string;
+  status: "open" | "decided";
+  open_choices: boolean;
+  public_ballots: boolean;
+  outcome: "ordered" | "no_ballots" | "too_late" | null;
+  order_id: string | null;
+  total: number;
+  leader_choice_id: string | null;
+  choices: VoteChoice[];
+  created_at: string;
+  updated_at: string;
+  /** Signed-in callers only: the creator. */
+  creator_id?: string;
+  creator_name?: string;
+  /** Signed-in callers only, and never on the live stream. */
+  my_choice_id?: string | null;
 }
 
 /**

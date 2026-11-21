@@ -119,6 +119,7 @@ type apiFixture struct {
 	images        *api.ImageHandlers
 	menu          *api.MenuHandlers
 	orders        *api.OrderHandlers
+	votes         *api.VoteHandlers
 	registry      *sse.Registry
 	reset         *api.ResetHandlers
 	mail          *collectingSender
@@ -249,6 +250,8 @@ func newAPIFixtureWithUploadLimit(t *testing.T, maxImageBytes int64) *apiFixture
 		Pool: pool, Events: f.registry, Now: clock,
 	}
 	f.orders.Register(f.router)
+	f.votes = &api.VoteHandlers{Pool: pool, Events: f.registry, Now: clock}
+	f.votes.Register(f.router)
 	(&api.PageHandlers{Pool: pool}).Register(f.router)
 	f.registerProbe()
 

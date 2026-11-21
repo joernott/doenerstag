@@ -145,7 +145,7 @@ function isSafe(method: string): boolean {
  * internal code rather than throwing a second error while handling the first.
  */
 async function errorFrom(response: Response): Promise<ApiError> {
-  let envelope: ErrorEnvelope = {};
+  let envelope: ErrorEnvelope;
   try {
     envelope = (await response.json()) as ErrorEnvelope;
   } catch {

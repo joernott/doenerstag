@@ -111,6 +111,9 @@ falls back to `message` when no translation exists.
 | 1014 | 400  | The deadline is already in the past.                            |
 | 1015 | 400  | This password reset link is not valid: forged, mangled or already used. |
 | 1016 | 400  | This password reset link has expired.                           |
+| 1017 | 400  | A vote needs two to five different restaurants.                 |
+| 1018 | 400  | The decision time must lie in the future and before the order deadline. |
+| 1019 | 400  | The choice does not belong to this vote.                        |
 | 2000 | 401  | Not authenticated.                                              |
 | 2001 | 401  | Invalid user name or password.                                  |
 | 2002 | 401  | Session expired (idle or absolute timeout).                     |
@@ -125,15 +128,22 @@ falls back to `message` when no translation exists.
 | 3004 | 403  | Only participants of this order may see its summary or its chat. |
 | 3005 | 403  | Only the owner of this resource may act on it.                   |
 | 3006 | 403  | Only the person doing this job, the order's creator or the administrator may do that. |
+| 3007 | 403  | Only the vote's creator or the administrator may change or delete this vote. |
+| 3008 | 403  | Only the vote's creator may add restaurants to this vote.        |
+| 3009 | 403  | Only the vote's creator or whoever added it may remove this restaurant. |
 | 4000 | 404  | Resource not found.                                             |
 | 4001 | 409  | Order deadline has passed; the order is read-only.              |
 | 4002 | 409  | The restaurant cannot be changed once the order has items.      |
-| 4003 | 409  | The restaurant is still referenced by an order.                 |
+| 4003 | 409  | The restaurant is still referenced by an order or offered by an undecided vote. |
 | 4004 | 409  | Menu item is marked unavailable.                                |
 | 4005 | 409  | Name already exists within this restaurant.                     |
 | 4006 | 405  | The HTTP method is not allowed on this path.                    |
 | 4007 | 409  | Somebody is already doing this job.                             |
 | 4008 | 409  | The kitchen does not make this at the order's time.             |
+| 4009 | 409  | The vote has been decided; it is read-only.                      |
+| 4010 | 409  | The restaurant is already in this vote.                          |
+| 4011 | 409  | A vote offers two to five restaurants.                           |
+| 4012 | 409  | Somebody has chosen this restaurant; it cannot be removed.       |
 | 5000 | 429  | Too many login attempts.                                        |
 | 9000 | 500  | Unexpected server error.                                        |
 | 9001 | 503  | Database unavailable.                                           |
@@ -383,6 +393,73 @@ The client reconnects automatically using the browser's built-in `EventSource`
 retry and re-fetches the full order on reconnect rather than replaying missed
 events. There is no `Last-Event-Id` support.
 
+### Votes
+
+A vote chooses the restaurant for an order that does not exist yet (F12,
+ADR-0013).
+
+| Method   | Path                              | Access  | Description                                           |
+| -------- | --------------------------------- | ------- | ----------------------------------------------------- |
+| `GET`    | `/votes`                          | public  | The undecided votes, soonest decision first, each in the caller's shape. Decided votes are reached through their order. |
+| `POST`   | `/votes`                          | user    | Create a vote: `restaurant_ids` (two to five, distinct), `decision_at`, `deadline_at`, `fulfilment_at`, `open_choices`, `public_ballots`. |
+| `GET`    | `/votes/{id}`                     | public  | One vote, in the caller's shape — see below. Decided votes too. |
+| `PATCH`  | `/votes/{id}`                     | creator | Change the three times or the two switches. 409 error 4009 once decided; 1002 for making a secret vote public once anybody has voted. |
+| `DELETE` | `/votes/{id}`                     | creator, admin | Delete the vote with its choices and ballots. The creator only until the decision; the administrator always. |
+| `POST`   | `/votes/{id}/choices`             | creator; user when `open_choices` | Add a restaurant: `{"restaurant_id": "…"}`. 409 error 4010 if it is already in the vote, 4011 at five. |
+| `DELETE` | `/votes/{id}/choices/{cid}`       | creator, whoever added it | Remove a restaurant nobody has chosen. 409 error 4012 if somebody has, 4011 at two. |
+| `PUT`    | `/votes/{id}/ballot`              | user    | Cast or change the caller's own ballot: `{"choice_id": "…"}`. Answers with the vote. |
+| `DELETE` | `/votes/{id}/ballot`              | user    | Withdraw the caller's own ballot. Answers with the vote. |
+| `GET`    | `/votes/{id}/events`              | public  | SSE stream of changes to this vote. See below. |
+
+Every route that changes a vote answers 409 error 4009 after the decision time,
+including when the decision pass has not got to it yet: the decision time, not
+the pass, closes the vote. Only the administrator's `DELETE` is exempt.
+
+### Vote visibility
+
+`GET /votes/{id}` returns a different shape depending on who is asking, as an
+order does (F12.5, F12.6):
+
+- **Anonymous caller** — id, derived title, the three times, `status`
+  (`open` or `decided`), `open_choices`, `public_ballots`, `outcome`,
+  `order_id`, `total` (the number of ballots), `leader_choice_id` (the
+  restaurant ahead, F12.7; null while nobody has voted) and `choices`, each
+  with its id, restaurant id, name and logo, and `count`. **No user is named**,
+  the creator included.
+- **Authenticated caller** — the same, plus the creator, plus each choice's
+  `added_by`, plus `my_choice_id` (the caller's own ballot, or null). With
+  `public_ballots` each choice also carries `voters`, the people who chose it;
+  with secret ballots the field is absent from every response to every caller,
+  the administrator's included.
+
+A decided vote reports each choice's stored `final_count` as `count`, so its
+numbers do not move when a voter deletes their account (F12.14), and
+`leader_choice_id` is the winner.
+
+The order shapes carry `vote_id`, null for an order nobody voted on, so the
+order page can link back to the vote it came from.
+
+### Vote event stream
+
+`GET /votes/{id}/events` returns `text/event-stream`, one stream per vote,
+built like the order stream: the authentication state is captured when the
+stream opens and decides which shape a subscriber receives.
+
+| Event          | Sent to  | Payload                                          |
+| -------------- | -------- | ------------------------------------------------ |
+| `vote.updated` | everyone | The whole vote in the subscriber's shape, without `my_choice_id`. Sent for every ballot cast, changed or withdrawn, every restaurant added or removed, and every edit. |
+| `vote.decided` | everyone | `{"id": "…", "outcome": "ordered", "order_id": "…"}`. `order_id` is null when no order was made. |
+| `vote.deleted` | everyone | `{"id": "…"}`. The client navigates away.         |
+| `ping`         | everyone | Empty. Sent every 30 s.                           |
+
+The stream knows whether its subscriber is signed in, not who they are, so it
+cannot say which ballot is theirs: `my_choice_id` comes from the `PUT` or
+`DELETE` the page made itself, and from a fresh `GET` on reconnect. With
+secret ballots the event names nobody, for the same reason the response does
+not. A ballot still produces an event at the moment it is cast, so somebody
+watching the page while a colleague clicks can see which count moved; F12.5
+does not pretend otherwise.
+
 ### Reference data
 
 | Method | Path             | Access | Description                                  |
@@ -449,7 +526,7 @@ loud rather than storing silently.
 
 ```json
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "commit": "7c81636",
   "build_date": "2026-09-06T09:12:44Z",
   "swagger": true,

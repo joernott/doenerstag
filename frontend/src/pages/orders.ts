@@ -12,10 +12,11 @@ import { formatDateTime, formatRelativeTime, fulfilmentLabel, orderTitle } from 
 import { logoMark } from "../logo";
 import { button, iconButton } from "../components/forms";
 import { thumbnailURL } from "../components/images";
-import { confirmDialog } from "../components/modal";
+import { confirmDialog, openModal } from "../components/modal";
 import { addTile, tile, tileActions, tileGrid } from "../components/tiles";
 import { failedPage, overviewPage, overviewPageWithActions } from "./page";
-import type { OrderDetail, OrderHeader, OrderListEntry } from "../types";
+import type { OrderDetail, OrderHeader, OrderListEntry, Vote } from "../types";
+import { voteOpen, voteTitle } from "./vote";
 import { runAction, statusLine, type StatusLine } from "../components/status";
 
 /** Whether an order is still open, judged on the viewer's clock. */
@@ -27,8 +28,14 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   const { t } = app;
 
   let orders: OrderListEntry[];
+  let votes: Vote[];
   try {
-    orders = await getList<OrderListEntry>("/orders", "orders");
+    [orders, votes] = await Promise.all([
+      getList<OrderListEntry>("/orders", "orders"),
+      // The open votes sit among the open orders (F12.13). A failure here
+      // leaves the orders, which are the page's main business.
+      getList<Vote>("/votes", "votes").catch(() => []),
+    ]);
   } catch (error) {
     return failedPage(t.t("nav.orders"), t, error);
   }
@@ -53,11 +60,38 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   const status = statusLine();
 
   const create = app.session.isAuthenticated ? "/orders/new" : loginHref(currentPath());
-  const tiles = orders.map((order, index) =>
-    orderTile(app, order, details[index] ?? null, status),
-  );
+  const orderTiles = orders.map((order, index) => ({
+    at: new Date(order.fulfilment_at).getTime(),
+    active: isActive(order),
+    element: orderTile(app, order, details[index] ?? null, status),
+  }));
 
-  const body = [status.element, tileGrid(addTile(create, t.t("order.new")), ...tiles)];
+  // Votes go among the active orders by fulfilment time, as docs/06 sorts
+  // the orders themselves; the expired orders stay at the end.
+  const tiles = orderTiles.filter((entry) => entry.active);
+  for (const vote of votes) {
+    const at = new Date(vote.fulfilment_at).getTime();
+    const index = tiles.findIndex((entry) => entry.at > at);
+    const entry = { at, active: true, element: voteTile(app, vote, status) };
+    if (index < 0) {
+      tiles.push(entry);
+    } else {
+      tiles.splice(index, 0, entry);
+    }
+  }
+  tiles.push(...orderTiles.filter((entry) => !entry.active));
+
+  const plus = addTile(create, t.t("order.new"));
+  if (app.session.isAuthenticated) {
+    // The plus asks what to start: an order, or a vote on where to order
+    // (F12). An anonymous visitor's plus still leads to the login page.
+    plus.querySelector("a")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      chooseWhatToStart(app);
+    });
+  }
+
+  const body = [status.element, tileGrid(plus, ...tiles.map((entry) => entry.element))];
 
   // Only the administrator is offered the cleanup. The endpoint refuses
   // everybody else anyway; hiding the button keeps the page from advertising
@@ -153,6 +187,109 @@ function orderTile(
     },
     ...parts,
   );
+}
+
+/**
+ * The dialog behind the plus tile: an order, or a vote first (docs/06).
+ */
+function chooseWhatToStart(app: App): void {
+  const { t } = app;
+  const option = (href: string, label: string, hint: string): HTMLElement =>
+    el(
+      "a",
+      {
+        class: "start-option",
+        href,
+        onclick: (event: Event) => {
+          event.preventDefault();
+          modal.close();
+          app.navigate(href);
+        },
+      },
+      el("span", { class: "start-option-label", text: label }),
+      el("span", { class: "muted", text: hint }),
+    );
+  const modal = openModal({
+    title: t.t("start.title"),
+    closeLabel: t.t("action.close"),
+    body: el(
+      "div",
+      { class: "start-options" },
+      option("/orders/new", t.t("start.order"), t.t("start.order.hint")),
+      option("/votes/new", t.t("start.vote"), t.t("start.vote.hint")),
+    ),
+  });
+}
+
+/**
+ * One vote tile (docs/06): marked as a vote, with its decision time and the
+ * restaurant ahead. Its logo is the leader's, or the mark while nobody has
+ * voted. No summary button: a vote has none.
+ */
+function voteTile(app: App, vote: Vote, status: StatusLine): HTMLElement {
+  const { t } = app;
+  const leader = vote.choices.find((choice) => choice.id === vote.leader_choice_id) ?? null;
+  const parts: Child[] = [
+    el("span", { class: "badge", text: t.t("vote.badge") }),
+    el(
+      "span",
+      { class: "muted" },
+      `${t.t("vote.decision.label")}: ${formatDateTime(app.language, vote.decision_at)}`,
+      voteOpen(vote)
+        ? el("span", { class: "tile-hint", text: ` (${formatRelativeTime(app.language, vote.decision_at)})` })
+        : null,
+    ),
+    el("span", {
+      class: "muted",
+      text: leader
+        ? t.t("vote.tile.leader", { name: leader.restaurant_name, count: leader.count, total: vote.total })
+        : t.t("vote.no_votes"),
+    }),
+  ];
+
+  const controls: Child[] = [];
+  const me = app.session.user?.id;
+  if (me !== undefined && vote.creator_id === me && voteOpen(vote)) {
+    controls.push(
+      iconLink(`/votes/${vote.id}`, "pencil", t.t("vote.edit")),
+      iconButton("trash", t.t("vote.delete"), "button-danger", () => {
+        void removeVote(app, vote, status);
+      }),
+    );
+  }
+
+  const media = leader?.restaurant_logo_image_id
+    ? el("img", { class: "tile-logo", src: thumbnailURL(leader.restaurant_logo_image_id), alt: "", loading: "lazy" })
+    : el("div", { class: "tile-logo tile-logo-fallback" }, logoMark({ label: t.t("app.name") }));
+
+  return tile(
+    {
+      href: `/votes/${vote.id}`,
+      title: voteTitle(app, vote),
+      media,
+      ...(controls.length > 0 ? { actions: tileActions(...controls) } : {}),
+    },
+    ...parts,
+  );
+}
+
+async function removeVote(app: App, vote: Vote, status: StatusLine): Promise<void> {
+  const { t } = app;
+  const agreed = await confirmDialog({
+    t,
+    message: t.t("vote.confirm_delete"),
+    ...(vote.total > 0 ? { detail: t.t("vote.confirm_delete.voters", { count: vote.total }) } : {}),
+    confirmLabel: t.t("action.delete"),
+  });
+  if (!agreed) {
+    return;
+  }
+  try {
+    await api.delete(`/votes/${vote.id}`);
+    app.router.refresh();
+  } catch (error) {
+    status.fail(errorMessage(t, error));
+  }
 }
 
 /**

@@ -14,17 +14,19 @@
 #   sudo ./contrib/setup_dev_pipeline.sh
 #
 # Environment overrides:
-#   GO_VERSION          Go toolchain to install            (default 1.26.10)
-#   NODE_MAJOR          Node.js major version              (default 22)
+#   GO_VERSION          Go toolchain to install            (default 1.27.4)
+#   NODE_MAJOR          Node.js major version              (default 26)
 #   DEV_USER            user to grant docker access to     (default the invoking user)
 #   POSTGRES_PASSWORD   password for the postgres superuser
 #   TEST_DB_PASSWORD    password for the doenerstag test role
 #   SKIP_UPGRADE=1      skip apt upgrade, for a faster re-run
+#   FRONTEND_DIR        working copy frontend/ on a VirtualBox share
+#                       (default /home/$DEV_USER/doenerstag/frontend)
 
 set -euo pipefail
 
-GO_VERSION="${GO_VERSION:-1.26.10}"
-NODE_MAJOR="${NODE_MAJOR:-22}"
+GO_VERSION="${GO_VERSION:-1.27.4}"
+NODE_MAJOR="${NODE_MAJOR:-26}"
 DEV_USER="${DEV_USER:-${SUDO_USER:-$(id -un)}}"
 TEST_DB_NAME="${TEST_DB_NAME:-doenerstag_test}"
 TEST_DB_USER="${TEST_DB_USER:-doener}"
@@ -44,7 +46,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script must run as root. Re-running under sudo." >&2
-  exec sudo --preserve-env=GO_VERSION,NODE_MAJOR,DEV_USER,POSTGRES_PASSWORD,TEST_DB_PASSWORD,SKIP_UPGRADE "$0" "$@"
+  exec sudo --preserve-env=GO_VERSION,NODE_MAJOR,DEV_USER,FRONTEND_DIR,POSTGRES_PASSWORD,TEST_DB_PASSWORD,SKIP_UPGRADE "$0" "$@"
 fi
 
 # -----------------------------------------------------------------------------
@@ -128,14 +130,19 @@ EOF
 # go_install installs a Go tool into a shared location and links it onto PATH.
 # Called with the binary name and the module path.
 go_install() {
-  local name="$1" module="$2"
+  local name="$1" module="$2" built=""
 
+  # A tool built by an older toolchain is rebuilt: golangci-lint refuses to
+  # lint a module whose go directive is newer than the Go it was built with.
   if have "$name"; then
-    log "$name already installed"
-    return
+    built="$("$GO_ROOT/bin/go" version "$(command -v "$name")" 2>/dev/null | awk '{print $2}')"
+    if [ "$built" = "go$GO_VERSION" ]; then
+      log "$name already installed"
+      return
+    fi
   fi
 
-  log "Installing $name"
+  log "Installing $name (built with: ${built:-nothing})"
   mkdir -p "$GO_TOOL_PATH"
   if ! GOPATH="$GO_TOOL_PATH" GOBIN="$GO_TOOL_PATH/bin" \
        GOFLAGS=-mod=mod "$GO_ROOT/bin/go" install "$module"; then
@@ -334,6 +341,47 @@ EOF
 
   apt update
   apt install -y nodejs
+}
+
+# local_node_modules keeps frontend/node_modules on the machine's own disk when
+# the working copy is a VirtualBox shared folder. A vboxsf share refuses
+# symlinks unless the host allows them, and npm cannot install without the
+# links in node_modules/.bin. A bind mount of a local directory over
+# node_modules sidesteps the share; static/, which the build writes, stays on
+# it. The share is mounted late by the guest additions' automounter, so a
+# oneshot unit waits for it rather than an fstab entry racing it.
+local_node_modules() {
+  local frontend="${FRONTEND_DIR:-/home/$DEV_USER/doenerstag/frontend}"
+  local local_dir="/home/$DEV_USER/.local/share/doenerstag/node_modules"
+  local unit=/etc/systemd/system/doenerstag-node-modules.service
+
+  if [ ! -d "$frontend" ] || [ "$(stat -f -c %T "$frontend")" != "vboxsf" ]; then
+    log "frontend/node_modules: $frontend is not on a VirtualBox share, nothing to do"
+    return
+  fi
+
+  log "frontend/node_modules on the local disk, bind-mounted into the share"
+  install -d -o "$DEV_USER" -g "$DEV_USER" "$local_dir"
+
+  cat >"$unit" <<EOF
+[Unit]
+Description=Local node_modules for the doenerstag working copy on a VirtualBox share
+After=vboxadd-service.service
+Wants=vboxadd-service.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for i in \$(seq 120); do [ -d "$frontend" ] && break; sleep 1; done; mkdir -p "$frontend/node_modules"; mountpoint -q "$frontend/node_modules" || mount --bind "$local_dir" "$frontend/node_modules"'
+ExecStop=/bin/umount "$frontend/node_modules"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable doenerstag-node-modules.service
+  systemctl restart doenerstag-node-modules.service
 }
 
 # -----------------------------------------------------------------------------
@@ -667,6 +715,7 @@ main() {
   create_test_database
   install_docker
   install_node
+  local_node_modules
   install_playwright
   install_mokapi
   report

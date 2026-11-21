@@ -28,6 +28,7 @@ const orderColumns = `o.id, o.creator_id, coalesce(u.display_name, u.name),
 	o.money_collector_drawn, o.pickup_person_drawn,
 	o.currency_code, o.min_order_value_cents, o.delivery_fee_cents,
 	(SELECT count(*) FROM order_item i WHERE i.order_id = o.id),
+	(SELECT v.id FROM vote v WHERE v.order_id = o.id),
 	o.created_at, o.updated_at`
 
 const orderFrom = `
@@ -46,7 +47,7 @@ func scanOrder(row pgx.Row) (model.Order, error) {
 		&o.PickupPersonID, &o.PickupPersonName,
 		&o.MoneyCollectorDrawn, &o.PickupPersonDrawn,
 		&o.CurrencyCode, &o.MinOrderValueCents, &o.DeliveryFeeCents,
-		&o.ItemCount, &o.CreatedAt, &o.UpdatedAt)
+		&o.ItemCount, &o.VoteID, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Order{}, ErrNotFound

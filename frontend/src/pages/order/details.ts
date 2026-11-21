@@ -61,6 +61,14 @@ export function orderDetails(ctx: OrderContext, heading: HTMLElement): OrderDeta
       ],
     ];
 
+    // An order a vote made links back to it (F12.12, docs/06).
+    if (ctx.order.vote_id) {
+      rows.push([
+        t.t("vote.badge"),
+        el("a", { class: "link", href: `/votes/${ctx.order.vote_id}`, text: t.t("vote.chosen_by_vote") }),
+      ]);
+    }
+
     // Who does what. Only an authenticated caller is told, because both are
     // named people (ADR-0011), and both rows are shown even when empty: an
     // order with nobody doing a job is the case worth seeing, and it is where
