@@ -78,7 +78,7 @@ export function subscribeToOrder(
   const url = `/api/v1/orders/${encodeURIComponent(orderID)}/events`;
 
   const dispatch = (name: string, event: MessageEvent<string>): void => {
-    let data: unknown = null;
+    let data: unknown;
     try {
       data = JSON.parse(event.data);
     } catch {
