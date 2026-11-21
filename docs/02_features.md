@@ -233,7 +233,8 @@ an order, and at its decision time the server turns it into one.
   type; see F12.9.
 - **F12.2** The creator decides two things when creating the vote and may
   change them until the decision time: whether others may add restaurants, and
-  whether ballots are public.
+  whether ballots are public. Ballots cast in secret stay secret: once anybody
+  has voted, a secret vote cannot be made public.
 - **F12.3** A vote offers at least two and at most five restaurants, each at
   most once. The creator may always add one; anybody else signed in may when
   the creator allows it. A restaurant may be removed by the creator or by

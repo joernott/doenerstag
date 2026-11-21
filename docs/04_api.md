@@ -403,7 +403,7 @@ ADR-0013).
 | `GET`    | `/votes`                          | public  | The undecided votes, soonest decision first, each in the caller's shape. Decided votes are reached through their order. |
 | `POST`   | `/votes`                          | user    | Create a vote: `restaurant_ids` (two to five, distinct), `decision_at`, `deadline_at`, `fulfilment_at`, `open_choices`, `public_ballots`. |
 | `GET`    | `/votes/{id}`                     | public  | One vote, in the caller's shape — see below. Decided votes too. |
-| `PATCH`  | `/votes/{id}`                     | creator | Change the three times or the two switches. 409 error 4009 once decided. |
+| `PATCH`  | `/votes/{id}`                     | creator | Change the three times or the two switches. 409 error 4009 once decided; 1002 for making a secret vote public once anybody has voted. |
 | `DELETE` | `/votes/{id}`                     | creator, admin | Delete the vote with its choices and ballots. The creator only until the decision; the administrator always. |
 | `POST`   | `/votes/{id}/choices`             | creator; user when `open_choices` | Add a restaurant: `{"restaurant_id": "…"}`. 409 error 4010 if it is already in the vote, 4011 at five. |
 | `DELETE` | `/votes/{id}/choices/{cid}`       | creator, whoever added it | Remove a restaurant nobody has chosen. 409 error 4012 if somebody has, 4011 at two. |

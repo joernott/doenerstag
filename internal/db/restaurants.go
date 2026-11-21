@@ -169,6 +169,14 @@ func UpdateRestaurant(
 	return r, err
 }
 
+// restaurantInUse selects a row while the restaurant $1 is referenced by an
+// order or offered by an undecided vote.
+const restaurantInUse = `
+	SELECT 1 FROM food_order WHERE restaurant_id = $1
+	UNION ALL
+	SELECT 1 FROM vote_choice JOIN vote ON vote.id = vote_choice.vote_id
+	WHERE vote_choice.restaurant_id = $1 AND NOT vote.decided`
+
 // SoftDeleteRestaurant marks a restaurant deleted.
 //
 // Soft, because orders point at it and F3.5 keeps those readable. The row is
@@ -178,14 +186,6 @@ func UpdateRestaurant(
 // F3.5's second half, and nor can one an undecided vote offers: it may be about
 // to become an order (F12.9). The check and the update are one statement so
 // that an order or a vote created between them cannot slip through.
-// restaurantInUse selects a row while the restaurant $1 is referenced by an
-// order or offered by an undecided vote.
-const restaurantInUse = `
-	SELECT 1 FROM food_order WHERE restaurant_id = $1
-	UNION ALL
-	SELECT 1 FROM vote_choice JOIN vote ON vote.id = vote_choice.vote_id
-	WHERE vote_choice.restaurant_id = $1 AND NOT vote.decided`
-
 func SoftDeleteRestaurant(ctx context.Context, q Querier, id, actor uuid.UUID) error {
 	tag, err := q.Exec(ctx, `
 		UPDATE restaurant

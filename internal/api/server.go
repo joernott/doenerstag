@@ -50,6 +50,9 @@ type Server struct {
 	// orders is kept for the draw loop, which runs as long as the server does.
 	orders *OrderHandlers
 
+	// votes is kept for the decision loop, likewise (F12.9).
+	votes *VoteHandlers
+
 	// routes is what the router registered, kept for the OpenAPI check.
 	routes []RouteInfo
 }
@@ -167,6 +170,14 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	}
 	orderHandlers.Register(router)
 	s.orders = orderHandlers
+
+	voteHandlers := &VoteHandlers{
+		Pool:   opts.Pool,
+		Events: s.events,
+		Logger: opts.Logger,
+	}
+	voteHandlers.Register(router)
+	s.votes = voteHandlers
 
 	restaurantHandlers := &RestaurantHandlers{Pool: opts.Pool}
 	restaurantHandlers.Register(router)
@@ -363,6 +374,8 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	draws, stopDraws := context.WithCancel(ctx)
 	defer stopDraws()
 	go s.orders.RunDraws(draws, DrawInterval)
+	// And the decision of votes (F12.9), on the same rhythm.
+	go s.votes.RunDecisions(draws, DrawInterval)
 
 	errs := make(chan error, 1)
 	go func() {

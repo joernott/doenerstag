@@ -26,6 +26,12 @@ const (
 	EventOrderExpired   = "order.expired"
 	EventOrderMessage   = "order.message"
 	EventPing           = "ping"
+
+	// A vote's stream (F12.13). The registry is keyed by id, and a vote's id
+	// is never an order's, so votes share it.
+	EventVoteUpdated = "vote.updated"
+	EventVoteDecided = "vote.decided"
+	EventVoteDeleted = "vote.deleted"
 )
 
 // Audience says who an event is for.

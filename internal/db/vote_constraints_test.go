@@ -204,7 +204,7 @@ func TestTwoRestaurantsAddedAtOnceCannotMakeSix(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer func() { _ = tx.Rollback(ctx) }()
+		t.Cleanup(func() { _ = tx.Rollback(ctx) })
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO vote_choice (id, vote_id, restaurant_id, added_by_id) VALUES ($1, $2, $3, $4)`,
 			choiceID(5+i), testVoteID, f.restaurants[4+i], f.anna); err != nil {
@@ -456,5 +456,32 @@ func TestARestaurantInAnUndecidedVoteCannotBeSoftDeleted(t *testing.T) {
 	}
 	if err := db.SoftDeleteRestaurant(ctx, f.pool, restaurant, actor); err != nil {
 		t.Errorf("soft-deleting a restaurant only a decided vote offered: %v", err)
+	}
+}
+
+// F12.12: cleanup takes a vote that became no order once it is past
+// retention, and leaves a younger one.
+func TestCleanupRemovesOldVotesThatBecameNoOrder(t *testing.T) {
+	f := newVoteFixture(t)
+	mustCreateVote(t, f, 2)
+	if err := execErr(t, f.pool, `UPDATE vote SET decided = true, outcome = 'no_ballots' WHERE id = $1`,
+		testVoteID); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := db.Cleanup(context.Background(), f.pool, 14*24*time.Hour, time.Now(), false)
+	if err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if stepCount(report, "votes") != 0 {
+		t.Errorf("a vote decided an hour ago was removed")
+	}
+
+	report, err = db.Cleanup(context.Background(), f.pool, 14*24*time.Hour, time.Now().Add(15*24*time.Hour), false)
+	if err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+	if stepCount(report, "votes") != 1 {
+		t.Errorf("an old vote that became no order was kept: %+v", report.Steps)
 	}
 }

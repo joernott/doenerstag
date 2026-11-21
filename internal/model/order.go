@@ -54,6 +54,10 @@ type Order struct {
 	// does not have to branch on its absence.
 	ItemCount int
 
+	// VoteID is the vote this order was made by (F12.9), nil for an order
+	// somebody created directly.
+	VoteID *uuid.UUID
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

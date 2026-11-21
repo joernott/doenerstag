@@ -59,6 +59,15 @@ func Cleanup(ctx context.Context, pool Pool, retention time.Duration, now time.T
 			delete: `DELETE FROM food_order WHERE deadline_at < $1`,
 			args:   func() []any { return []any{cutoff} },
 		},
+		// 1b. Votes that became no order, once their decision time is past
+		//     retention (F12.12). A vote that became an order went with it in
+		//     step 1, through vote.order_id's ON DELETE CASCADE.
+		{
+			object: "votes",
+			count:  `SELECT count(*) FROM vote WHERE order_id IS NULL AND decision_at < $1`,
+			delete: `DELETE FROM vote WHERE order_id IS NULL AND decision_at < $1`,
+			args:   func() []any { return []any{cutoff} },
+		},
 		// 2. Soft-deleted modifications nothing points at any more.
 		{
 			object: "menu item modifications",
@@ -94,17 +103,20 @@ func Cleanup(ctx context.Context, pool Pool, retention time.Duration, now time.T
 			           AND NOT EXISTS (SELECT 1 FROM menu_item m WHERE m.category_id = c.id)`,
 			args: func() []any { return nil },
 		},
-		// 4b. Soft-deleted restaurants no order and no menu row references.
+		// 4b. Soft-deleted restaurants no order, no vote and no menu row
+		//     references.
 		{
 			object: "restaurants",
 			count: `SELECT count(*) FROM restaurant r
 			        WHERE r.deleted_at IS NOT NULL
 			          AND NOT EXISTS (SELECT 1 FROM food_order o WHERE o.restaurant_id = r.id)
+			          AND NOT EXISTS (SELECT 1 FROM vote_choice v WHERE v.restaurant_id = r.id)
 			          AND NOT EXISTS (SELECT 1 FROM menu_item m WHERE m.restaurant_id = r.id)
 			          AND NOT EXISTS (SELECT 1 FROM menu_category c WHERE c.restaurant_id = r.id)`,
 			delete: `DELETE FROM restaurant r
 			         WHERE r.deleted_at IS NOT NULL
 			           AND NOT EXISTS (SELECT 1 FROM food_order o WHERE o.restaurant_id = r.id)
+			           AND NOT EXISTS (SELECT 1 FROM vote_choice v WHERE v.restaurant_id = r.id)
 			           AND NOT EXISTS (SELECT 1 FROM menu_item m WHERE m.restaurant_id = r.id)
 			           AND NOT EXISTS (SELECT 1 FROM menu_category c WHERE c.restaurant_id = r.id)`,
 			args: func() []any { return nil },

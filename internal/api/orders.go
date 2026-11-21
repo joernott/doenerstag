@@ -112,6 +112,10 @@ type orderHeaderBody struct {
 	// absence.
 	ItemCount int `json:"item_count"`
 
+	// VoteID is the vote the order was made by, null for most orders. An id
+	// names nobody, so the anonymous shape carries it too (F12.12).
+	VoteID *string `json:"vote_id"`
+
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -183,6 +187,7 @@ func (h *OrderHandlers) publicHeader(o model.Order) orderHeaderBody {
 		MinOrderValueCents: o.MinOrderValueCents,
 		DeliveryFeeCents:   o.DeliveryFeeCents,
 		ItemCount:          o.ItemCount,
+		VoteID:             idString(o.VoteID),
 		CreatedAt:          o.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:          o.UpdatedAt.UTC().Format(time.RFC3339),
 	}
