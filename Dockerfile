@@ -13,7 +13,7 @@
 
 # --- build ------------------------------------------------------------------
 
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend
 
 WORKDIR /src/frontend
 # The lockfile first, so a change to the sources does not re-resolve the whole

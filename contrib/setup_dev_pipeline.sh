@@ -15,7 +15,7 @@
 #
 # Environment overrides:
 #   GO_VERSION          Go toolchain to install            (default 1.27.4)
-#   NODE_MAJOR          Node.js major version              (default 22)
+#   NODE_MAJOR          Node.js major version              (default 26)
 #   DEV_USER            user to grant docker access to     (default the invoking user)
 #   POSTGRES_PASSWORD   password for the postgres superuser
 #   TEST_DB_PASSWORD    password for the doenerstag test role
@@ -26,7 +26,7 @@
 set -euo pipefail
 
 GO_VERSION="${GO_VERSION:-1.27.4}"
-NODE_MAJOR="${NODE_MAJOR:-22}"
+NODE_MAJOR="${NODE_MAJOR:-26}"
 DEV_USER="${DEV_USER:-${SUDO_USER:-$(id -un)}}"
 TEST_DB_NAME="${TEST_DB_NAME:-doenerstag_test}"
 TEST_DB_USER="${TEST_DB_USER:-doener}"
