@@ -783,6 +783,69 @@ on `main` and released as 0.6.0.
 
 ---
 
+## Sprint 22 — A vote for the restaurant, and fresh dependencies
+
+**Goal:** let a group decide *where* to order before anybody orders. A vote
+offers two to five restaurants; every signed-in user picks one and may change
+their mind until the decision time, when the server turns the vote into an
+order for the restaurant with the most votes. The vote is the second thing a
+tile on the start page can be, so like sprint 21 this touches the schema, the
+API, the live stream and the frontend together. The sprint also brings every
+dependency and toolchain up to date, first, so the new code is written against
+the versions it will ship with.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| 22.1 | Go toolchain to 1.27.4 -- `GO_VERSION` in both workflows and `contrib/setup_dev_pipeline.sh` together, the `go` directive in `go.mod` to 1.27 -- and every direct module to its newest release: pgx 5.13, migrate 4.20, testcontainers 0.45, pflag 1.1, `golang.org/x/crypto`, `image`, `term` and `text`; indirect ones follow through `go mod tidy`. `govulncheck` clean, `THIRD_PARTY_LICENSES` regenerated, the whole suite green on the VM and in CI | M | [08](08_technologies.md) |
+| 22.2 | Frontend dependencies within their major: Playwright 1.65, axe-core 4.14, Tailwind 4.3.5, swagger-ui-dist 5.35, typescript-eslint 8.73. `static/` rebuilt on the VM | S | [08](08_technologies.md) |
+| 22.3 | Frontend majors: esbuild 0.28, ESLint 10 with `@eslint/js` 10, globals 17, jsdom 31, Vitest 5, TypeScript 6.0, `@types/node` and Node.js to 26, the current LTS, in CI, the release workflow and the setup script. TypeScript 7 waits: typescript-eslint 8.73 supports TypeScript below 6.1 only. Each major in a commit of its own, so a breaking change can be found by bisecting | M | [08](08_technologies.md) |
+| 22.4 | The vote specified: F12 in docs/02, its tables in docs/03, its routes and error numbers in docs/04, its permissions in docs/05, its pages in docs/06, and an ADR on why a vote is a thing of its own rather than an order without a restaurant, and why the server rather than a browser decides it | M | [02](02_features.md) |
+| 22.5 | The vote's data model: `vote` (creator, decision time, and the order fields it fixes -- fulfilment type, fulfilment time, order deadline -- whether others may add restaurants, whether ballots are public, the order it became), `vote_choice` (vote, restaurant, who added it) and `vote_ballot` (vote, voter, choice; one per voter). `decision_at < deadline_at < fulfilment_at` as a `CHECK`; two to five choices and one ballot per voter enforced by the schema, not only by Go. A restaurant in an undecided vote cannot be deleted. F2.6 for ballots: deleting an account removes its ballots from undecided votes | M | [03](03_data_model.md) |
+| 22.6 | The vote's API: list, create, read, edit and delete votes; add a restaurant when the creator allowed it; cast, change and withdraw one's own ballot until the decision time. With secret ballots no response names a voter -- not to the creator, not to the administrator -- and a caller learns only their own choice. The anonymous shape follows F1.2: what is on offer and how many votes each has, no names. One matrix test per permission cell and the anonymous body scan extended to votes | L | [04](04_api.md) |
+| 22.7 | The decision. At `decision_at` the server creates the order for the restaurant with the most votes, with the vote's creator, fulfilment and deadline, copying currency, minimum value and fee as F5.11 does, and links vote and order -- in one transaction, exactly once, by the same kind of pass as 21.3's draw, surviving a restart that spans the decision time. No ballots, no order. A tie is settled as decided below. A decision whose order deadline has already passed (a server that was down past it) creates no order, rather than one born closed (F5.3a) | L | [02](02_features.md) |
+| 22.8 | A live stream per vote, as F7 has one per order: ballots, added restaurants, edits and the decision reach every open vote page. With secret ballots the event carries the counts only | M | [04](04_api.md) |
+| 22.9 | The start page: the plus tile asks whether to start an order or a vote. Open votes get tiles of their own, marked as votes, with the decision time and the restaurant currently ahead; a decided vote leaves the overview, its order taking its place | M | [06](06_ui_ux.md) |
+| 22.10 | Creating and editing a vote: a dialog choosing two to five restaurants, fulfilment type and time, decision time and order deadline -- validated in the order they must come, as the order dialog does -- and the two switches, "others may add restaurants" and "ballots are public" | M | [06](06_ui_ux.md) |
+| 22.11 | The vote page: the restaurants on the left, each with its number of votes and a control to choose it, the viewer's own choice marked; on the right a pie chart of the distribution with the total number of votes below it. The restaurant ahead is highlighted, by more than colour; while nobody has voted, or two are level, none is. Public ballots list the voters under each restaurant. The pie is drawn as inline SVG from the same colour tokens as the rest of the page, light and dark, with no chart library; the list beside it is its text alternative. After the decision the page shows the result and links to the order | L | [06](06_ui_ux.md) |
+| 22.12 | Adding a restaurant on the vote page, for every signed-in user when the creator allowed it and for the creator always, up to the fifth | S | [06](06_ui_ux.md) |
+| 22.13 | Every new string in all three languages; the vote added to the Playwright run, the accessibility scan included | M | [07](07_i18n.md) |
+| 22.14 | Version references moved to 0.7.0, the README's status rewritten around what is new since 0.6.0, sprint 22 squashed into `main` and released as 0.7.0 | S | [10](10_operations.md) |
+
+**Open before the sprint** (2026-11-21), each with the answer this plan
+assumes until told otherwise:
+
+1. *A tie at the decision time.* Assumed: the server draws one of the leading
+   restaurants by lot, as 21.3 draws a fetcher, and the vote page says so.
+   Alternatives: no order on a tie, or the restaurant that reached the count
+   first wins.
+2. *Secret ballots.* Assumed: secret means secret from everybody, the creator
+   and the administrator included; the database knows, no response says. Public
+   ballots name every voter beside their choice.
+3. *Anonymous visitors.* Assumed: they see a vote, its restaurants and the
+   counts -- like an order's header and item count (F1.2) -- but never a name,
+   even with public ballots.
+4. *Changing a vote after creation.* Assumed: until the decision time the
+   creator may change the times and the two switches, and delete the vote. A
+   restaurant may be removed, by the vote's creator or whoever added it, only
+   while nobody has chosen it. The administrator may delete any vote.
+5. *The fulfilment type.* Assumed: fixed by the vote, like the times, since it
+   decides which restaurants make sense (one that does not deliver).
+6. *Voters and the order.* Assumed: voting does not make anybody a participant
+   of the order (F1.3); the vote's creator becomes the order's creator, and the
+   others take part by ordering, as with any order.
+7. *What remains of a decided vote.* Assumed: kept, read-only and reachable
+   from its order, until the `cleanup` verb removes it with its order or, when
+   it produced none, after the same retention period.
+
+**Exit criteria:** a vote can be created, joined, changed and watched live in
+all three languages; at its decision time it becomes an order for the winner,
+once, without anybody having the page open, or no order when nobody voted. No
+response ever names the voter of a secret ballot. Every dependency is at its
+newest release that the rest of the toolchain supports, the exceptions named.
+Sprint 22 is on `main` and released as 0.7.0.
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
