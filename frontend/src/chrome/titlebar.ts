@@ -249,7 +249,8 @@ function dropdown(
     document.removeEventListener("click", onDocumentClick);
   };
 
-  button.addEventListener("click", () => setOpen(panel.hidden));
+  // `hidden` may also be "until-found", which is hidden too.
+  button.addEventListener("click", () => setOpen(panel.hidden !== false));
   panel.addEventListener("click", () => setOpen(false));
 
   return container;
