@@ -117,6 +117,12 @@ It is deliberately close to what CI installs. The Windows workstation cannot run
 the Docker-dependent database tests from sprint 2 onwards actually run before
 they reach CI.
 
+When the working copy reaches the VM as a VirtualBox shared folder, the script
+keeps `frontend/node_modules` on the VM's own disk and bind-mounts it into the
+share (22.1.2): a share refuses symlinks unless the host allows them, and npm
+cannot install without the links in `node_modules/.bin`. The build still writes
+`static/` into the share, so the Windows working copy sees it.
+
 ### Coverage is per platform
 
 The two platforms do not execute the same code. The configuration file
@@ -796,7 +802,9 @@ the versions it will ship with.
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
-| 22.1 | Go toolchain to 1.27.4 -- `GO_VERSION` in both workflows and `contrib/setup_dev_pipeline.sh` together, the `go` directive in `go.mod` to 1.27 -- and every direct module to its newest release: pgx 5.13, migrate 4.20, testcontainers 0.45, pflag 1.1, `golang.org/x/crypto`, `image`, `term` and `text`; indirect ones follow through `go mod tidy`. `govulncheck` clean, `THIRD_PARTY_LICENSES` regenerated, the whole suite green on the VM and in CI | M | [08](08_technologies.md) |
+| 22.1 | Go toolchain to 1.27.4 -- `GO_VERSION` in both workflows and `contrib/setup_dev_pipeline.sh` together, the `go` directive in `go.mod` to 1.27 -- and every direct module to its newest release: pgx 5.13, migrate 4.20, testcontainers 0.45, `golang.org/x/crypto`, `image`, `term` and `text`; indirect ones follow through `go mod tidy`, and `klauspost/compress` to 1.20.2 for GO-2026-6865. pflag stays at 1.0.10: 1.1.0 prints every boolean flag as `--help[=true|false]`, unconditionally, and has nothing else to offer. `govulncheck` clean, `THIRD_PARTY_LICENSES` regenerated, the whole suite green on the VM and in CI | M | [08](08_technologies.md) |
+| 22.1.1 | The GitHub Actions to their current majors -- checkout, setup-go and setup-node 7, upload-artifact 7, download-artifact 8, the Docker actions, golangci-lint-action 9, action-gh-release 3. CI warned that checkout 4 and its peers still target Node 20, which GitHub has deprecated | S | -- |
+| 22.1.2 | The development VM, found while doing 22.1: the setup script kept every Go tool that existed, so a golangci-lint built by Go 1.26 was left to lint a Go 1.27 module, and a tool built by another toolchain is now rebuilt. And npm could not install into the VirtualBox share, which refuses symlinks unless the host allows them, so `frontend/node_modules` lives on the VM's own disk, bind-mounted into the share by a unit the script installs | S | -- |
 | 22.2 | Frontend dependencies within their major: Playwright 1.65, axe-core 4.14, Tailwind 4.3.5, swagger-ui-dist 5.35, typescript-eslint 8.73. `static/` rebuilt on the VM | S | [08](08_technologies.md) |
 | 22.3 | Frontend majors: esbuild 0.28, ESLint 10 with `@eslint/js` 10, globals 17, jsdom 31, Vitest 5, TypeScript 6.0, `@types/node` and Node.js to 26, the current LTS, in CI, the release workflow and the setup script. TypeScript 7 waits: typescript-eslint 8.73 supports TypeScript below 6.1 only. Each major in a commit of its own, so a breaking change can be found by bisecting | M | [08](08_technologies.md) |
 | 22.4 | The vote specified: F12 in docs/02, its tables in docs/03, its routes and error numbers in docs/04, its permissions in docs/05, its pages in docs/06, and an ADR on why a vote is a thing of its own rather than an order without a restaurant, and why the server rather than a browser decides it | M | [02](02_features.md) |

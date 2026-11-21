@@ -20,6 +20,8 @@
 #   POSTGRES_PASSWORD   password for the postgres superuser
 #   TEST_DB_PASSWORD    password for the doenerstag test role
 #   SKIP_UPGRADE=1      skip apt upgrade, for a faster re-run
+#   FRONTEND_DIR        working copy frontend/ on a VirtualBox share
+#                       (default /home/$DEV_USER/doenerstag/frontend)
 
 set -euo pipefail
 
@@ -44,7 +46,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script must run as root. Re-running under sudo." >&2
-  exec sudo --preserve-env=GO_VERSION,NODE_MAJOR,DEV_USER,POSTGRES_PASSWORD,TEST_DB_PASSWORD,SKIP_UPGRADE "$0" "$@"
+  exec sudo --preserve-env=GO_VERSION,NODE_MAJOR,DEV_USER,FRONTEND_DIR,POSTGRES_PASSWORD,TEST_DB_PASSWORD,SKIP_UPGRADE "$0" "$@"
 fi
 
 # -----------------------------------------------------------------------------
@@ -339,6 +341,47 @@ EOF
 
   apt update
   apt install -y nodejs
+}
+
+# local_node_modules keeps frontend/node_modules on the machine's own disk when
+# the working copy is a VirtualBox shared folder. A vboxsf share refuses
+# symlinks unless the host allows them, and npm cannot install without the
+# links in node_modules/.bin. A bind mount of a local directory over
+# node_modules sidesteps the share; static/, which the build writes, stays on
+# it. The share is mounted late by the guest additions' automounter, so a
+# oneshot unit waits for it rather than an fstab entry racing it.
+local_node_modules() {
+  local frontend="${FRONTEND_DIR:-/home/$DEV_USER/doenerstag/frontend}"
+  local local_dir="/home/$DEV_USER/.local/share/doenerstag/node_modules"
+  local unit=/etc/systemd/system/doenerstag-node-modules.service
+
+  if [ ! -d "$frontend" ] || [ "$(stat -f -c %T "$frontend")" != "vboxsf" ]; then
+    log "frontend/node_modules: $frontend is not on a VirtualBox share, nothing to do"
+    return
+  fi
+
+  log "frontend/node_modules on the local disk, bind-mounted into the share"
+  install -d -o "$DEV_USER" -g "$DEV_USER" "$local_dir"
+
+  cat >"$unit" <<EOF
+[Unit]
+Description=Local node_modules for the doenerstag working copy on a VirtualBox share
+After=vboxadd-service.service
+Wants=vboxadd-service.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for i in \$(seq 120); do [ -d "$frontend" ] && break; sleep 1; done; mkdir -p "$frontend/node_modules"; mountpoint -q "$frontend/node_modules" || mount --bind "$local_dir" "$frontend/node_modules"'
+ExecStop=/bin/umount "$frontend/node_modules"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable doenerstag-node-modules.service
+  systemctl restart doenerstag-node-modules.service
 }
 
 # -----------------------------------------------------------------------------
@@ -672,6 +715,7 @@ main() {
   create_test_database
   install_docker
   install_node
+  local_node_modules
   install_playwright
   install_mokapi
   report
