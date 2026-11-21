@@ -64,18 +64,41 @@ export type EventSourceFactory = (url: string) => EventSource;
 
 const defaultFactory: EventSourceFactory = (url) => new EventSource(url);
 
+/** A vote's stream (F12.13, docs/04). */
+export const EVENT_VOTE_UPDATED = "vote.updated";
+export const EVENT_VOTE_DECIDED = "vote.decided";
+export const EVENT_VOTE_DELETED = "vote.deleted";
+
+export const VOTE_EVENTS = [EVENT_VOTE_UPDATED, EVENT_VOTE_DECIDED, EVENT_VOTE_DELETED] as const;
+
 /** Subscribes to one order's stream. */
 export function subscribeToOrder(
   orderID: string,
   handlers: StreamHandlers,
   factory: EventSourceFactory = defaultFactory,
 ): Stream {
+  return subscribe(`/api/v1/orders/${encodeURIComponent(orderID)}/events`, ORDER_EVENTS, handlers, factory);
+}
+
+/** Subscribes to one vote's stream, which behaves like an order's. */
+export function subscribeToVote(
+  voteID: string,
+  handlers: StreamHandlers,
+  factory: EventSourceFactory = defaultFactory,
+): Stream {
+  return subscribe(`/api/v1/votes/${encodeURIComponent(voteID)}/events`, VOTE_EVENTS, handlers, factory);
+}
+
+function subscribe(
+  url: string,
+  events: readonly string[],
+  handlers: StreamHandlers,
+  factory: EventSourceFactory,
+): Stream {
   let source: EventSource | null = null;
   let closed = false;
   // The first `open` is the subscription itself, not a recovery.
   let everOpened = false;
-
-  const url = `/api/v1/orders/${encodeURIComponent(orderID)}/events`;
 
   const dispatch = (name: string, event: MessageEvent<string>): void => {
     let data: unknown;
@@ -99,7 +122,7 @@ export function subscribeToOrder(
       everOpened = true;
     });
 
-    for (const name of ORDER_EVENTS) {
+    for (const name of events) {
       source.addEventListener(name, (event) => {
         dispatch(name, event as MessageEvent<string>);
       });

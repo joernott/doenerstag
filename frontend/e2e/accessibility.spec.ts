@@ -14,7 +14,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
-import { expect, login, loginThroughTheForm, register, seedOrder, seedRestaurant, test } from "./support";
+import {
+  csrf,
+  expect,
+  login,
+  loginThroughTheForm,
+  register,
+  seedOrder,
+  seedRestaurant,
+  seedVote,
+  test,
+} from "./support";
 
 const THEMES = ["dark", "light"] as const;
 
@@ -78,6 +88,17 @@ test.describe("every page passes axe in both themes", () => {
     await login(request, account);
     const fixture = await seedRestaurant(request);
     const orderID = await seedOrder(request, fixture.restaurantID);
+    const second = await seedRestaurant(request);
+    const voteID = await seedVote(request, [fixture.restaurantID, second.restaurantID], {
+      public_ballots: true,
+    });
+    const vote = (await (await request.get(`/api/v1/votes/${voteID}`)).json()) as {
+      choices: { id: string }[];
+    };
+    await request.put(`/api/v1/votes/${voteID}/ballot`, {
+      data: { choice_id: vote.choices[0]?.id },
+      headers: { "X-CSRF-Token": await csrf(request) },
+    });
 
     await loginThroughTheForm(page, account);
 
@@ -96,6 +117,8 @@ test.describe("every page passes axe in both themes", () => {
       "/restaurants",
       `/restaurants/${fixture.restaurantID}`,
       "/account",
+      "/votes/new",
+      `/votes/${voteID}`,
     ]) {
       await page.goto(path);
       for (const theme of THEMES) {

@@ -18,6 +18,8 @@ test.describe("an order", () => {
     await loginThroughTheForm(page, account);
     await page.goto("/");
     await page.getByRole("link", { name: "New order" }).click();
+    // The plus asks whether to start an order or a vote (F12).
+    await page.getByRole("dialog").getByRole("link", { name: /An order/ }).click();
 
     await page.getByLabel("Restaurant").selectOption({ label: fixture.restaurantName });
     // A deadline after the food arrives: refused here, before anything is sent.

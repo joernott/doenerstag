@@ -38,6 +38,16 @@
   --ok: #4cc98a;
   --focus: #7cc4ff;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+
+  /* The vote's slices (F12), one per restaurant in the order they were
+     added. Each is 3:1 or better against the surface, as a graphic must be,
+     and the slices are also parted by a line of the surface colour, so two
+     neighbours never depend on telling their hues apart. */
+  --vote-1: #f0a52e;
+  --vote-2: #6fb6ff;
+  --vote-3: #4cc98a;
+  --vote-4: #e88ad6;
+  --vote-5: #b9a7ff;
 }
 
 [data-theme="light"] {
@@ -57,6 +67,12 @@
   --ok: #116b33;
   --focus: #0b5cad;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.12);
+
+  --vote-1: #a04f00;
+  --vote-2: #0b5cad;
+  --vote-3: #116b33;
+  --vote-4: #a3247f;
+  --vote-5: #5b3fb5;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1956,4 +1972,179 @@ button.menu-entry {
 .tab[aria-disabled="true"] {
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Votes (F12, docs/06 "Vote page")
+
+   The restaurant ahead is told apart three ways -- a thicker border, a tinted
+   background and the word in its badge -- and its slice of the pie is pulled
+   out from the centre, so nothing depends on seeing a colour.
+--------------------------------------------------------------------------- */
+
+.vote-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 0 0 1rem;
+}
+
+.vote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.vote-legend {
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.vote-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.vote-row-ahead {
+  border: 3px solid var(--accent);
+  padding: calc(0.6rem - 2px) calc(0.75rem - 2px);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+}
+
+.vote-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.vote-radio {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--accent);
+}
+
+.vote-logo {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.vote-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.vote-key {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 2px;
+}
+
+.vote-count {
+  min-width: 2ch;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.vote-voters {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.vote-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vote-pie {
+  width: min(100%, 20rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.vote-slice {
+  stroke: var(--surface);
+  stroke-width: 0.02;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vote-slice {
+    transition: d 0.3s ease, transform 0.3s ease;
+  }
+}
+
+.vote-pie-empty {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 0.06;
+}
+
+.vote-pie-label {
+  fill: var(--text-muted);
+  font-size: 0.14px;
+}
+
+.vote-total {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.vote-slice-1, .vote-key-1 { fill: var(--vote-1); background: var(--vote-1); }
+.vote-slice-2, .vote-key-2 { fill: var(--vote-2); background: var(--vote-2); }
+.vote-slice-3, .vote-key-3 { fill: var(--vote-3); background: var(--vote-3); }
+.vote-slice-4, .vote-key-4 { fill: var(--vote-4); background: var(--vote-4); }
+.vote-slice-5, .vote-key-5 { fill: var(--vote-5); background: var(--vote-5); }
+
+.vote-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+}
+
+/* The plus tile's question: an order or a vote. */
+.start-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.start-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  text-decoration: none;
+}
+
+.start-option:hover {
+  border-color: var(--accent);
+}
+
+.start-option-label {
+  font-weight: 600;
 }

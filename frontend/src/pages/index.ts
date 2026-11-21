@@ -17,6 +17,8 @@ import { createOrderPage } from "./ordercreate";
 import { orderPage } from "./order";
 import { ordersPage } from "./orders";
 import { summaryPage } from "./summary";
+import { votePage } from "./vote";
+import { createVotePage } from "./votecreate";
 import { card, overviewPage, page } from "./page";
 import { restaurantPage } from "./restaurant";
 import { restaurantsPage } from "./restaurants";
@@ -35,6 +37,11 @@ export function routes(app: App): Route[] {
     {
       pattern: "/orders/:id/summary",
       render: (context) => summaryPage(app, context.params["id"] ?? ""),
+    },
+    { pattern: "/votes/new", render: () => createVotePage(app) },
+    {
+      pattern: "/votes/:id",
+      render: (context) => votePage(app, context.params["id"] ?? "", { cleanup: context }),
     },
     { pattern: "/restaurants", render: () => restaurantsPage(app) },
     { pattern: "/restaurants/:id", render: (context) => restaurantPage(app, context.params["id"] ?? "") },

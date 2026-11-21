@@ -236,6 +236,25 @@ export async function seedOrder(
   return order.id;
 }
 
+/** A vote over the given restaurants (F12), decided an hour from now. */
+export async function seedVote(
+  request: APIRequestContext,
+  restaurantIDs: string[],
+  options: { public_ballots?: boolean; open_choices?: boolean } = {},
+): Promise<string> {
+  const hours = (count: number): string =>
+    new Date(Date.now() + count * 3600 * 1000).toISOString();
+
+  const vote = await write<{ id: string }>(request, "post", "/api/v1/votes", {
+    restaurant_ids: restaurantIDs,
+    decision_at: hours(1),
+    deadline_at: hours(2),
+    fulfilment_at: hours(3),
+    ...options,
+  });
+  return vote.id;
+}
+
 /**
  * Logs a browser page in through the form, which is the part worth exercising.
  *
