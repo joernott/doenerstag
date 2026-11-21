@@ -44,6 +44,9 @@ const (
 	CodeDeadlineInThePast      Code = 1014
 	CodeResetInvalid           Code = 1015
 	CodeResetExpired           Code = 1016
+	CodeVoteChoiceCount        Code = 1017
+	CodeDecisionTime           Code = 1018
+	CodeChoiceWrongVote        Code = 1019
 
 	// Authentication.
 	CodeNotAuthenticated  Code = 2000
@@ -62,6 +65,9 @@ const (
 	CodeNotParticipant      Code = 3004
 	CodeNotOwner            Code = 3005
 	CodeNotJobHolder        Code = 3006
+	CodeNotVoteCreator      Code = 3007
+	CodeChoicesClosed       Code = 3008
+	CodeNotChoiceOwner      Code = 3009
 
 	// Resource state.
 	CodeNotFound          Code = 4000
@@ -73,6 +79,10 @@ const (
 	CodeMethodNotAllowed  Code = 4006
 	CodeJobTaken          Code = 4007
 	CodeItemNotServedThen Code = 4008
+	CodeVoteDecided       Code = 4009
+	CodeChoiceExists      Code = 4010
+	CodeChoiceLimit       Code = 4011
+	CodeChoiceChosen      Code = 4012
 
 	// Rate limiting.
 	CodeTooManyLogins Code = 5000
@@ -110,6 +120,9 @@ var registry = map[Code]definition{
 	CodeDeadlineInThePast:      {http.StatusBadRequest, "the deadline is already in the past"},
 	CodeResetInvalid:           {http.StatusBadRequest, "this password reset link is not valid"},
 	CodeResetExpired:           {http.StatusBadRequest, "this password reset link has expired"},
+	CodeVoteChoiceCount:        {http.StatusBadRequest, "a vote needs two to five different restaurants"},
+	CodeDecisionTime:           {http.StatusBadRequest, "the decision time must lie in the future and before the order deadline"},
+	CodeChoiceWrongVote:        {http.StatusBadRequest, "the choice does not belong to this vote"},
 
 	CodeNotAuthenticated:  {http.StatusUnauthorized, "not authenticated"},
 	CodeInvalidLogin:      {http.StatusUnauthorized, "invalid user name or password"},
@@ -126,16 +139,23 @@ var registry = map[Code]definition{
 	CodeNotParticipant:      {http.StatusForbidden, "only participants of this order may see its summary or its chat"},
 	CodeNotOwner:            {http.StatusForbidden, "only the owner of this resource may act on it"},
 	CodeNotJobHolder:        {http.StatusForbidden, "only the person doing this job, the order's creator or the administrator may do that"},
+	CodeNotVoteCreator:      {http.StatusForbidden, "only the vote's creator or the administrator may change or delete this vote"},
+	CodeChoicesClosed:       {http.StatusForbidden, "only the vote's creator may add restaurants to this vote"},
+	CodeNotChoiceOwner:      {http.StatusForbidden, "only the vote's creator or whoever added it may remove this restaurant"},
 
 	CodeNotFound:          {http.StatusNotFound, "resource not found"},
 	CodeOrderClosed:       {http.StatusConflict, "order deadline has passed; the order is read-only"},
 	CodeRestaurantLocked:  {http.StatusConflict, "the restaurant cannot be changed once the order has items"},
-	CodeRestaurantInUse:   {http.StatusConflict, "the restaurant is still referenced by an order"},
+	CodeRestaurantInUse:   {http.StatusConflict, "the restaurant is still referenced by an order or offered by an undecided vote"},
 	CodeItemUnavailable:   {http.StatusConflict, "menu item is marked unavailable"},
 	CodeNameExistsHere:    {http.StatusConflict, "name already exists within this restaurant"},
 	CodeMethodNotAllowed:  {http.StatusMethodNotAllowed, "the HTTP method is not allowed on this path"},
 	CodeJobTaken:          {http.StatusConflict, "somebody is already doing this"},
 	CodeItemNotServedThen: {http.StatusConflict, "the kitchen does not make this at the order's time"},
+	CodeVoteDecided:       {http.StatusConflict, "the vote has been decided; it is read-only"},
+	CodeChoiceExists:      {http.StatusConflict, "the restaurant is already in this vote"},
+	CodeChoiceLimit:       {http.StatusConflict, "a vote offers two to five restaurants"},
+	CodeChoiceChosen:      {http.StatusConflict, "somebody has chosen this restaurant; it cannot be removed"},
 
 	CodeTooManyLogins: {http.StatusTooManyRequests, "too many login attempts"},
 

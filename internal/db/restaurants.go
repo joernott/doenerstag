@@ -175,15 +175,24 @@ func UpdateRestaurant(
 // removed physically by the cleanup verb once nothing references it.
 //
 // A restaurant still referenced by any order cannot be deleted at all, which is
-// F3.5's second half. The check and the update are one statement so that an
-// order created between them cannot slip through.
+// F3.5's second half, and nor can one an undecided vote offers: it may be about
+// to become an order (F12.9). The check and the update are one statement so
+// that an order or a vote created between them cannot slip through.
+// restaurantInUse selects a row while the restaurant $1 is referenced by an
+// order or offered by an undecided vote.
+const restaurantInUse = `
+	SELECT 1 FROM food_order WHERE restaurant_id = $1
+	UNION ALL
+	SELECT 1 FROM vote_choice JOIN vote ON vote.id = vote_choice.vote_id
+	WHERE vote_choice.restaurant_id = $1 AND NOT vote.decided`
+
 func SoftDeleteRestaurant(ctx context.Context, q Querier, id, actor uuid.UUID) error {
 	tag, err := q.Exec(ctx, `
 		UPDATE restaurant
 		SET deleted_at = now(), updated_by = $2
 		WHERE id = $1
 		  AND deleted_at IS NULL
-		  AND NOT EXISTS (SELECT 1 FROM food_order WHERE restaurant_id = $1)`,
+		  AND NOT EXISTS (`+restaurantInUse+`)`,
 		id, actor)
 	if err != nil {
 		return err
@@ -193,11 +202,11 @@ func SoftDeleteRestaurant(ctx context.Context, q Querier, id, actor uuid.UUID) e
 	}
 
 	// Nothing was updated, and the two reasons get different answers: 409 while
-	// an order still points at it, 404 otherwise. Working out which costs a
+	// an order or an undecided vote still points at it, 404 otherwise. Working out which costs a
 	// second query, but only on the path that is already failing.
 	var inUse bool
 	if err := q.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM food_order WHERE restaurant_id = $1)`, id).
+		`SELECT EXISTS (`+restaurantInUse+`)`, id).
 		Scan(&inUse); err != nil {
 		return err
 	}

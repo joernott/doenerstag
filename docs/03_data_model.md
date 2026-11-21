@@ -626,11 +626,13 @@ Constraints:
   passes look -- as 21.3's draw is.
 - `winner_choice_id` references `vote_choice (vote_id, id)` through the pair
   `(id, winner_choice_id)`, so the winner is one of this vote's own choices.
+- `(outcome = 'ordered')` exactly when `order_id` and `winner_choice_id` are
+  set, as a `CHECK`.
 - There is no stored title. The derived title is `"Vote — <fulfilment_at in
   local time>"`, as an order's is derived (F5.6).
 
 Indexes: `(decision_at) WHERE NOT decided` for the decision pass and the
-overview, `(creator_id)`, `(order_id)` unique.
+overview, `(creator_id)`; `order_id` is unique, which indexes it.
 
 ### `vote_choice`
 
@@ -652,9 +654,10 @@ Constraints:
   and its first choices are inserted one row at a time; skipped when the vote
   itself is gone, so deleting a vote cascades cleanly. The insert path locks
   the vote row first, so two people adding the fifth and a sixth at once
-  cannot both pass.
+  cannot both pass. The trigger takes that lock itself, so the rule holds
+  for a write that does not come through the API.
 
-Index: `(restaurant_id)`, for the restaurant-deletion check.
+Indexes: `(restaurant_id)`, for the restaurant-deletion check; `(added_by_id)`, for account deletion.
 
 ### `vote_ballot`
 
@@ -662,7 +665,7 @@ Index: `(restaurant_id)`, for the restaurant-deletion check.
 | ----------- | ------------- | ---- | -------------------------------------------------------- |
 | `vote_id`   | `uuid`        | no   | PK part. FK `vote`, `ON DELETE CASCADE`.                  |
 | `user_id`   | `uuid`        | no   | PK part. FK `app_user`, `ON DELETE CASCADE` (F12.14).     |
-| `choice_id` | `uuid`        | no   | With `vote_id`, FK `vote_choice (vote_id, id)`, `ON DELETE RESTRICT`: a choice somebody chose cannot be removed (F12.3), and a ballot can only name a choice of its own vote. |
+| `choice_id` | `uuid`        | no   | With `vote_id`, FK `vote_choice (vote_id, id)`, `ON DELETE NO ACTION`: a choice somebody chose cannot be removed (F12.3), and a ballot can only name a choice of its own vote. `NO ACTION` rather than `RESTRICT` because it is checked at the end of the statement, so deleting the vote -- cascading to choices and ballots alike -- goes through. |
 | `cast_at`   | `timestamptz` | no   | When the ballot was cast or last changed to this choice. The tie rule of F12.7 reads it. |
 
 - The primary key `(vote_id, user_id)` is the one-ballot-per-voter rule.
@@ -672,7 +675,7 @@ Index: `(restaurant_id)`, for the restaurant-deletion check.
   is a promise about responses, events and the log, not about the database;
   docs/13 says so.
 
-Index: `(vote_id, choice_id)` for the counts.
+Indexes: `(vote_id, choice_id)` for the counts and the foreign key, `(user_id)` for account deletion.
 
 ---
 

@@ -45,6 +45,9 @@ var expectedTables = []string{
 	"restaurant_contact",
 	"session",
 	"tag",
+	"vote",
+	"vote_ballot",
+	"vote_choice",
 }
 
 func TestSchemaHasExactlyTheDocumentedTables(t *testing.T) {
