@@ -65,7 +65,7 @@ test.describe("the shell", () => {
     await page.goto("/restaurants");
     await page.getByRole("link", { name: "New restaurant" }).click();
 
-    const name = `Neu ${Date.now().toString(36)}`;
+    const name = unique("Neu");
     await page.getByLabel("Name").fill(name);
     await page.getByLabel("Currency").selectOption("CHF");
     await page.getByLabel("Value").fill("+41 44 000 00 00");

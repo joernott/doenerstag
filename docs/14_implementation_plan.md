@@ -858,6 +858,19 @@ Sprint 22 is on `main` and released as 0.7.0.
 
 ---
 
+## Sprint 23 — Collected findings from 0.7.0
+
+**Goal:** not yet set. Findings from using 0.7.0 are collected here until
+there are enough to be worth a release; none of them alone is.
+
+| ID   | Task                                                                                    | Size | Spec |
+| ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
+| 23.1 | The plus tile on the start page reads "New order or vote" now that it starts either, in all three languages, and the e2e tests that click it follow. Reported by the user, testing 0.7.0 | S | [06](06_ui_ux.md) |
+| 23.2 | **Bug.** `doenerstag restaurant delete`, and a `restaurant import` that replaces a restaurant, are refused for a restaurant any vote has offered: `HardDeleteRestaurant` removes the orders first but not the votes, and `vote_choice` restricts the delete. The votes that offer it go first, as the orders do; a test that fails without it. Found while cleaning the development VM | S | [15](15_cli_reference.md) |
+| ✅ 23.3 | Test data on the development VM. The e2e cleanup in `frontend/e2e/cleanup.ts` logs in as root with CI's password, and on the VM, whose root password differs, it skipped every run with a warning: some 900 restaurants and 1,500 accounts had collected. `contrib/cleanup_e2e_data.sh` does the same from the machine, through the administrator verbs, keeping anything not named by the suite; `shell.spec.ts` named its restaurants without the `e2e-` prefix and now uses `unique()` | S | [12](12_testing.md) |
+
+---
+
 ## Deliberately not in this plan
 
 These are specified as out of scope in [01_overview.md](01_overview.md) and are
