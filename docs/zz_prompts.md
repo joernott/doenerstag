@@ -1366,3 +1366,9 @@ committing static/ at all.
 > I would prefer to go ahead with the more thorough alternative. Split it into
 > more tasks in sprint 23 as you see fit. It removes an unnecessary dependency
 > on the VM and results in a cleaner build process.
+
+---
+
+### Prompt 94
+
+> go ahead with sprint 23 and create release 0.7.1 from it

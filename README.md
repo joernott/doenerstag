@@ -13,11 +13,21 @@ everyone who can reach it is trusted, and it needs no internet access to run.
 
 ## Status
 
-**0.7.0.** Everything the specification describes is built: accounts and
+**0.7.1.** Everything the specification describes is built: accounts and
 sessions, restaurants with menus and opening hours, orders with a deadline and a
 pickup or delivery time, per-person items, a summary page for whoever is calling
 the restaurant, a chat on every order, votes on where to order, live updates
 over SSE, German, English and French, and an administration surface.
+
+New in 0.7.1:
+
+- The plus tile on the start page says what it does: **New order or vote**.
+- `doenerstag restaurant delete`, and a `restaurant import` that replaces a
+  restaurant, no longer fail for a restaurant that has been offered in a
+  vote: the votes go with it, as its orders do.
+- **For contributors:** `static/` is no longer in the repository. It is build
+  output, made by `make frontend`, and every target that embeds it builds it
+  first (ADR-0014). Dependency updates arrive from Dependabot.
 
 New in 0.7.0:
 
@@ -52,13 +62,13 @@ Four ways, all from the same source with the same version stamp:
 
 ```sh
 # Debian and Ubuntu
-apt install ./doenerstag_0.7.0-1_amd64.deb
+apt install ./doenerstag_0.7.1-1_amd64.deb
 
 # RHEL, Fedora, Rocky, Alma, openSUSE
-dnf install ./doenerstag-0.7.0-1.x86_64.rpm
+dnf install ./doenerstag-0.7.1-1.x86_64.rpm
 
 # Container
-docker pull docker.io/joernott/doenerstag:0.7.0
+docker pull docker.io/joernott/doenerstag:0.7.1
 
 # Anything else: the .tar.gz or the .zip from the release page
 ```

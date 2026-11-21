@@ -226,12 +226,12 @@ jobs:
             windows-coverage.html
           retention-days: 14
 
-  # static/ is committed so that a release can be built without Node, which
-  # means a stale commit is invisible: everything still compiles, and the
-  # binary quietly ships last week's JavaScript. The build is reproducible
-  # (npm ci pins the toolchain, and nothing in build.mjs writes a timestamp or
-  # a content hash), so rebuilding and diffing is a reliable check rather than
-  # a flaky one.
+  # static/ is build output and is not committed (ADR-0014). This job builds
+  # it once and hands it to the Build job, which compiles it into the
+  # embedded binary and runs the tests that read it. The jobs that build
+  # release binaries through make -- the end-to-end run, the artefacts, the
+  # image -- build it themselves, because their make targets and the
+  # Dockerfile depend on the frontend.
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -266,12 +266,12 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: The committed static/ matches its sources
-        run: |
-          if ! git diff --exit-code --stat -- static; then
-            echo "static/ is out of date: run make frontend and commit the result"
-            exit 1
-          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: static
+          path: static/
+          if-no-files-found: error
+          retention-days: 7
 
   # The browser tests, against the release binary and a real database. This is
   # the only job that exercises the application as a person uses it: two
@@ -381,9 +381,15 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, frontend]
     steps:
       - uses: actions/checkout@v7
+
+      # The frontend the Frontend job built: static/ is not in the checkout.
+      - uses: actions/download-artifact@v8
+        with:
+          name: static
+          path: static
 
       - uses: actions/setup-go@v7
         with:
@@ -397,15 +403,14 @@ jobs:
       # release ships, and it is the one nobody exercises during development,
       # which is exactly why CI has to.
       #
-      # It builds against the committed static/ rather than rebuilding the
-      # frontend: go:embed fails on a missing directory, so this step also
-      # proves the assets a release needs are actually in the repository.
+      # It builds against the static/ the Frontend job built: go:embed fails
+      # on a missing directory, so this step also proves the artifact arrived.
       - name: Embedded build
         run: go build -tags embedstatic ./...
 
       # The embedded build only proves static/ exists. Its tests are the ones
-      # that check what is in it, and they are skipped by the ordinary test
-      # jobs because the tag changes which files those packages compile.
+      # that check what is in it -- the client budgets among them -- and they
+      # are skipped by the ordinary test jobs, which have no static/.
       - name: Embedded tests
         run: go test -tags embedstatic ./internal/static/... ./internal/api/...
 

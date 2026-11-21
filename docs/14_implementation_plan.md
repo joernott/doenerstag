@@ -120,8 +120,9 @@ they reach CI.
 When the working copy reaches the VM as a VirtualBox shared folder, the script
 keeps `frontend/node_modules` on the VM's own disk and bind-mounts it into the
 share (22.1.2): a share refuses symlinks unless the host allows them, and npm
-cannot install without the links in `node_modules/.bin`. The build still writes
-`static/` into the share, so the Windows working copy sees it.
+cannot install without the links in `node_modules/.bin`. `static/` is build
+output and not committed (ADR-0014), so any machine with Node builds it; the VM
+is no longer the only one that can.
 
 ### Coverage is per platform
 
@@ -860,20 +861,22 @@ Sprint 22 is on `main` and released as 0.7.0.
 
 ## Sprint 23 — Collected findings from 0.7.0
 
-**Goal:** not yet set. Findings from using 0.7.0 are collected here until
-there are enough to be worth a release; none of them alone is.
+**Goal:** the findings from using 0.7.0, Dependabot, and a build that no
+longer keeps its own output in the repository. Released as 0.7.1.
 
 | ID   | Task                                                                                    | Size | Spec |
 | ---- | ----------------------------------------------------------------------------------------- | :--: | ---- |
-| 23.1 | The plus tile on the start page reads "New order or vote" now that it starts either, in all three languages, and the e2e tests that click it follow. Reported by the user, testing 0.7.0 | S | [06](06_ui_ux.md) |
-| 23.2 | **Bug.** `doenerstag restaurant delete`, and a `restaurant import` that replaces a restaurant, are refused for a restaurant any vote has offered: `HardDeleteRestaurant` removes the orders first but not the votes, and `vote_choice` restricts the delete. The votes that offer it go first, as the orders do; a test that fails without it. Found while cleaning the development VM | S | [15](15_cli_reference.md) |
+| ✅ 23.1 | The plus tile on the start page reads "New order or vote" now that it starts either, in all three languages, and the e2e tests that click it follow. Reported by the user, testing 0.7.0 | S | [06](06_ui_ux.md) |
+| ✅ 23.2 | **Bug.** `doenerstag restaurant delete`, and a `restaurant import` that replaces a restaurant, are refused for a restaurant any vote has offered: `HardDeleteRestaurant` removes the orders first but not the votes, and `vote_choice` restricts the delete. The votes that offer it go first, as the orders do; a test that fails without it. Found while cleaning the development VM | S | [15](15_cli_reference.md) |
 | ✅ 23.3 | Test data on the development VM. The e2e cleanup in `frontend/e2e/cleanup.ts` logs in as root with CI's password, and on the VM, whose root password differs, it skipped every run with a warning: some 900 restaurants and 1,500 accounts had collected. `contrib/cleanup_e2e_data.sh` does the same from the machine, through the administrator verbs, keeping anything not named by the suite; `shell.spec.ts` named its restaurants without the `e2e-` prefix and now uses `unique()` | S | [12](12_testing.md) |
-| 23.4 | A `.github/dependabot.yml`, so dependency updates arrive as pull requests rather than once a sprint by hand (22.1-22.3): the Go modules, the frontend's npm packages in `frontend/`, the GitHub Actions and the Docker base images. It keeps the holds 22.1 and 22.3 decided -- pflag below 1.1, TypeScript below 6.1 while typescript-eslint supports no later -- and groups the minor and patch updates so a week's worth is one pull request. After 23.5-23.9: with `static/` no longer committed, an npm update is a pull request like any other, with nothing to rebuild by hand | S | [08](08_technologies.md) |
-| 23.5 | `static/` stops being committed: it is build output, made by `make frontend` wherever a binary with the frontend embedded is built. An ADR supersedes the consequence in ADR-0002 that committed it "so a release can be built without Node" -- releases are built on GitHub, which has Node, and keeping the output in the repository needed a rebuild-and-commit after every frontend or npm change, which only the development VM could do. Decided by the user, 2026-11-21 | S | [08](08_technologies.md) |
-| 23.6 | `static/` removed from the repository and listed in `.gitignore`. `go build -tags embedstatic` without a built frontend fails with a message saying to run `make frontend`, not with go:embed's "no matching files"; `make release` and the other embedded targets build the frontend first, as they already do. A plain `make build`, which serves from disk, works without it | S | [08](08_technologies.md) |
-| 23.7 | CI builds the frontend once, in the Frontend job, and hands `static/` as an artifact to the jobs that embed or serve it -- the embedded build and its tests, the artefacts, the image, the end-to-end run -- rather than each rebuilding it. The check that the committed `static/` matches its sources goes, having nothing left to compare | M | [12](12_testing.md) |
-| 23.8 | The release workflow and the Dockerfile build `static/` from the sources: the image's frontend stage stops copying a `static/` from the build context, and the release builds the frontend before the binaries it embeds it in. A tag's release is checked to contain the same files a local `make release` produces | M | [10](10_operations.md) |
-| 23.9 | Everything that described the old arrangement: docs/08, docs/10's building from source, docs/12 and the development VM section above, which say `static/` is committed and only the VM can rebuild it; the README; `scripts/licenses.sh`'s notes; the comments in `ci.yml`, the Makefile and `embed.go` | S | [12](12_testing.md) |
+| ✅ 23.4 | A `.github/dependabot.yml`, so dependency updates arrive as pull requests rather than once a sprint by hand (22.1-22.3): the Go modules, the frontend's npm packages in `frontend/`, the GitHub Actions and the Docker base images. It keeps the holds 22.1 and 22.3 decided -- pflag below 1.1, TypeScript below 6.1 while typescript-eslint supports no later -- and groups the minor and patch updates so a week's worth is one pull request. After 23.5-23.9: with `static/` no longer committed, an npm update is a pull request like any other, with nothing to rebuild by hand | S | [08](08_technologies.md) |
+| ✅ 23.5 | `static/` stops being committed: it is build output, made by `make frontend` wherever a binary with the frontend embedded is built. An ADR supersedes the consequence in ADR-0002 that committed it "so a release can be built without Node" -- releases are built on GitHub, which has Node, and keeping the output in the repository needed a rebuild-and-commit after every frontend or npm change, which only the development VM could do. Decided by the user, 2026-11-21 | S | [08](08_technologies.md) |
+| ✅ 23.6 | `static/` removed from the repository and listed in `.gitignore`. `make release` and the other embedded targets build the frontend first, as they already did, and a plain `make build`, which serves from disk, works without it. `go build -tags embedstatic` without a built frontend fails with go:embed's own "pattern all:static: no matching files" -- a compiler message cannot be replaced, so `embed.go` and ADR-0014 say what it means instead | S | [08](08_technologies.md) |
+| ✅ 23.7 | CI's Frontend job uploads the `static/` it builds, and the Build job, the one that compiled against the committed copy, downloads it for the embedded build and its tests, the client budgets among them. The end-to-end run, the artefacts and the image build it through `make` and the Dockerfile, which depended on the frontend already. The check that the committed `static/` matches its sources goes, having nothing left to compare | M | [12](12_testing.md) |
+| ✅ 23.8 | The Dockerfile's frontend stage stops copying a `static/` from the build context, which no longer has one. The release workflow needed nothing: its `make archives` and `make packages` build the frontend first. `scripts/licenses.sh` claimed to read the dependency set with the embedstatic tag and did not; the comment now says why it must not | S | [10](10_operations.md) |
+| ✅ 23.9 | Everything that described the old arrangement: docs/08, docs/10's building from source, docs/12 and the development VM section above, which say `static/` is committed and only the VM can rebuild it; the README; `scripts/licenses.sh`'s notes; the comments in `ci.yml`, the Makefile and `embed.go` | S | [12](12_testing.md) |
+| ✅ 23.3.1 | 23.3 made `shell.spec.ts` call `unique()` without importing it, which the type check refused: the commit was pushed after its e2e run but before `npm run typecheck`. Imported | S | -- |
+| ✅ 23.10 | Version references moved to 0.7.1, the README's status rewritten around what is new since 0.7.0, sprint 23 squashed into `main` and released as 0.7.1 | S | [10](10_operations.md) |
 
 ---
 

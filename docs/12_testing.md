@@ -444,7 +444,7 @@ another's output:
 | Licences         | `scripts/licenses.sh --check`: `THIRD_PARTY_LICENSES` matches a fresh run. A dependency added without its licence fails on the pull request that adds it. |
 | Test             | Go unit and integration tests under the race detector, with a PostgreSQL 18 service container, plus coverage. |
 | Test (Windows)   | The same suite on `windows-latest`. Coverage is kept per platform, because Windows skips the configuration permission check and has no `SIGHUP` log reopen. |
-| Frontend         | `tsc --noEmit`, `eslint`, Vitest, the esbuild build, and a check that the committed `static/` matches its sources. |
+| Frontend         | `tsc --noEmit`, `eslint`, Vitest and the esbuild build, whose `static/` is handed to the Build job as an artifact (ADR-0014). |
 | End-to-end       | The release binary against a provisioned database, driven by Playwright in Chromium and Firefox, with the axe accessibility scans. |
 | Build            | The development and the embedded builds, then a smoke test: `--version`, a secret on the command line is refused, a world-readable configuration file is refused. |
 | Artefacts        | `make archives` and `make packages`, then a check that the `.tar.gz` holds a file called `doenerstag` and the `.zip` holds `doenerstag.exe`. |
