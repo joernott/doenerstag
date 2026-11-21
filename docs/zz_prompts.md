@@ -1348,3 +1348,21 @@ creator sets the fulfilment type afterwards.
 ### Prompt 91
 
 > Please add another task for sprint 23 to add a dependabot.yml.
+
+---
+
+### Prompt 92
+
+> Is there a way that a rebuild of /static can be done by a github action?
+
+Answered that CI already rebuilds static/ reproducibly, and offered a
+workflow committing the rebuild to Dependabot's pull requests, or not
+committing static/ at all.
+
+---
+
+### Prompt 93
+
+> I would prefer to go ahead with the more thorough alternative. Split it into
+> more tasks in sprint 23 as you see fit. It removes an unnecessary dependency
+> on the VM and results in a cleaner build process.
