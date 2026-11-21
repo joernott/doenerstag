@@ -4,7 +4,7 @@
 // and the only way to know the application uses it correctly is to reload a
 // real browser.
 
-import { expect, login, loginThroughTheForm, register, seedRestaurant, test } from "./support";
+import { expect, login, loginThroughTheForm, register, seedRestaurant, test, unique } from "./support";
 
 test.describe("the shell", () => {
   test("remembers the language and the theme across a reload", async ({ page }) => {
