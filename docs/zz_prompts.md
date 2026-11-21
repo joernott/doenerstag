@@ -1315,3 +1315,11 @@ administrator-only and show everybody else why.
 
 Asked what "Everybody" meant for question 5; the answer was that the order's
 creator sets the fulfilment type afterwards.
+
+---
+
+### Prompt 88
+
+> I have restarted windows after turning off the memory protection. The VM has
+> been started again. Please start with the vote feature and tell me if the
+> changes I made resulted in a better performance on the VM.

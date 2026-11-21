@@ -36,6 +36,7 @@ connections at all at runtime.
 | Free-text notes                         | `order_item.note` | Coordination. May name people. |
 | Who fetches and who collects, and whether by lot | `food_order.pickup_person_id`, `money_collector_id`, `*_drawn` | Coordination. |
 | Chat messages                           | `order_message`                     | Coordination. Free text, so may say anything; deleted with the order. |
+| Who voted for which restaurant           | `vote_ballot`                       | Choosing where to order. Shown to signed-in users only for public ballots (F12.5). |
 | Who created and last changed each row   | `created_by` / `updated_by`         | Accountability.                                 |
 | Every data-changing action with the user | The INFO-level log                 | Audit trail.                                    |
 
@@ -104,6 +105,17 @@ pressured into using the tool.
 | Portability                    | 20       | Not implemented as a feature. The API returns everything as JSON.        |
 | Objection                      | 21       | Stop using the tool and delete the account.                              |
 
+### Secret ballots
+
+A vote with secret ballots (F12.5) tells nobody who chose what: no response,
+no live event and no log line names the voter beside the choice -- the log
+records that somebody voted, not for what. The database does hold the
+ballots, because one ballot per voter cannot be enforced otherwise, so the
+operator and anybody with database access can read them. The secrecy is
+against colleagues, not against the operator, and the privacy notice should
+say so. With few voters the counts give it away anyway: three ballots, two of
+them from people who said what they chose, leave little to guess.
+
 ### What account deletion actually does
 
 Specified in F2.6 of [02_features.md](02_features.md) and in
@@ -118,6 +130,8 @@ mechanism:
   placeholder and shown as "deleted user". The food choice survives; the link to
   the person does not.
 - Orders the user created are reassigned to the placeholder.
+- Their ballots are deleted from every vote; votes they created pass to the
+  placeholder. A decided vote keeps its counts, which name nobody.
 - `created_by` and `updated_by` references are set to null.
 
 The reassignment is what makes the remaining data non-personal: an expired order
@@ -141,6 +155,7 @@ Both should be stated in the privacy notice.
 | Data                    | Retained                                                          |
 | ----------------------- | ----------------------------------------------------------------- |
 | Orders and order items  | Until the deadline is older than `--retention`, default 14 days.   |
+| Votes and ballots       | With the order the vote became; a vote that became none until its decision time is older than `--retention`. |
 | Accounts                | Until the user or the administrator deletes them.                  |
 | Sessions                | Until the idle or absolute timeout, then removed by `cleanup`.      |
 | API tokens              | Until revoked or expired.                                          |
