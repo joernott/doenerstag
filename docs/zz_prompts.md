@@ -1299,3 +1299,16 @@ administrator-only and show everybody else why.
 >
 > Please create a new sprint for that feature. In addition to the vote, please
 > also make sure, you update the dependencies of the project.
+
+---
+
+### Prompt 87
+
+> Answers to your questions:
+> 1. On a tie, the restaurant that reached the number first wins.
+> 2. Hidden from everyone
+> 3. The restaurants and the counts, but never any names.
+> 4. Yes, take your suggestion
+> 5. Everybody
+> 6. No.
+> 7. Take your suggestion
