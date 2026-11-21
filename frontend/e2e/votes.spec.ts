@@ -29,7 +29,7 @@ test.describe("a vote for the restaurant", () => {
     // The plus tile asks what to start.
     await loginThroughTheForm(hosting, host);
     await hosting.goto("/");
-    await hosting.getByRole("link", { name: "New order" }).click();
+    await hosting.getByRole("link", { name: "New order or vote" }).click();
     const choice = hosting.getByRole("dialog");
     await expect(choice.getByRole("link", { name: /An order/ })).toBeVisible();
     await choice.getByRole("link", { name: /A vote/ }).click();

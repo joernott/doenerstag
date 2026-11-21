@@ -17,7 +17,7 @@ test.describe("an order", () => {
 
     await loginThroughTheForm(page, account);
     await page.goto("/");
-    await page.getByRole("link", { name: "New order" }).click();
+    await page.getByRole("link", { name: "New order or vote" }).click();
     // The plus asks whether to start an order or a vote (F12).
     await page.getByRole("dialog").getByRole("link", { name: /An order/ }).click();
 

@@ -81,7 +81,8 @@ export async function ordersPage(app: App): Promise<HTMLElement> {
   }
   tiles.push(...orderTiles.filter((entry) => !entry.active));
 
-  const plus = addTile(create, t.t("order.new"));
+  // It starts an order or a vote, so it says both (23.1).
+  const plus = addTile(create, t.t("start.new"));
   if (app.session.isAuthenticated) {
     // The plus asks what to start: an order, or a vote on where to order
     // (F12). An anonymous visitor's plus still leads to the login page.

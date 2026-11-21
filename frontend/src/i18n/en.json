@@ -447,6 +447,7 @@
   "vote.new": "New vote",
   "vote.title": "Vote — {when}",
   "vote.badge": "Vote",
+  "start.new": "New order or vote",
   "start.title": "What would you like to start?",
   "start.order": "An order",
   "start.order.hint": "The restaurant is settled; everybody adds what they want.",

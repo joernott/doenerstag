@@ -447,6 +447,7 @@
   "vote.new": "Neue Abstimmung",
   "vote.title": "Abstimmung — {when}",
   "vote.badge": "Abstimmung",
+  "start.new": "Neue Bestellung oder Abstimmung",
   "start.title": "Was möchtest du starten?",
   "start.order": "Eine Bestellung",
   "start.order.hint": "Das Restaurant steht fest; alle tragen ein, was sie möchten.",
