@@ -14,7 +14,7 @@
 #   sudo ./contrib/setup_dev_pipeline.sh
 #
 # Environment overrides:
-#   GO_VERSION          Go toolchain to install            (default 1.26.10)
+#   GO_VERSION          Go toolchain to install            (default 1.27.4)
 #   NODE_MAJOR          Node.js major version              (default 22)
 #   DEV_USER            user to grant docker access to     (default the invoking user)
 #   POSTGRES_PASSWORD   password for the postgres superuser
@@ -23,7 +23,7 @@
 
 set -euo pipefail
 
-GO_VERSION="${GO_VERSION:-1.26.10}"
+GO_VERSION="${GO_VERSION:-1.27.4}"
 NODE_MAJOR="${NODE_MAJOR:-22}"
 DEV_USER="${DEV_USER:-${SUDO_USER:-$(id -un)}}"
 TEST_DB_NAME="${TEST_DB_NAME:-doenerstag_test}"
@@ -128,14 +128,19 @@ EOF
 # go_install installs a Go tool into a shared location and links it onto PATH.
 # Called with the binary name and the module path.
 go_install() {
-  local name="$1" module="$2"
+  local name="$1" module="$2" built=""
 
+  # A tool built by an older toolchain is rebuilt: golangci-lint refuses to
+  # lint a module whose go directive is newer than the Go it was built with.
   if have "$name"; then
-    log "$name already installed"
-    return
+    built="$("$GO_ROOT/bin/go" version "$(command -v "$name")" 2>/dev/null | awk '{print $2}')"
+    if [ "$built" = "go$GO_VERSION" ]; then
+      log "$name already installed"
+      return
+    fi
   fi
 
-  log "Installing $name"
+  log "Installing $name (built with: ${built:-nothing})"
   mkdir -p "$GO_TOOL_PATH"
   if ! GOPATH="$GO_TOOL_PATH" GOBIN="$GO_TOOL_PATH/bin" \
        GOFLAGS=-mod=mod "$GO_ROOT/bin/go" install "$module"; then

@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26.10"
+  GO_VERSION: "1.27.4"
 
 # bash everywhere, including on the Windows runner, whose default is PowerShell.
 #

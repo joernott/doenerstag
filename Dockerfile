@@ -26,7 +26,7 @@ COPY static/ /src/static/
 RUN npm run build
 
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 
 # Set by buildx for each architecture being built. The Go toolchain runs
 # natively on the build platform and cross-compiles, which is far faster than
