@@ -1312,3 +1312,6 @@ administrator-only and show everybody else why.
 > 5. Everybody
 > 6. No.
 > 7. Take your suggestion
+
+Asked what "Everybody" meant for question 5; the answer was that the order's
+creator sets the fulfilment type afterwards.
