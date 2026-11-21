@@ -1342,3 +1342,9 @@ creator sets the fulfilment type afterwards.
 > - There are many left over restaurants from previous Tests. Please always
 >   clean up those restaurants/users you created in previous runs but leave
 >   alone "Ali Baba" and my user
+
+---
+
+### Prompt 91
+
+> Please add another task for sprint 23 to add a dependabot.yml.
