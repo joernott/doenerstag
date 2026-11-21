@@ -1323,3 +1323,10 @@ creator sets the fulfilment type afterwards.
 > I have restarted windows after turning off the memory protection. The VM has
 > been started again. Please start with the vote feature and tell me if the
 > changes I made resulted in a better performance on the VM.
+
+---
+
+### Prompt 89
+
+> go ahead with the rest of the sprint, finish as many steps as you can without
+> prompting for my input
